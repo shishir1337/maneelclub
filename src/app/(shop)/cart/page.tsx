@@ -1,0 +1,248 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCartStore } from "@/store/cart-store";
+import { formatPrice } from "@/lib/format";
+import { SHIPPING_RATES } from "@/lib/constants";
+
+export default function CartPage() {
+  const [mounted, setMounted] = useState(false);
+  const { items, updateQuantity, removeItem, getSubtotal } = useCartStore();
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  
+  // Wait for hydration before showing cart content
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  const subtotal = getSubtotal();
+  const estimatedShipping = subtotal > 2000 ? 0 : SHIPPING_RATES.dhaka;
+  const total = subtotal + estimatedShipping;
+
+  const handleUpdateQuantity = (itemId: string, newQuantity: number) => {
+    setIsUpdating(itemId);
+    updateQuantity(itemId, newQuantity);
+    setTimeout(() => setIsUpdating(null), 300);
+  };
+
+  // Show loading state during hydration
+  if (!mounted) {
+    return (
+      <div className="container py-8 md:py-12">
+        <Skeleton className="h-10 w-48 mb-8" />
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-4">
+            {[1, 2].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-4">
+                  <div className="flex gap-4">
+                    <Skeleton className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-8 w-24 mt-4" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="lg:col-span-1">
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-10 w-full mt-4" />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="container py-16">
+        <div className="max-w-md mx-auto text-center">
+          <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
+            <ShoppingBag className="w-12 h-12 text-muted-foreground" />
+          </div>
+          <h1 className="text-2xl font-bold mb-4">Your cart is empty</h1>
+          <p className="text-muted-foreground mb-8">
+            Looks like you haven't added anything to your cart yet.
+            Start shopping to fill it up!
+          </p>
+          <Button size="lg" asChild>
+            <Link href="/shop">
+              Start Shopping
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container py-8 md:py-12">
+      <h1 className="text-2xl md:text-3xl font-bold mb-8">Shopping Cart</h1>
+
+      <div className="grid lg:grid-cols-3 gap-8">
+        {/* Cart Items */}
+        <div className="lg:col-span-2 space-y-4">
+          {items.map((item) => (
+            <Card key={item.id} className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex gap-4">
+                  {/* Product Image */}
+                  <Link 
+                    href={`/product/${item.slug}`}
+                    className="relative w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0 rounded-lg overflow-hidden bg-muted"
+                  >
+                    <Image
+                      src={item.image}
+                      alt={item.title}
+                      fill
+                      className="object-cover"
+                    />
+                  </Link>
+
+                  {/* Product Info */}
+                  <div className="flex-1 min-w-0">
+                    <Link 
+                      href={`/product/${item.slug}`}
+                      className="font-medium hover:text-primary line-clamp-2"
+                    >
+                      {item.title}
+                    </Link>
+                    
+                    <div className="text-sm text-muted-foreground mt-1">
+                      <span>Color: {item.color}</span>
+                      <span className="mx-2">•</span>
+                      <span>Size: {item.size}</span>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between flex-wrap gap-3">
+                      {/* Quantity Controls */}
+                      <div className="flex items-center border rounded-lg">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-r-none"
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                          disabled={item.quantity <= 1 || isUpdating === item.id}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-10 text-center text-sm font-medium">
+                          {item.quantity}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-l-none"
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                          disabled={isUpdating === item.id}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      {/* Price */}
+                      <span className="font-bold text-lg">
+                        {formatPrice(item.price * item.quantity)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Remove Button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive flex-shrink-0"
+                    onClick={() => removeItem(item.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Continue Shopping Link */}
+          <div className="pt-4">
+            <Link
+              href="/product-category/all"
+              className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+            >
+              <ArrowRight className="h-4 w-4 rotate-180" />
+              Continue Shopping
+            </Link>
+          </div>
+        </div>
+
+        {/* Order Summary */}
+        <div className="lg:col-span-1">
+          <Card className="sticky top-24">
+            <CardContent className="p-6">
+              <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Subtotal ({items.length} {items.length === 1 ? "item" : "items"})
+                  </span>
+                  <span className="font-medium">{formatPrice(subtotal)}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Shipping</span>
+                  <span className="font-medium">
+                    {estimatedShipping === 0 ? (
+                      <span className="text-green-600">Free</span>
+                    ) : (
+                      `From ${formatPrice(estimatedShipping)}`
+                    )}
+                  </span>
+                </div>
+
+                {subtotal < 2000 && (
+                  <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                    Add {formatPrice(2000 - subtotal)} more for free shipping!
+                  </p>
+                )}
+
+                <Separator className="my-4" />
+
+                <div className="flex justify-between text-base font-semibold">
+                  <span>Total</span>
+                  <span>{formatPrice(total)}</span>
+                </div>
+              </div>
+
+              <Button size="lg" className="w-full mt-6" asChild>
+                <Link href="/checkout">
+                  Proceed to Checkout
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+
+              <p className="text-xs text-muted-foreground text-center mt-4">
+                Shipping & taxes calculated at checkout
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

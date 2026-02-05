@@ -1,0 +1,306 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== AUTHENTICATION (Better Auth) ====================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          Role      @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions  Session[]
+  accounts  Account[]
+  orders    Order[]
+  addresses Address[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                String    @id @default(cuid())
+  userId            String
+  accountId         String
+  providerId        String
+  accessToken       String?
+  refreshToken      String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope             String?
+  idToken           String?
+  password          String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, value])
+}
+
+// ==================== ATTRIBUTES ====================
+
+model Attribute {
+  id        String   @id @default(cuid())
+  name      String   @unique // "Color", "Size", "Material"
+  slug      String   @unique // "color", "size", "material"
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  values   AttributeValue[]
+  products ProductAttribute[]
+
+  @@index([slug])
+}
+
+model AttributeValue {
+  id           String   @id @default(cuid())
+  attributeId  String
+  value        String   // "black", "xl"
+  displayValue String   // "Black", "XL"
+  metadata     Json?    // { hex: "#000000" } for colors
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attribute       Attribute               @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  variants        VariantAttributeValue[]
+  productValues   ProductAttributeValue[]
+
+  @@unique([attributeId, value])
+  @@index([attributeId])
+}
+
+// ==================== PRODUCTS ====================
+
+enum ProductType {
+  SIMPLE   // Single price and stock; attributes optional (display only)
+  VARIABLE // Attributes generate variants with own stock/price/SKU
+}
+
+model Product {
+  id             String      @id @default(cuid())
+  title          String
+  slug           String      @unique
+  description    String?     @db.Text
+  regularPrice   Decimal     @db.Decimal(10, 2)
+  salePrice      Decimal?    @db.Decimal(10, 2)
+  images         String[]
+  // Legacy fields - kept for backward compatibility during migration
+  colors         String[]    @default([])
+  sizes          String[]    @default([])
+  stock          Int         @default(0)
+  // Product type (WooCommerce-style: Simple vs Variable)
+  productType    ProductType @default(SIMPLE)
+  trackInventory Boolean     @default(false) // Derived from productType in app (Variable => true)
+  isFeatured     Boolean     @default(false)
+  isActive       Boolean     @default(true)
+  sizeChart      Json?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  categoryId String?
+  category   Category?          @relation(fields: [categoryId], references: [id])
+  attributes ProductAttribute[]
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([slug])
+  @@index([isFeatured])
+  @@index([isActive])
+}
+
+model ProductAttribute {
+  id          String @id @default(cuid())
+  productId   String
+  attributeId String
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attribute Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  // Selected values for this product's attribute
+  selectedValues ProductAttributeValue[]
+
+  @@unique([productId, attributeId])
+  @@index([productId])
+  @@index([attributeId])
+}
+
+model ProductAttributeValue {
+  id                 String @id @default(cuid())
+  productAttributeId String
+  attributeValueId   String
+
+  productAttribute ProductAttribute @relation(fields: [productAttributeId], references: [id], onDelete: Cascade)
+  attributeValue   AttributeValue   @relation(fields: [attributeValueId], references: [id], onDelete: Cascade)
+
+  @@unique([productAttributeId, attributeValueId])
+  @@index([productAttributeId])
+  @@index([attributeValueId])
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  productId String
+  sku       String?
+  stock     Int      @default(0)
+  price     Decimal? @db.Decimal(10, 2) // Optional price override
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product    Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attributes VariantAttributeValue[]
+
+  @@index([productId])
+  @@index([sku])
+}
+
+model VariantAttributeValue {
+  id               String @id @default(cuid())
+  variantId        String
+  attributeValueId String
+
+  variant        ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  attributeValue AttributeValue @relation(fields: [attributeValueId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, attributeValueId])
+  @@index([variantId])
+  @@index([attributeValueId])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  image       String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+// ==================== ORDERS ====================
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique
+  userId      String?
+
+  // Contact Information
+  customerName  String
+  customerEmail String?
+  customerPhone String
+
+  // Shipping Address
+  shippingAddress String @db.Text
+  city            String
+  altPhone        String?
+  deliveryNote    String?
+
+  // Order Details
+  shippingCost Decimal     @db.Decimal(10, 2)
+  subtotal     Decimal     @db.Decimal(10, 2)
+  total        Decimal     @db.Decimal(10, 2)
+  status       OrderStatus @default(PENDING)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  user  User?       @relation(fields: [userId], references: [id])
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  color     String
+  size      String
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ==================== USER DATA ====================
+
+model Address {
+  id        String  @id @default(cuid())
+  userId    String
+  name      String
+  phone     String
+  address   String  @db.Text
+  city      String
+  altPhone  String?
+  isDefault Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}

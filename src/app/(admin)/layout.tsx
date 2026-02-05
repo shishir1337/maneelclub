@@ -1,0 +1,153 @@
+import Link from "next/link";
+import Image from "next/image";
+import { 
+  LayoutDashboard, 
+  ShoppingBag, 
+  Package,
+  Users,
+  Settings,
+  Menu,
+  Home,
+  ChevronRight,
+  BarChart3,
+  FolderTree,
+  Palette
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { siteConfig } from "@/lib/constants";
+
+interface SidebarLinkItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+}
+
+const sidebarLinks: SidebarLinkItem[] = [
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { name: "Orders", href: "/admin/orders", icon: ShoppingBag },
+  { name: "Products", href: "/admin/products", icon: Package },
+  { name: "Categories", href: "/admin/categories", icon: FolderTree },
+  { name: "Attributes", href: "/admin/attributes", icon: Palette },
+  { name: "Customers", href: "/admin/customers", icon: Users },
+  { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+  { name: "Settings", href: "/admin/settings", icon: Settings },
+];
+
+function AdminSidebar({ className = "" }: { className?: string }) {
+  return (
+    <aside className={className}>
+      <nav className="space-y-1">
+        {sidebarLinks.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg hover:bg-muted transition-colors"
+          >
+            <span className="flex items-center gap-3">
+              <link.icon className="h-4 w-4" />
+              {link.name}
+            </span>
+            {link.badge && (
+              <Badge variant="secondary" className="text-xs">
+                {link.badge}
+              </Badge>
+            )}
+          </Link>
+        ))}
+        <Separator className="my-4" />
+        <Link
+          href="/"
+          className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg hover:bg-muted transition-colors"
+        >
+          <Home className="h-4 w-4" />
+          View Store
+        </Link>
+      </nav>
+    </aside>
+  );
+}
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-h-screen bg-muted/30">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b bg-background">
+        <div className="flex h-16 items-center px-4 md:px-6">
+          <div className="flex items-center gap-4">
+            {/* Mobile Menu */}
+            <Sheet>
+              <SheetTrigger asChild className="lg:hidden">
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64">
+                <SheetTitle className="sr-only">Admin Navigation</SheetTitle>
+                <div className="py-4">
+                  <Link href="/admin" className="flex items-center gap-2 mb-6">
+                    <Image
+                      src="/logo.png"
+                      alt={siteConfig.name}
+                      width={32}
+                      height={32}
+                      className="h-8 w-auto"
+                    />
+                    <span className="font-bold">Admin Panel</span>
+                  </Link>
+                  <AdminSidebar />
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Logo */}
+            <Link href="/admin" className="flex items-center gap-2">
+              <Image
+                src="/logo.png"
+                alt={siteConfig.name}
+                width={32}
+                height={32}
+                className="h-8 w-auto"
+              />
+              <span className="font-bold hidden sm:inline">{siteConfig.name}</span>
+            </Link>
+            
+            <ChevronRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
+            <Badge variant="outline" className="hidden sm:inline-flex">Admin</Badge>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/">
+                <Home className="h-4 w-4 mr-2" />
+                Store
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex">
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:block w-64 border-r bg-background min-h-[calc(100vh-4rem)]">
+          <div className="p-4">
+            <AdminSidebar />
+          </div>
+        </div>
+
+        {/* Content */}
+        <main className="flex-1 p-4 md:p-6 lg:p-8">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}

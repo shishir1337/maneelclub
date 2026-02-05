@@ -1,0 +1,314 @@
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
+import * as dotenv from "dotenv";
+
+dotenv.config();
+
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
+});
+
+const prisma = new PrismaClient({ adapter });
+
+async function main() {
+  console.log("Seeding database...");
+
+  // ==================== SEED ATTRIBUTES ====================
+  console.log("Seeding attributes...");
+
+  // Create Color attribute
+  const colorAttribute = await prisma.attribute.upsert({
+    where: { slug: "color" },
+    update: {},
+    create: {
+      name: "Color",
+      slug: "color",
+      sortOrder: 1,
+    },
+  });
+
+  // Create Size attribute
+  const sizeAttribute = await prisma.attribute.upsert({
+    where: { slug: "size" },
+    update: {},
+    create: {
+      name: "Size",
+      slug: "size",
+      sortOrder: 2,
+    },
+  });
+
+  // Color values with hex codes
+  const colorValues = [
+    { value: "black", displayValue: "Black", metadata: { hex: "#000000" }, sortOrder: 1 },
+    { value: "white", displayValue: "White", metadata: { hex: "#FFFFFF" }, sortOrder: 2 },
+    { value: "offwhite", displayValue: "Off White", metadata: { hex: "#FAF9F6" }, sortOrder: 3 },
+    { value: "navy", displayValue: "Navy", metadata: { hex: "#000080" }, sortOrder: 4 },
+    { value: "burgundy-maroon", displayValue: "Burgundy Maroon", metadata: { hex: "#800020" }, sortOrder: 5 },
+    { value: "coffee", displayValue: "Coffee", metadata: { hex: "#6F4E37" }, sortOrder: 6 },
+    { value: "dark-gray", displayValue: "Dark Gray", metadata: { hex: "#4A4A4A" }, sortOrder: 7 },
+    { value: "gray", displayValue: "Gray", metadata: { hex: "#808080" }, sortOrder: 8 },
+    { value: "heather-gray", displayValue: "Heather Gray", metadata: { hex: "#9E9E9E" }, sortOrder: 9 },
+    { value: "light-biscuit", displayValue: "Light Biscuit", metadata: { hex: "#D4A574" }, sortOrder: 10 },
+    { value: "sea-blue", displayValue: "Sea Blue", metadata: { hex: "#006994" }, sortOrder: 11 },
+    { value: "teal-green", displayValue: "Teal Green", metadata: { hex: "#008080" }, sortOrder: 12 },
+    { value: "olive", displayValue: "Olive", metadata: { hex: "#808000" }, sortOrder: 13 },
+    { value: "maroon", displayValue: "Maroon", metadata: { hex: "#800000" }, sortOrder: 14 },
+    { value: "red", displayValue: "Red", metadata: { hex: "#FF0000" }, sortOrder: 15 },
+    { value: "cream", displayValue: "Cream", metadata: { hex: "#FFFDD0" }, sortOrder: 16 },
+    { value: "brown", displayValue: "Brown", metadata: { hex: "#8B4513" }, sortOrder: 17 },
+    { value: "green", displayValue: "Green", metadata: { hex: "#008000" }, sortOrder: 18 },
+  ];
+
+  for (const color of colorValues) {
+    await prisma.attributeValue.upsert({
+      where: {
+        attributeId_value: {
+          attributeId: colorAttribute.id,
+          value: color.value,
+        },
+      },
+      update: {
+        displayValue: color.displayValue,
+        metadata: color.metadata,
+        sortOrder: color.sortOrder,
+      },
+      create: {
+        attributeId: colorAttribute.id,
+        value: color.value,
+        displayValue: color.displayValue,
+        metadata: color.metadata,
+        sortOrder: color.sortOrder,
+      },
+    });
+  }
+
+  console.log(`Created Color attribute with ${colorValues.length} values`);
+
+  // Size values
+  const sizeValues = [
+    { value: "xs", displayValue: "XS", sortOrder: 1 },
+    { value: "s", displayValue: "S", sortOrder: 2 },
+    { value: "m", displayValue: "M", sortOrder: 3 },
+    { value: "l", displayValue: "L", sortOrder: 4 },
+    { value: "xl", displayValue: "XL", sortOrder: 5 },
+    { value: "xxl", displayValue: "XXL", sortOrder: 6 },
+    { value: "3xl", displayValue: "3XL", sortOrder: 7 },
+  ];
+
+  for (const size of sizeValues) {
+    await prisma.attributeValue.upsert({
+      where: {
+        attributeId_value: {
+          attributeId: sizeAttribute.id,
+          value: size.value,
+        },
+      },
+      update: {
+        displayValue: size.displayValue,
+        sortOrder: size.sortOrder,
+      },
+      create: {
+        attributeId: sizeAttribute.id,
+        value: size.value,
+        displayValue: size.displayValue,
+        sortOrder: size.sortOrder,
+      },
+    });
+  }
+
+  console.log(`Created Size attribute with ${sizeValues.length} values`);
+
+  // ==================== SEED CATEGORIES ====================
+  // Create categories
+  const categories = await Promise.all([
+    prisma.category.upsert({
+      where: { slug: "t-shirts" },
+      update: {},
+      create: {
+        name: "T-Shirts",
+        slug: "t-shirts",
+        description: "Premium quality t-shirts for everyday wear",
+      },
+    }),
+    prisma.category.upsert({
+      where: { slug: "hoodie" },
+      update: {},
+      create: {
+        name: "Hoodies",
+        slug: "hoodie",
+        description: "Comfortable hoodies for all seasons",
+      },
+    }),
+    prisma.category.upsert({
+      where: { slug: "winter-collection" },
+      update: {},
+      create: {
+        name: "Winter Collection",
+        slug: "winter-collection",
+        description: "Stay warm with our winter essentials",
+      },
+    }),
+    prisma.category.upsert({
+      where: { slug: "new-arrivals" },
+      update: {},
+      create: {
+        name: "New Arrivals",
+        slug: "new-arrivals",
+        description: "Check out our latest products",
+      },
+    }),
+  ]);
+
+  console.log(`Created ${categories.length} categories`);
+
+  // Create products
+  const products = [
+    {
+      title: "Full Sleeve Waffle Semi Drop Tee's",
+      slug: "full-sleeve-waffle-semi-drop-tees",
+      description: "A full-sleeve tee is a classic layering piece, working well under jackets, vests, or heavier shirts. GSM: 230-250. Semi Drop Shoulder Full sleeve T shirt with Cuff design. Best for winter & regular fit full sleeve T shirt.",
+      regularPrice: 590,
+      salePrice: 350,
+      images: ["/productImage.jpeg"],
+      colors: ["Black", "Burgundy Maroon", "Coffee", "Dark Gray", "Light Biscuit", "Navy", "Off White", "Sea Blue", "Teal Green"],
+      sizes: ["M", "L", "XL", "XXL"],
+      stock: 100,
+      isActive: true,
+      isFeatured: true,
+      categoryId: categories[0].id,
+    },
+    {
+      title: "Premium Cotton Polo Shirt",
+      slug: "premium-cotton-polo-shirt",
+      description: "High-quality cotton polo shirt perfect for casual and semi-formal occasions. Breathable fabric with classic collar design.",
+      regularPrice: 850,
+      salePrice: 650,
+      images: ["/productImage.jpeg"],
+      colors: ["White", "Black", "Navy", "Maroon"],
+      sizes: ["M", "L", "XL", "XXL"],
+      stock: 75,
+      isActive: true,
+      isFeatured: true,
+      categoryId: categories[0].id,
+    },
+    {
+      title: "Winter Hoodie - Fleece Lined",
+      slug: "winter-hoodie-fleece-lined",
+      description: "Ultra-warm fleece-lined hoodie perfect for cold days. Features kangaroo pocket and adjustable drawstring hood.",
+      regularPrice: 1200,
+      salePrice: 950,
+      images: ["/productImage.jpeg"],
+      colors: ["Black", "Gray", "Navy", "Olive"],
+      sizes: ["M", "L", "XL", "XXL"],
+      stock: 50,
+      isActive: true,
+      isFeatured: true,
+      categoryId: categories[1].id,
+    },
+    {
+      title: "Oversized Graphic Tee",
+      slug: "oversized-graphic-tee",
+      description: "Trendy oversized fit with unique graphic prints. Made from 100% cotton for maximum comfort.",
+      regularPrice: 550,
+      salePrice: 450,
+      images: ["/productImage.jpeg"],
+      colors: ["White", "Black", "Cream"],
+      sizes: ["M", "L", "XL"],
+      stock: 80,
+      isActive: true,
+      isFeatured: false,
+      categoryId: categories[3].id,
+    },
+    {
+      title: "Premium Sweatshirt",
+      slug: "premium-sweatshirt",
+      description: "Classic crewneck sweatshirt with premium cotton blend. Perfect layering piece for transitional weather.",
+      regularPrice: 950,
+      salePrice: 750,
+      images: ["/productImage.jpeg"],
+      colors: ["Heather Gray", "Black", "Navy", "Burgundy"],
+      sizes: ["M", "L", "XL", "XXL"],
+      stock: 60,
+      isActive: true,
+      isFeatured: true,
+      categoryId: categories[2].id,
+    },
+    {
+      title: "Basic Crew Neck T-Shirt",
+      slug: "basic-crew-neck-t-shirt",
+      description: "Essential basic tee made from soft cotton. A wardrobe staple that goes with everything.",
+      regularPrice: 350,
+      salePrice: null,
+      images: ["/productImage.jpeg"],
+      colors: ["White", "Black", "Gray", "Navy", "Red"],
+      sizes: ["S", "M", "L", "XL", "XXL"],
+      stock: 200,
+      isActive: true,
+      isFeatured: false,
+      categoryId: categories[0].id,
+    },
+    {
+      title: "Zip-Up Winter Jacket",
+      slug: "zip-up-winter-jacket",
+      description: "Heavy-duty winter jacket with quilted lining. Features multiple pockets and adjustable cuffs.",
+      regularPrice: 2500,
+      salePrice: 1990,
+      images: ["/productImage.jpeg"],
+      colors: ["Black", "Navy", "Olive", "Brown"],
+      sizes: ["M", "L", "XL", "XXL"],
+      stock: 30,
+      isActive: true,
+      isFeatured: true,
+      categoryId: categories[2].id,
+    },
+    {
+      title: "Casual Striped Polo",
+      slug: "casual-striped-polo",
+      description: "Stylish striped polo shirt for a smart-casual look. Features ribbed collar and button placket.",
+      regularPrice: 750,
+      salePrice: 590,
+      images: ["/productImage.jpeg"],
+      colors: ["Navy/White", "Black/White", "Green/White"],
+      sizes: ["M", "L", "XL"],
+      stock: 45,
+      isActive: true,
+      isFeatured: false,
+      categoryId: categories[3].id,
+    },
+  ];
+
+  for (const product of products) {
+    await prisma.product.upsert({
+      where: { slug: product.slug },
+      update: product,
+      create: product,
+    });
+  }
+
+  console.log(`Created ${products.length} products`);
+
+  // Create admin user if not exists
+  const adminEmail = "admin@maneelclub.com";
+  const existingAdmin = await prisma.user.findUnique({
+    where: { email: adminEmail },
+  });
+
+  if (!existingAdmin) {
+    console.log("\n⚠️  No admin user found. Create one by signing up at /sign-up");
+    console.log("   Then update the role to ADMIN in the database:");
+    console.log(`   UPDATE "User" SET role = 'ADMIN' WHERE email = 'your-email@example.com';\n`);
+  }
+
+  console.log("Seeding completed!");
+}
+
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });
