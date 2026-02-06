@@ -120,49 +120,95 @@ async function main() {
   console.log(`Created Size attribute with ${sizeValues.length} values`);
 
   // ==================== SEED CATEGORIES ====================
-  // Create categories
-  const categories = await Promise.all([
-    prisma.category.upsert({
-      where: { slug: "t-shirts" },
-      update: {},
-      create: {
-        name: "T-Shirts",
-        slug: "t-shirts",
-        description: "Premium quality t-shirts for everyday wear",
-      },
-    }),
-    prisma.category.upsert({
-      where: { slug: "hoodie" },
-      update: {},
-      create: {
-        name: "Hoodies",
-        slug: "hoodie",
-        description: "Comfortable hoodies for all seasons",
-      },
-    }),
-    prisma.category.upsert({
-      where: { slug: "winter-collection" },
-      update: {},
-      create: {
-        name: "Winter Collection",
-        slug: "winter-collection",
-        description: "Stay warm with our winter essentials",
-      },
-    }),
-    prisma.category.upsert({
-      where: { slug: "new-arrivals" },
-      update: {},
-      create: {
-        name: "New Arrivals",
-        slug: "new-arrivals",
-        description: "Check out our latest products",
-      },
-    }),
-  ]);
+  // Create parent categories first
+  const parentCollections = await prisma.category.upsert({
+    where: { slug: "collections" },
+    update: { parentId: null },
+    create: {
+      name: "Collections",
+      slug: "collections",
+      description: "Seasonal and special collections",
+      parentId: null,
+      sortOrder: 1,
+    },
+  });
 
-  console.log(`Created ${categories.length} categories`);
+  const parentClothing = await prisma.category.upsert({
+    where: { slug: "clothing" },
+    update: { parentId: null },
+    create: {
+      name: "Clothing",
+      slug: "clothing",
+      description: "Apparel and clothing items",
+      parentId: null,
+      sortOrder: 2,
+    },
+  });
 
-  // Create products
+  // Create subcategories
+  const tShirts = await prisma.category.upsert({
+    where: { slug: "t-shirts" },
+    update: { parentId: parentClothing.id },
+    create: {
+      name: "T-Shirts",
+      slug: "t-shirts",
+      description: "Premium quality t-shirts for everyday wear",
+      parentId: parentClothing.id,
+      sortOrder: 1,
+    },
+  });
+
+  const hoodies = await prisma.category.upsert({
+    where: { slug: "hoodie" },
+    update: { parentId: parentClothing.id },
+    create: {
+      name: "Hoodies",
+      slug: "hoodie",
+      description: "Comfortable hoodies for all seasons",
+      parentId: parentClothing.id,
+      sortOrder: 2,
+    },
+  });
+
+  const polo = await prisma.category.upsert({
+    where: { slug: "polo" },
+    update: { parentId: parentClothing.id },
+    create: {
+      name: "Polo",
+      slug: "polo",
+      description: "Classic and modern polo shirts",
+      parentId: parentClothing.id,
+      sortOrder: 3,
+    },
+  });
+
+  const winterCollection = await prisma.category.upsert({
+    where: { slug: "winter-collection" },
+    update: { parentId: parentCollections.id },
+    create: {
+      name: "Winter Collection",
+      slug: "winter-collection",
+      description: "Stay warm with our winter essentials",
+      parentId: parentCollections.id,
+      sortOrder: 1,
+    },
+  });
+
+  const newArrivals = await prisma.category.upsert({
+    where: { slug: "new-arrivals" },
+    update: { parentId: parentCollections.id },
+    create: {
+      name: "New Arrivals",
+      slug: "new-arrivals",
+      description: "Check out our latest products",
+      parentId: parentCollections.id,
+      sortOrder: 2,
+    },
+  });
+
+  console.log("Created parent and subcategories");
+
+  // Create products (assigned to subcategories only)
   const products = [
     {
       title: "Full Sleeve Waffle Semi Drop Tee's",
@@ -176,7 +222,7 @@ async function main() {
       stock: 100,
       isActive: true,
       isFeatured: true,
-      categoryId: categories[0].id,
+      categoryId: tShirts.id,
     },
     {
       title: "Premium Cotton Polo Shirt",
@@ -190,7 +236,7 @@ async function main() {
       stock: 75,
       isActive: true,
       isFeatured: true,
-      categoryId: categories[0].id,
+      categoryId: polo.id,
     },
     {
       title: "Winter Hoodie - Fleece Lined",
@@ -204,7 +250,7 @@ async function main() {
       stock: 50,
       isActive: true,
       isFeatured: true,
-      categoryId: categories[1].id,
+      categoryId: hoodies.id,
     },
     {
       title: "Oversized Graphic Tee",
@@ -218,7 +264,7 @@ async function main() {
       stock: 80,
       isActive: true,
       isFeatured: false,
-      categoryId: categories[3].id,
+      categoryId: newArrivals.id,
     },
     {
       title: "Premium Sweatshirt",
@@ -232,7 +278,7 @@ async function main() {
       stock: 60,
       isActive: true,
       isFeatured: true,
-      categoryId: categories[2].id,
+      categoryId: winterCollection.id,
     },
     {
       title: "Basic Crew Neck T-Shirt",
@@ -246,7 +292,7 @@ async function main() {
       stock: 200,
       isActive: true,
       isFeatured: false,
-      categoryId: categories[0].id,
+      categoryId: tShirts.id,
     },
     {
       title: "Zip-Up Winter Jacket",
@@ -260,7 +306,7 @@ async function main() {
       stock: 30,
       isActive: true,
       isFeatured: true,
-      categoryId: categories[2].id,
+      categoryId: winterCollection.id,
     },
     {
       title: "Casual Striped Polo",
@@ -274,7 +320,7 @@ async function main() {
       stock: 45,
       isActive: true,
       isFeatured: false,
-      categoryId: categories[3].id,
+      categoryId: polo.id,
     },
   ];
 

@@ -12,7 +12,7 @@ const adminRoutes = ["/admin"];
 // Routes only for non-authenticated users
 const authRoutes = ["/sign-in", "/sign-up"];
 
-export async function proxy(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Get session from Better Auth

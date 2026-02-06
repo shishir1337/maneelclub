@@ -12,12 +12,13 @@ export function Providers({ children }: ProvidersProps) {
     <TooltipProvider delayDuration={0}>
       {children}
       <Toaster 
-        position="top-center"
+        position="bottom-center"
         richColors
         closeButton
         toastOptions={{
           duration: 3000,
         }}
+        mobileOffset={{ bottom: "88px" }}
       />
     </TooltipProvider>
   );

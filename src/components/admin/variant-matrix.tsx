@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ImageUploader } from "./image-uploader";
 
 interface SelectedValue {
   id: string;
@@ -34,6 +35,7 @@ interface VariantStock {
     stock: number;
     sku?: string;
     price?: number;
+    images?: string[];
   };
 }
 
@@ -97,7 +99,7 @@ export function VariantMatrix({
 
     for (const combo of combinations) {
       if (!newStocks[combo.key]) {
-        newStocks[combo.key] = { stock: 0 };
+        newStocks[combo.key] = { stock: 0, images: [] };
         hasChanges = true;
       }
     }
@@ -154,6 +156,16 @@ export function VariantMatrix({
       };
     }
     onVariantStocksChange(newStocks);
+  }
+
+  function handleImagesChange(key: string, images: string[]) {
+    onVariantStocksChange({
+      ...variantStocks,
+      [key]: {
+        ...variantStocks[key],
+        images,
+      },
+    });
   }
 
   // Get attributes with values for header
@@ -240,6 +252,7 @@ export function VariantMatrix({
                 <TableHead className="w-[120px]">Stock</TableHead>
                 <TableHead className="w-[130px]">Sale price (BDT)</TableHead>
                 <TableHead className="w-[150px]">SKU (Optional)</TableHead>
+                <TableHead className="min-w-[180px]">Images</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -247,6 +260,7 @@ export function VariantMatrix({
                 const stock = variantStocks[combo.key]?.stock ?? 0;
                 const sku = variantStocks[combo.key]?.sku ?? "";
                 const price = variantStocks[combo.key]?.price ?? "";
+                const variantImages = variantStocks[combo.key]?.images ?? [];
 
                 return (
                   <TableRow key={combo.key}>
@@ -299,6 +313,14 @@ export function VariantMatrix({
                         onChange={(e) => handleSkuChange(combo.key, e.target.value)}
                         placeholder="Auto-generated"
                         className="w-full"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <ImageUploader
+                        images={variantImages}
+                        onChange={(imgs) => handleImagesChange(combo.key, imgs)}
+                        maxImages={5}
+                        compact
                       />
                     </TableCell>
                   </TableRow>

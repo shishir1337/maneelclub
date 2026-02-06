@@ -32,7 +32,11 @@ export function ColorSelector({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">Color</span>
-        <span className="text-sm text-muted-foreground">{selectedColor}</span>
+        {selectedColor ? (
+          <span className="text-sm text-muted-foreground">{selectedColor}</span>
+        ) : (
+          <span className="text-sm text-muted-foreground italic">Select color</span>
+        )}
       </div>
       
       <div className="flex flex-wrap gap-2">

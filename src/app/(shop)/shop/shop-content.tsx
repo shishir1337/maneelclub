@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Filter, X, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -74,10 +74,15 @@ export function ShopContent({ products, categories, colorOptions = [], searchPar
     ? colorOptions
     : PRODUCT_COLORS.map((c) => ({ value: c.value, label: c.label, hex: c.hex }));
 
-  // Local filter state
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    searchParams.category ? searchParams.category.split(",") : []
-  );
+  // Local filter state - sync from URL when searchParams change (e.g. from ShopHeader)
+  const categorySlugsFromUrl = searchParams.category ? searchParams.category.split(",").filter(Boolean) : [];
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(categorySlugsFromUrl);
+
+  useEffect(() => {
+    setSelectedCategories(
+      searchParams.category ? searchParams.category.split(",").filter(Boolean) : []
+    );
+  }, [searchParams.category]);
   const [selectedColors, setSelectedColors] = useState<string[]>(
     searchParams.color ? searchParams.color.split(",") : []
   );
@@ -90,6 +95,10 @@ export function ShopContent({ products, categories, colorOptions = [], searchPar
   ]);
   const [sortBy, setSortBy] = useState(searchParams.sort || "default");
   const [searchQuery, setSearchQuery] = useState(searchParams.search || "");
+
+  useEffect(() => {
+    setSearchQuery(searchParams.search || "");
+  }, [searchParams.search]);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   
   // Get price range from products
@@ -110,11 +119,18 @@ export function ShopContent({ products, categories, colorOptions = [], searchPar
       );
     }
     
-    // Filter by category
+    // Filter by category (expand parent slugs to child slugs; products are in subcategories)
     if (selectedCategories.length > 0) {
-      result = result.filter((p) => 
-        selectedCategories.includes(p.categorySlug || "")
-      );
+      const slugsToMatch = new Set<string>();
+      for (const slug of selectedCategories) {
+        const cat = categories.find((c) => c.slug === slug);
+        if (cat?.children && cat.children.length > 0) {
+          cat.children.forEach((c) => slugsToMatch.add(c.slug));
+        } else {
+          slugsToMatch.add(slug);
+        }
+      }
+      result = result.filter((p) => slugsToMatch.has(p.categorySlug || ""));
     }
     
     // Filter by color (match product color to colorList by label or value)
@@ -173,29 +189,41 @@ export function ShopContent({ products, categories, colorOptions = [], searchPar
     return result;
   }, [products, searchQuery, selectedCategories, selectedColors, selectedSizes, priceRange, sortBy]);
   
-  // Update URL with filters
+  // Update URL with filters (preserve search from current URL)
   const updateURL = () => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(urlSearchParams.toString());
     
     if (selectedCategories.length > 0) {
       params.set("category", selectedCategories.join(","));
+    } else {
+      params.delete("category");
     }
     if (selectedColors.length > 0) {
       params.set("color", selectedColors.join(","));
+    } else {
+      params.delete("color");
     }
     if (selectedSizes.length > 0) {
       params.set("size", selectedSizes.join(","));
+    } else {
+      params.delete("size");
     }
     if (priceRange[0] > 0) {
       params.set("minPrice", priceRange[0].toString());
+    } else {
+      params.delete("minPrice");
     }
     if (priceRange[1] < maxProductPrice) {
       params.set("maxPrice", priceRange[1].toString());
+    } else {
+      params.delete("maxPrice");
     }
     if (sortBy !== "default") {
       params.set("sort", sortBy);
+    } else {
+      params.delete("sort");
     }
-    
+
     const queryString = params.toString();
     router.push(`${pathname}${queryString ? `?${queryString}` : ""}`, { scroll: false });
   };

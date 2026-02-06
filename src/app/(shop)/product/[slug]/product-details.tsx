@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -9,15 +8,12 @@ import {
   ProductGallery,
   ColorSelector,
   SizeSelector,
-  SizeChartDialog,
+  SizeChartSection,
   QuantitySelector,
   ProductTabs,
   AddToCartButton,
-  MobileStickyBar,
 } from "@/components/product";
 import { formatPrice, calculateDiscount } from "@/lib/format";
-import { useCartStore } from "@/store/cart-store";
-import { toast } from "sonner";
 
 interface ProductVariant {
   id: string;
@@ -27,6 +23,7 @@ interface ProductVariant {
   stock: number;
   sku: string | null;
   price?: number | string | null;
+  images?: string[];
 }
 
 interface SizeChart {
@@ -68,8 +65,6 @@ interface ProductDetailsProps {
 }
 
 export function ProductDetails({ product }: ProductDetailsProps) {
-  const router = useRouter();
-  const addItem = useCartStore((state) => state.addItem);
   
   // Get colors and sizes from product (or fallback to variants if available)
   const availableColors = useMemo(() => {
@@ -96,9 +91,9 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     return sizes.sort((a, b) => sizeOrder.indexOf(a) - sizeOrder.indexOf(b));
   }, [product.sizes, product.variants]);
   
-  // State
-  const [selectedColor, setSelectedColor] = useState(availableColors[0] || "");
-  const [selectedSize, setSelectedSize] = useState(availableSizes[0] || "");
+  // State - no default selection; user must choose to avoid wrong variant orders
+  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
   
   // Check if inventory tracking is enabled
@@ -144,11 +139,50 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     return null;
   }, [product.variants, selectedColor, selectedSize]);
   
-  // If not tracking inventory, always in stock
+  // Variable products: require color+size selected; simple products: always in stock
+  const hasValidSelection = !trackInventory || (selectedColor && selectedSize && currentVariant);
   const currentStock = trackInventory 
-    ? (currentVariant?.stock ?? product.stock)
+    ? (currentVariant?.stock ?? 0)
     : 999;
-  const isInStock = !trackInventory || currentStock > 0;
+  const isInStock = hasValidSelection && (!trackInventory || currentStock > 0);
+
+  // Gallery: always show ALL images. When color selected, put that color's images first (reorder, never hide).
+  const displayImages = useMemo(() => {
+    const productImgs = product.images?.length ? product.images : ["/productImage.jpeg"];
+    const seen = new Set<string>();
+    const allImages: string[] = [];
+
+    for (const url of productImgs) {
+      if (!seen.has(url)) {
+        seen.add(url);
+        allImages.push(url);
+      }
+    }
+    for (const v of product.variants ?? []) {
+      for (const url of v.images ?? []) {
+        if (!seen.has(url)) {
+          seen.add(url);
+          allImages.push(url);
+        }
+      }
+    }
+
+    if (allImages.length === 0) return ["/productImage.jpeg"];
+
+    // When color selected: put color-specific images first, rest after
+    if (selectedColor) {
+      const variantWithImages = product.variants?.find(
+        (v) => v.color === selectedColor && v.images?.length
+      );
+      if (variantWithImages?.images?.length) {
+        const colorUrls = variantWithImages.images;
+        const rest = allImages.filter((url) => !colorUrls.includes(url));
+        return [...colorUrls, ...rest];
+      }
+    }
+
+    return allImages;
+  }, [product.images, product.variants, selectedColor]);
   
   // Pricing: use variant sale price when set, else product-level prices
   const regularPrice = Number(product.regularPrice);
@@ -176,62 +210,8 @@ export function ProductDetails({ product }: ProductDetailsProps) {
       : availableSizes;
     
     if (!sizesForNewColor.includes(selectedSize)) {
-      setSelectedSize(sizesForNewColor[0] || availableSizes[0] || "");
+      setSelectedSize("");
     }
-  };
-  
-  // Add to cart handler
-  const handleAddToCart = () => {
-    if (!selectedColor || !selectedSize) {
-      toast.error("Please select color and size");
-      return;
-    }
-    
-    if (!isInStock) {
-      toast.error("This variant is out of stock");
-      return;
-    }
-    
-    addItem({
-      productId: product.id,
-      title: product.title,
-      slug: product.slug,
-      image: product.images[0] || "/logo.png",
-      price: displayPrice,
-      color: selectedColor,
-      size: selectedSize,
-      quantity,
-    });
-    
-    toast.success("Added to cart", {
-      description: `${product.title} - ${selectedColor}, ${selectedSize}`,
-    });
-  };
-  
-  // Buy now handler
-  const handleBuyNow = () => {
-    if (!selectedColor || !selectedSize) {
-      toast.error("Please select color and size");
-      return;
-    }
-    
-    if (!isInStock) {
-      toast.error("This variant is out of stock");
-      return;
-    }
-    
-    addItem({
-      productId: product.id,
-      title: product.title,
-      slug: product.slug,
-      image: product.images[0] || "/logo.png",
-      price: displayPrice,
-      color: selectedColor,
-      size: selectedSize,
-      quantity,
-    });
-    
-    router.push("/checkout");
   };
 
   return (
@@ -262,7 +242,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
         {/* Product Grid */}
         <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
           {/* Gallery */}
-          <ProductGallery images={product.images} title={product.title} />
+          <ProductGallery images={displayImages} title={product.title} />
 
           {/* Product Info */}
           <div className="space-y-6">
@@ -298,7 +278,11 @@ export function ProductDetails({ product }: ProductDetailsProps) {
 
             {/* Stock Status */}
             <div>
-              {isInStock ? (
+              {!hasValidSelection && trackInventory ? (
+                <span className="text-sm text-muted-foreground">
+                  Please select color and size
+                </span>
+              ) : isInStock ? (
                 <span className="text-sm text-green-600 font-medium">
                   {trackInventory 
                     ? `✓ In Stock (${currentStock} available)` 
@@ -313,24 +297,31 @@ export function ProductDetails({ product }: ProductDetailsProps) {
 
             {/* Color Selector */}
             {availableColors.length > 0 && (
-              <ColorSelector
-                colors={availableColors}
-                selectedColor={selectedColor}
-                onSelect={handleColorChange}
-                colorHexMap={product.colorHexMap}
-              />
+              <div>
+                <ColorSelector
+                  colors={availableColors}
+                  selectedColor={selectedColor}
+                  onSelect={handleColorChange}
+                  colorHexMap={product.colorHexMap}
+                />
+                {trackInventory && !selectedColor && (
+                  <p className="text-sm text-destructive mt-1">Please select a color</p>
+                )}
+              </div>
             )}
 
             {/* Size Selector */}
             {availableSizes.length > 0 && (
-              <div className="space-y-2">
+              <div>
                 <SizeSelector
                   sizes={availableSizes}
                   selectedSize={selectedSize}
                   onSelect={setSelectedSize}
                   outOfStockSizes={outOfStockSizes}
                 />
-                <SizeChartDialog sizeChart={product.sizeChart} />
+                {trackInventory && selectedColor && !selectedSize && (
+                  <p className="text-sm text-destructive mt-1">Please select a size</p>
+                )}
               </div>
             )}
 
@@ -341,32 +332,35 @@ export function ProductDetails({ product }: ProductDetailsProps) {
               max={currentStock || 10}
             />
 
-            {/* Action Buttons - Desktop */}
-            <div className="hidden md:flex gap-3 pt-4">
+            {/* Size Guide - expandable section */}
+            <SizeChartSection sizeChart={product.sizeChart} />
+
+            {/* Action Buttons - Desktop & Mobile */}
+            <div className="flex flex-col gap-3 pt-4">
               <AddToCartButton
                 productId={product.id}
                 title={product.title}
                 slug={product.slug}
-                image={product.images[0] || "/logo.png"}
+                image={displayImages[0] || "/logo.png"}
                 price={displayPrice}
                 color={selectedColor}
                 size={selectedSize}
                 quantity={quantity}
                 disabled={!isInStock}
-                className="flex-1"
+                className="w-full"
               />
               <AddToCartButton
                 productId={product.id}
                 title={product.title}
                 slug={product.slug}
-                image={product.images[0] || "/logo.png"}
+                image={displayImages[0] || "/logo.png"}
                 price={displayPrice}
                 color={selectedColor}
                 size={selectedSize}
                 quantity={quantity}
                 variant="buy-now"
                 disabled={!isInStock}
-                className="flex-1"
+                className="w-full"
               />
             </div>
           </div>
@@ -381,17 +375,6 @@ export function ProductDetails({ product }: ProductDetailsProps) {
         </div>
       </div>
 
-      {/* Mobile Sticky Bar */}
-      <MobileStickyBar
-        price={displayPrice}
-        originalPrice={hasDiscount ? regularPrice : undefined}
-        onAddToCart={handleAddToCart}
-        onBuyNow={handleBuyNow}
-        disabled={!isInStock}
-      />
-      
-      {/* Spacer for mobile sticky bar */}
-      <div className="h-20 md:hidden" />
     </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Plus, Search, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,10 +31,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { getAdminCategories, createCategory, deleteCategory } from "@/actions/admin/products";
+import {
+  getAdminCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+} from "@/actions/admin/products";
 import { slugify } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -43,6 +55,9 @@ interface Category {
   name: string;
   slug: string;
   description: string | null;
+  parentId: string | null;
+  parent?: { id: string; name: string; slug: string } | null;
+  children?: Category[];
   _count?: { products: number };
 }
 
@@ -51,13 +66,15 @@ export default function AdminCategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
   const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  
+
   // Form state
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [parentId, setParentId] = useState<string | null>(null);
 
   useEffect(() => {
     loadCategories();
@@ -79,6 +96,11 @@ export default function AdminCategoriesPage() {
     }
   }
 
+  const parentCategories = useMemo(
+    () => categories.filter((c) => !c.parentId),
+    [categories]
+  );
+
   async function handleCreate() {
     if (!name.trim()) {
       toast.error("Category name is required");
@@ -88,8 +110,13 @@ export default function AdminCategoriesPage() {
     setActionLoading(true);
     try {
       const categorySlug = slug.trim() || slugify(name);
-      const result = await createCategory(name.trim(), categorySlug, description.trim() || undefined);
-      
+      const result = await createCategory(
+        name.trim(),
+        categorySlug,
+        description.trim() || undefined,
+        parentId || undefined
+      );
+
       if (result.success) {
         toast.success("Category created successfully");
         setDialogOpen(false);
@@ -105,6 +132,35 @@ export default function AdminCategoriesPage() {
     }
   }
 
+  async function handleUpdate() {
+    if (!editCategoryId || !name.trim()) return;
+
+    setActionLoading(true);
+    try {
+      const categorySlug = slug.trim() || slugify(name);
+      const result = await updateCategory(editCategoryId, {
+        name: name.trim(),
+        slug: categorySlug,
+        description: description.trim() || undefined,
+        parentId: parentId || null,
+      });
+
+      if (result.success) {
+        toast.success("Category updated successfully");
+        setDialogOpen(false);
+        setEditCategoryId(null);
+        resetForm();
+        loadCategories();
+      } else {
+        toast.error(result.error || "Failed to update category");
+      }
+    } catch (error) {
+      toast.error("Failed to update category");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function handleDelete(id: string) {
     setActionLoading(true);
     try {
@@ -112,6 +168,7 @@ export default function AdminCategoriesPage() {
       if (result.success) {
         setCategories((prev) => prev.filter((c) => c.id !== id));
         toast.success("Category deleted successfully");
+        loadCategories();
       } else {
         toast.error(result.error || "Failed to delete category");
       }
@@ -127,14 +184,24 @@ export default function AdminCategoriesPage() {
     setName("");
     setSlug("");
     setDescription("");
+    setParentId(null);
   }
 
   function openNewDialog() {
     resetForm();
+    setEditCategoryId(null);
     setDialogOpen(true);
   }
 
-  // Auto-generate slug from name
+  function openEditDialog(category: Category) {
+    setName(category.name);
+    setSlug(category.slug);
+    setDescription(category.description || "");
+    setParentId(category.parentId || null);
+    setEditCategoryId(category.id);
+    setDialogOpen(true);
+  }
+
   function handleNameChange(value: string) {
     setName(value);
     if (!slug || slug === slugify(name)) {
@@ -142,10 +209,31 @@ export default function AdminCategoriesPage() {
     }
   }
 
-  // Filter categories
-  const filteredCategories = categories.filter((category) =>
-    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    category.slug.toLowerCase().includes(searchQuery.toLowerCase())
+  // Flatten categories for table: parents first, then children
+  const flattenedCategories = useMemo(() => {
+    const result: Category[] = [];
+    for (const parent of parentCategories) {
+      result.push(parent);
+      const children = categories.filter((c) => c.parentId === parent.id);
+      for (const child of children) {
+        result.push(child);
+      }
+    }
+    const orphans = categories.filter((c) => c.parentId && !parentCategories.some((p) => p.id === c.parentId));
+    result.push(...orphans);
+    return result;
+  }, [categories, parentCategories]);
+
+  const filteredCategories = flattenedCategories.filter(
+    (category) =>
+      category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      category.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (category.parent?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const isEdit = !!editCategoryId;
+  const parentOptionsForForm = parentCategories.filter(
+    (p) => p.id !== editCategoryId
   );
 
   if (loading) {
@@ -162,7 +250,7 @@ export default function AdminCategoriesPage() {
         <div>
           <h1 className="text-2xl font-bold">Categories</h1>
           <p className="text-muted-foreground">
-            Manage product categories
+            Manage product categories and subcategories
           </p>
         </div>
         <Button onClick={openNewDialog}>
@@ -171,7 +259,6 @@ export default function AdminCategoriesPage() {
         </Button>
       </div>
 
-      {/* Search */}
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -182,7 +269,6 @@ export default function AdminCategoriesPage() {
         />
       </div>
 
-      {/* Categories Table */}
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -190,6 +276,7 @@ export default function AdminCategoriesPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Slug</TableHead>
+                <TableHead>Parent</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Products</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -198,7 +285,7 @@ export default function AdminCategoriesPage() {
             <TableBody>
               {filteredCategories.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <p className="text-muted-foreground">No categories found</p>
                     <Button variant="link" onClick={openNewDialog}>
                       Add your first category
@@ -208,11 +295,26 @@ export default function AdminCategoriesPage() {
               ) : (
                 filteredCategories.map((category) => (
                   <TableRow key={category.id}>
-                    <TableCell className="font-medium">{category.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {category.parentId ? (
+                        <span className="text-muted-foreground pl-4">
+                          └ {category.name}
+                        </span>
+                      ) : (
+                        category.name
+                      )}
+                    </TableCell>
                     <TableCell>
                       <code className="text-sm bg-muted px-1.5 py-0.5 rounded">
                         {category.slug}
                       </code>
+                    </TableCell>
+                    <TableCell>
+                      {category.parent ? (
+                        <Badge variant="outline">{category.parent.name}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {category.description || "-"}
@@ -227,9 +329,21 @@ export default function AdminCategoriesPage() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => openEditDialog(category)}
+                          title="Edit category"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setDeleteCategoryId(category.id)}
                           disabled={(category._count?.products || 0) > 0}
-                          title={(category._count?.products || 0) > 0 ? "Cannot delete category with products" : "Delete category"}
+                          title={
+                            (category._count?.products || 0) > 0
+                              ? "Cannot delete category with products"
+                              : "Delete category"
+                          }
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -243,16 +357,41 @@ export default function AdminCategoriesPage() {
         </CardContent>
       </Card>
 
-      {/* Create Category Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Category</DialogTitle>
+            <DialogTitle>
+              {isEdit ? "Edit Category" : "Add New Category"}
+            </DialogTitle>
             <DialogDescription>
-              Create a new product category.
+              {isEdit
+                ? "Update category details."
+                : "Create a parent category or subcategory."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="parent">Parent Category</Label>
+              <Select
+                value={parentId || "none"}
+                onValueChange={(v) => setParentId(v === "none" ? null : v)}
+              >
+                <SelectTrigger id="parent" className="w-full">
+                  <SelectValue placeholder="None (top-level category)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None (top-level category)</SelectItem>
+                  {parentOptionsForForm.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Leave empty for a parent category. Products go in subcategories.
+              </p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="name">Name *</Label>
               <Input
@@ -289,21 +428,25 @@ export default function AdminCategoriesPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={actionLoading}>
+            <Button
+              onClick={isEdit ? handleUpdate : handleCreate}
+              disabled={actionLoading}
+            >
               {actionLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  {isEdit ? "Updating..." : "Creating..."}
                 </>
+              ) : isEdit ? (
+                "Update"
               ) : (
-                "Create Category"
+                "Create"
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={!!deleteCategoryId}
         onOpenChange={() => setDeleteCategoryId(null)}
@@ -312,13 +455,16 @@ export default function AdminCategoriesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Category</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this category? This action cannot be undone.
+              Are you sure you want to delete this category? This action cannot
+              be undone. Subcategories will also be deleted if this is a parent.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteCategoryId && handleDelete(deleteCategoryId)}
+              onClick={() =>
+                deleteCategoryId && handleDelete(deleteCategoryId)
+              }
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {actionLoading ? (

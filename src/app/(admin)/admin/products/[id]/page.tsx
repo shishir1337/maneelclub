@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getProductById, updateProduct, getAdminCategories } from "@/actions/admin/products";
-import { AttributeSelector, VariantMatrix } from "@/components/admin";
+import { AttributeSelector, ImageUploader, VariantMatrix } from "@/components/admin";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -50,6 +50,8 @@ interface Category {
   id: string;
   name: string;
   slug: string;
+  parentId?: string | null;
+  parent?: { name: string } | null;
 }
 
 interface SelectedValue {
@@ -71,6 +73,7 @@ interface VariantStock {
     stock: number;
     sku?: string;
     price?: number;
+    images?: string[];
   };
 }
 
@@ -80,7 +83,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [imageUrl, setImageUrl] = useState("/productImage.jpeg");
+  const [images, setImages] = useState<string[]>([]);
   
   // Attribute and variant state
   const [selectedAttributes, setSelectedAttributes] = useState<SelectedAttribute[]>([]);
@@ -146,7 +149,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           productType: productTypeFromDb,
         });
         
-        setImageUrl(product.images?.[0] || "/productImage.jpeg");
+        setImages(product.images?.length ? product.images : []);
 
         const p = product as unknown as {
           colors?: string[];
@@ -156,6 +159,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             stock: number;
             sku: string | null;
             price: number | null;
+            images?: string[];
             attributes?: Array<{
               attributeValue: { id: string; displayValue: string; value: string; metadata?: { hex?: string } | null; attribute: { id: string; slug: string; name: string } };
             }>;
@@ -177,6 +181,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               stock: v.stock,
               sku: v.sku ?? undefined,
               price: v.price != null ? Number(v.price) : undefined,
+              images: (v as { images?: string[] }).images ?? [],
             };
             for (const a of v.attributes || []) {
               const attr = a.attributeValue.attribute;
@@ -274,6 +279,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             stock: stockData.stock,
             sku: stockData.sku,
             price: stockData.price != null && stockData.price > 0 ? stockData.price : undefined,
+            images: stockData.images && stockData.images.length > 0 ? stockData.images : undefined,
           }))
         : undefined;
 
@@ -282,7 +288,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         {
           ...data,
           trackInventory: isVariable,
-          images: [imageUrl],
+          images: images.length > 0 ? images : ["/productImage.jpeg"],
           colors: selectedAttributes
             .find((a) => a.attributeSlug === "color")
             ?.values.map((v) => v.displayValue) || [],
@@ -554,20 +560,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               <Card>
                 <CardHeader>
                   <CardTitle>Images</CardTitle>
+                  <CardDescription>
+                    Upload product images or use the default placeholder
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div>
-                    <FormLabel>Product Image URL</FormLabel>
-                    <Input
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="/productImage.jpeg"
-                      className="mt-2"
-                    />
-                    <FormDescription>
-                      Enter the image path (e.g., /productImage.jpeg)
-                    </FormDescription>
-                  </div>
+                  <ImageUploader images={images} onChange={setImages} maxImages={10} />
                 </CardContent>
               </Card>
             </div>
@@ -644,11 +642,15 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
+                            {categories
+                              .filter((c) => c.parentId)
+                              .map((category) => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.parent
+                                    ? `${category.parent.name} › ${category.name}`
+                                    : category.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />

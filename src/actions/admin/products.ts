@@ -37,6 +37,7 @@ const variantRecordSchema = z.object({
   stock: z.number().int().min(0).default(0),
   sku: z.string().optional(),
   price: z.number().min(0).optional().nullable(),
+  images: z.array(z.string()).optional(),
 });
 
 type ProductInput = z.infer<typeof productSchema>;
@@ -78,7 +79,7 @@ export async function getAdminProducts() {
 
     const products = await db.product.findMany({
       include: {
-        category: true,
+        category: { include: { parent: true } },
         variants: true,
       },
       orderBy: { createdAt: "desc" },
@@ -250,13 +251,14 @@ export async function createProduct(input: ProductInput, variants?: VariantRecor
         for (const v of variants) {
           const parsed = variantRecordSchema.safeParse(v);
           if (!parsed.success) continue;
-          const { attributeValueIds, stock, sku, price } = parsed.data;
+          const { attributeValueIds, stock, sku, price, images } = parsed.data;
           const variant = await tx.productVariant.create({
             data: {
               productId: created.id,
               stock,
               sku: sku || null,
               price: price != null ? price : null,
+              images: images ?? [],
             },
           });
           for (const attributeValueId of attributeValueIds) {
@@ -389,13 +391,14 @@ export async function updateProduct(id: string, input: Partial<ProductInput>, va
           for (const v of variants) {
             const parsed = variantRecordSchema.safeParse(v);
             if (!parsed.success) continue;
-            const { attributeValueIds, stock, sku, price } = parsed.data;
+            const { attributeValueIds, stock, sku, price, images } = parsed.data;
             const variant = await tx.productVariant.create({
               data: {
                 productId: id,
                 stock,
                 sku: sku || null,
                 price: price != null ? price : null,
+                images: images ?? [],
               },
             });
             for (const attributeValueId of attributeValueIds) {
@@ -494,18 +497,22 @@ export async function toggleProductStatus(id: string) {
   }
 }
 
-// Get all categories
+// Get all categories with hierarchy
 export async function getAdminCategories() {
   try {
     await checkAdmin();
 
     const categories = await db.category.findMany({
       include: {
+        parent: true,
+        children: {
+          include: { _count: { select: { products: true } } },
+        },
         _count: {
           select: { products: true },
         },
       },
-      orderBy: { name: "asc" },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });
 
     return { success: true, data: categories };
@@ -519,7 +526,12 @@ export async function getAdminCategories() {
 }
 
 // Create category
-export async function createCategory(name: string, slug: string, description?: string) {
+export async function createCategory(
+  name: string,
+  slug: string,
+  description?: string,
+  parentId?: string | null
+) {
   try {
     await checkAdmin();
 
@@ -529,11 +541,29 @@ export async function createCategory(name: string, slug: string, description?: s
       return { success: false, error: "A category with this slug already exists" };
     }
 
+    if (parentId) {
+      const parent = await db.category.findUnique({
+        where: { id: parentId },
+        include: { _count: { select: { products: true } } },
+      });
+      if (!parent) {
+        return { success: false, error: "Parent category not found" };
+      }
+      if (parent._count.products > 0) {
+        return {
+          success: false,
+          error: "Parent category has products. Products must be assigned to subcategories only.",
+        };
+      }
+    }
+
     const category = await db.category.create({
-      data: { name, slug, description },
+      data: { name, slug, description, parentId: parentId || null },
     });
 
     revalidatePath("/admin/products");
+    revalidatePath("/admin/categories");
+    revalidatePath("/shop");
 
     return { success: true, data: category };
   } catch (error) {
@@ -545,15 +575,84 @@ export async function createCategory(name: string, slug: string, description?: s
   }
 }
 
+// Update category
+export async function updateCategory(
+  id: string,
+  data: { name?: string; slug?: string; description?: string; parentId?: string | null }
+) {
+  try {
+    await checkAdmin();
+
+    const category = await db.category.findUnique({
+      where: { id },
+      include: { _count: { select: { products: true } }, children: true },
+    });
+
+    if (!category) {
+      return { success: false, error: "Category not found" };
+    }
+
+    if (data.parentId) {
+      if (data.parentId === id) {
+        return { success: false, error: "Category cannot be its own parent" };
+      }
+      const parent = await db.category.findUnique({
+        where: { id: data.parentId },
+        include: { _count: { select: { products: true } } },
+      });
+      if (!parent) {
+        return { success: false, error: "Parent category not found" };
+      }
+      if (parent._count.products > 0) {
+        return {
+          success: false,
+          error: "Parent category has products. Products must be in subcategories only.",
+        };
+      }
+    }
+
+    if (data.slug && data.slug !== category.slug) {
+      const existing = await db.category.findUnique({ where: { slug: data.slug } });
+      if (existing) {
+        return { success: false, error: "A category with this slug already exists" };
+      }
+    }
+
+    const updated = await db.category.update({
+      where: { id },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.slug !== undefined && { slug: data.slug }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.parentId !== undefined && { parentId: data.parentId }),
+      },
+    });
+
+    revalidatePath("/admin/products");
+    revalidatePath("/admin/categories");
+    revalidatePath("/shop");
+
+    return { success: true, data: updated };
+  } catch (error) {
+    console.error("Error updating category:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to update category" 
+    };
+  }
+}
+
 // Delete category
 export async function deleteCategory(id: string) {
   try {
     await checkAdmin();
 
-    // Check if category has products
     const category = await db.category.findUnique({
       where: { id },
-      include: { _count: { select: { products: true } } },
+      include: {
+        _count: { select: { products: true } },
+        children: { include: { _count: { select: { products: true } } } },
+      },
     });
 
     if (!category) {
@@ -567,9 +666,21 @@ export async function deleteCategory(id: string) {
       };
     }
 
+    const hasChildrenWithProducts = category.children?.some(
+      (c) => (c._count?.products ?? 0) > 0
+    );
+    if (hasChildrenWithProducts) {
+      return {
+        success: false,
+        error: "Cannot delete: some subcategories have products. Remove products first.",
+      };
+    }
+
     await db.category.delete({ where: { id } });
 
     revalidatePath("/admin/products");
+    revalidatePath("/admin/categories");
+    revalidatePath("/shop");
 
     return { success: true };
   } catch (error) {

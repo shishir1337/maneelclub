@@ -4,6 +4,7 @@ export * from "./product-gallery";
 export * from "./color-selector";
 export * from "./size-selector";
 export * from "./size-chart-dialog";
+export * from "./size-chart-section";
 export * from "./quantity-selector";
 export * from "./product-tabs";
 export * from "./add-to-cart-button";

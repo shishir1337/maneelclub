@@ -54,7 +54,13 @@ interface Product {
   stock: number;
   isActive: boolean;
   isFeatured: boolean;
-  category?: { id: string; name: string; slug: string } | null;
+  category?: {
+    id: string;
+    name: string;
+    slug: string;
+    parentId?: string | null;
+    parent?: { name: string } | null;
+  } | null;
   createdAt: Date;
 }
 
@@ -62,6 +68,8 @@ interface Category {
   id: string;
   name: string;
   slug: string;
+  parentId?: string | null;
+  parent?: { name: string } | null;
   _count?: { products: number };
 }
 
@@ -141,13 +149,15 @@ export default function AdminProductsPage() {
     }
   }
 
-  // Filter products
+  // Filter products (support parent: show all products in subcategories)
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.title
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
     const matchesCategory =
-      categoryFilter === "all" || product.category?.id === categoryFilter;
+      categoryFilter === "all" ||
+      product.category?.id === categoryFilter ||
+      product.category?.parentId === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
@@ -200,7 +210,9 @@ export default function AdminProductsPage() {
                 <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
-                    {category.name}
+                    {category.parent
+                      ? `${category.parent.name} › ${category.name}`
+                      : category.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -257,7 +269,11 @@ export default function AdminProductsPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {product.category?.name || "Uncategorized"}
+                        {product.category
+                          ? product.category.parent
+                            ? `${product.category.parent.name} › ${product.category.name}`
+                            : product.category.name
+                          : "Uncategorized"}
                       </Badge>
                     </TableCell>
                     <TableCell>

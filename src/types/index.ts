@@ -39,6 +39,8 @@ export interface ProductVariant {
   sku: string | null;
   /** Sale price override for this variant; if set, used instead of product-level salePrice */
   price?: number | string | null;
+  /** Variant-specific images (e.g. per color); falls back to product images when empty */
+  images?: string[];
 }
 
 export interface Category {
@@ -47,11 +49,14 @@ export interface Category {
   slug: string;
   description: string | null;
   image: string | null;
+  parentId: string | null;
   isActive: boolean;
   sortOrder: number;
   createdAt: Date;
   updatedAt: Date;
   products?: Product[];
+  parent?: Category | null;
+  children?: Category[];
   _count?: {
     products: number;
   };

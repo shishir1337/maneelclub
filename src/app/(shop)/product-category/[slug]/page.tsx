@@ -135,14 +135,14 @@ function sortProducts(products: any[], sort?: string) {
   switch (sort) {
     case "price-asc":
       return sorted.sort((a, b) => {
-        const priceA = a.discountPrice || a.price;
-        const priceB = b.discountPrice || b.price;
+        const priceA = (a.salePrice ?? a.regularPrice) as number;
+        const priceB = (b.salePrice ?? b.regularPrice) as number;
         return priceA - priceB;
       });
     case "price-desc":
       return sorted.sort((a, b) => {
-        const priceA = a.discountPrice || a.price;
-        const priceB = b.discountPrice || b.price;
+        const priceA = (a.salePrice ?? a.regularPrice) as number;
+        const priceB = (b.salePrice ?? b.regularPrice) as number;
         return priceB - priceA;
       });
     case "newest":

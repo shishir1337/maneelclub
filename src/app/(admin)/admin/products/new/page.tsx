@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createProduct, getAdminCategories } from "@/actions/admin/products";
-import { AttributeSelector, VariantMatrix } from "@/components/admin";
+import { AttributeSelector, ImageUploader, VariantMatrix } from "@/components/admin";
 import { slugify } from "@/lib/format";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -51,6 +51,8 @@ interface Category {
   id: string;
   name: string;
   slug: string;
+  parentId?: string | null;
+  parent?: { name: string } | null;
 }
 
 interface SelectedValue {
@@ -72,6 +74,7 @@ interface VariantStock {
     stock: number;
     sku?: string;
     price?: number;
+    images?: string[];
   };
 }
 
@@ -79,7 +82,7 @@ export default function NewProductPage() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
-  const [imageUrl, setImageUrl] = useState("/productImage.jpeg");
+  const [images, setImages] = useState<string[]>([]);
   
   // Attribute and variant state
   const [selectedAttributes, setSelectedAttributes] = useState<SelectedAttribute[]>([]);
@@ -148,6 +151,7 @@ export default function NewProductPage() {
             stock: stockData.stock,
             sku: stockData.sku,
             price: stockData.price != null && stockData.price > 0 ? stockData.price : undefined,
+            images: stockData.images && stockData.images.length > 0 ? stockData.images : undefined,
           }))
         : [];
 
@@ -155,7 +159,7 @@ export default function NewProductPage() {
         {
           ...data,
           trackInventory: isVariable,
-          images: [imageUrl],
+          images: images.length > 0 ? images : ["/productImage.jpeg"],
           colors: selectedAttributes
             .find((a) => a.attributeSlug === "color")
             ?.values.map((v) => v.displayValue) || [],
@@ -419,20 +423,12 @@ export default function NewProductPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Images</CardTitle>
+                  <CardDescription>
+                    Upload product images or use the default placeholder
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div>
-                    <FormLabel>Product Image URL</FormLabel>
-                    <Input
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="/productImage.jpeg"
-                      className="mt-2"
-                    />
-                    <FormDescription>
-                      Enter the image path (e.g., /productImage.jpeg)
-                    </FormDescription>
-                  </div>
+                  <ImageUploader images={images} onChange={setImages} maxImages={10} />
                 </CardContent>
               </Card>
             </div>
@@ -509,11 +505,15 @@ export default function NewProductPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
+                            {categories
+                              .filter((c) => c.parentId)
+                              .map((category) => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.parent
+                                    ? `${category.parent.name} › ${category.name}`
+                                    : category.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />

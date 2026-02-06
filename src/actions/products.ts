@@ -30,6 +30,7 @@ function transformProduct(dbProduct: any): Product {
           stock: v.stock ?? 0,
           sku: v.sku ?? null,
           price: v.price != null ? Number(v.price.toString()) : null,
+          images: v.images ?? [],
         };
       });
     } else {
@@ -41,6 +42,7 @@ function transformProduct(dbProduct: any): Product {
         stock: v.stock ?? 0,
         sku: v.sku ?? null,
         price: v.price != null ? Number(v.price.toString()) : null,
+        images: v.images ?? [],
       }));
     }
   }
@@ -59,17 +61,7 @@ function transformProduct(dbProduct: any): Product {
     categoryId: dbProduct.categoryId || "",
     categorySlug: dbProduct.category?.slug || "",
     categoryName: dbProduct.category?.name || "",
-    category: dbProduct.category ? {
-      id: dbProduct.category.id,
-      name: dbProduct.category.name,
-      slug: dbProduct.category.slug,
-      description: dbProduct.category.description,
-      image: dbProduct.category.image,
-      isActive: dbProduct.category.isActive ?? true,
-      sortOrder: dbProduct.category.sortOrder ?? 0,
-      createdAt: dbProduct.category.createdAt,
-      updatedAt: dbProduct.category.updatedAt,
-    } : null,
+    category: dbProduct.category ? transformCategory(dbProduct.category, true) : null,
     stock: dbProduct.stock ?? 0,
     trackInventory: dbProduct.trackInventory ?? false,
     productType: dbProduct.productType ?? (dbProduct.trackInventory ? "VARIABLE" : "SIMPLE"),
@@ -83,18 +75,27 @@ function transformProduct(dbProduct: any): Product {
   };
 }
 
-function transformCategory(dbCategory: any): Category {
-  return {
+function transformCategory(dbCategory: any, shallow = false): Category {
+  const base = {
     id: dbCategory.id,
     name: dbCategory.name,
     slug: dbCategory.slug,
     description: dbCategory.description || "",
     image: dbCategory.image || "/logo.png",
+    parentId: dbCategory.parentId ?? null,
     isActive: dbCategory.isActive ?? true,
     sortOrder: dbCategory.sortOrder ?? 0,
     createdAt: dbCategory.createdAt,
     updatedAt: dbCategory.updatedAt,
   };
+  if (shallow) return base as Category;
+  return {
+    ...base,
+    parent: dbCategory.parent
+      ? transformCategory(dbCategory.parent, true)
+      : null,
+    children: dbCategory.children?.map((c: any) => transformCategory(c)),
+  } as Category;
 }
 
 /**
@@ -136,7 +137,7 @@ export async function getNewArrivals(limit = 4) {
 }
 
 /**
- * Get products by category slug
+ * Get products by category slug (supports parent slugs: returns products from all child categories)
  */
 export async function getProductsByCategory(categorySlug: string) {
   try {
@@ -148,21 +149,33 @@ export async function getProductsByCategory(categorySlug: string) {
       });
       return { success: true, data: products.map(transformProduct) };
     }
-    
+
     const category = await db.category.findUnique({
       where: { slug: categorySlug },
+      include: { children: { select: { id: true } } },
     });
-    
+
     if (!category) {
       return { success: true, data: [] };
     }
-    
+
+    const categoryIds: string[] = category.parentId
+      ? [category.id]
+      : (category.children?.map((c) => c.id) ?? []);
+
+    if (categoryIds.length === 0) {
+      return { success: true, data: [] };
+    }
+
     const products = await db.product.findMany({
-      where: { categoryId: category.id, isActive: true },
+      where: {
+        categoryId: { in: categoryIds },
+        isActive: true,
+      },
       include: { category: true },
       orderBy: { createdAt: "desc" },
     });
-    
+
     return { success: true, data: products.map(transformProduct) };
   } catch (error) {
     console.error("Error fetching products by category:", error);
@@ -277,15 +290,24 @@ export async function getAllProducts() {
 }
 
 /**
- * Get all categories
+ * Get all categories with hierarchy (parents with children)
+ * Returns flat list; parents have children populated. Orphans (subcategories whose parent is inactive) included.
  */
 export async function getCategories() {
   try {
     const categories = await db.category.findMany({
-      orderBy: { name: "asc" },
+      where: { isActive: true },
+      include: {
+        parent: true,
+        children: {
+          where: { isActive: true },
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        },
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });
-    
-    return { success: true, data: categories.map(transformCategory) };
+
+    return { success: true, data: categories.map((c) => transformCategory(c)) };
   } catch (error) {
     console.error("Error fetching categories:", error);
     return { success: false, error: "Failed to fetch categories", data: [] };
