@@ -216,9 +216,9 @@ export function ProductDetails({ product }: ProductDetailsProps) {
 
   return (
     <>
-      <div className="container py-6 md:py-10">
+      <div className="container py-6 md:py-10 overflow-hidden">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-6">
+        <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-6 overflow-hidden">
           <Link href="/" className="hover:text-primary">
             Home
           </Link>

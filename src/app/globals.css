@@ -157,8 +157,8 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
+  html, body {
+    @apply bg-background text-foreground overflow-x-hidden;
   }
 }
 
@@ -184,6 +184,17 @@
 @layer base {
   button, a, input, select, textarea {
     -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Hide scrollbar utility */
+@layer utilities {
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }
 

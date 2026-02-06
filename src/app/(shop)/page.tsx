@@ -53,7 +53,7 @@ function HeroCarousel() {
             <CarouselItem key={slide.id}>
               <Link href={slide.link} className="block">
                 {/* Simple image display - no overlay since images have their own text */}
-                <div className="relative aspect-[2.5/1] sm:aspect-[3/1] lg:aspect-[3.5/1] w-full overflow-hidden">
+                <div className="relative aspect-[2.2/1] sm:aspect-[2.7/1] lg:aspect-[3.2/1] w-full overflow-hidden">
                   <Image
                     src={slide.image}
                     alt={slide.alt}

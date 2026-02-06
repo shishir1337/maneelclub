@@ -3,22 +3,23 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export function ProductCardSkeleton() {
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden border-0 bg-background shadow-none rounded-xl p-0">
       {/* Image skeleton */}
-      <Skeleton className="aspect-square w-full" />
+      <Skeleton className="aspect-[3/4] w-full rounded-xl" />
       
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-3 pt-3.5 space-y-2">
+        {/* Category skeleton */}
+        <Skeleton className="h-3 w-16" />
+        
         {/* Title skeleton */}
+        <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-3/4" />
         
         {/* Price skeleton */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pt-1">
           <Skeleton className="h-5 w-20" />
-          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-14" />
         </div>
-        
-        {/* Button skeleton */}
-        <Skeleton className="h-9 w-full" />
       </CardContent>
     </Card>
   );
