@@ -3,7 +3,9 @@ import { CheckCircle, Package, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { siteConfig } from "@/lib/constants";
+import { siteConfig, PAYMENT_METHODS } from "@/lib/constants";
+import { getOrderByNumber } from "@/actions/orders";
+import { PurchaseEventTracker } from "@/components/analytics";
 
 interface OrderConfirmationPageProps {
   searchParams: Promise<{ order?: string }>;
@@ -17,7 +19,7 @@ export default async function OrderConfirmationPage({ searchParams }: OrderConfi
       <div className="container py-16 text-center">
         <h1 className="text-2xl font-bold mb-4">No Order Found</h1>
         <p className="text-muted-foreground mb-8">
-          We couldn't find your order. Please contact support if you need help.
+          We couldnt find your order. Please contact support if you need help.
         </p>
         <Button asChild>
           <Link href="/">Go to Homepage</Link>
@@ -26,8 +28,39 @@ export default async function OrderConfirmationPage({ searchParams }: OrderConfi
     );
   }
 
+  const result = await getOrderByNumber(orderNumber);
+  const order = result.success ? result.data : null;
+
+  if (!order) {
+    return (
+      <div className="container py-16 text-center">
+        <h1 className="text-2xl font-bold mb-4">Order Not Found</h1>
+        <p className="text-muted-foreground mb-8">
+          We could not find an order with that number. Please check the link or contact support.
+        </p>
+        <Button asChild>
+          <Link href="/">Go to Homepage</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const paymentMethod = order.paymentMethod;
+  const paymentLabel = PAYMENT_METHODS.find((p) => p.value === paymentMethod)?.label ?? paymentMethod;
+  const isCod = paymentMethod === "COD";
+
+  const orderValue = Number(order.total);
+  const numItems = order.items?.reduce((sum, i) => sum + i.quantity, 0) ?? 0;
+  const contentIds = order.items?.map((i) => i.productId) ?? [];
+
   return (
     <div className="container py-12 max-w-2xl mx-auto">
+      <PurchaseEventTracker
+        orderNumber={orderNumber}
+        value={orderValue}
+        numItems={numItems}
+        contentIds={contentIds}
+      />
       {/* Success Icon */}
       <div className="text-center mb-8">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -37,7 +70,7 @@ export default async function OrderConfirmationPage({ searchParams }: OrderConfi
           Order Placed Successfully!
         </h1>
         <p className="text-muted-foreground">
-          Thank you for your order. We'll contact you soon to confirm.
+          Thank you for your order. We&apos;ll contact you soon to confirm.
         </p>
       </div>
 
@@ -55,9 +88,9 @@ export default async function OrderConfirmationPage({ searchParams }: OrderConfi
             <div className="flex items-start gap-3">
               <Package className="w-5 h-5 text-muted-foreground mt-0.5" />
               <div>
-                <p className="font-medium">What's Next?</p>
+                <p className="font-medium">What&apos;s Next?</p>
                 <p className="text-sm text-muted-foreground">
-                  We'll call you to confirm your order and delivery details.
+                  We&apos;ll call you to confirm your order and delivery details.
                   Your order will be delivered within 2-5 business days.
                 </p>
               </div>
@@ -84,14 +117,22 @@ export default async function OrderConfirmationPage({ searchParams }: OrderConfi
         </CardContent>
       </Card>
 
-      {/* Payment Reminder */}
+      {/* Payment info – depends on method */}
       <Card className="mb-8 bg-muted/50">
         <CardContent className="p-6">
-          <h3 className="font-medium mb-2">Payment: Cash on Delivery</h3>
-          <p className="text-sm text-muted-foreground">
-            Please keep the exact amount ready. Our delivery partner will collect 
-            the payment when delivering your order.
-          </p>
+          <h3 className="font-medium mb-2">Payment: {paymentLabel}</h3>
+          {isCod ? (
+            <p className="text-sm text-muted-foreground">
+              Please keep the exact amount ready. Our delivery partner will collect 
+              the payment when delivering your order.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              We have received your payment details. Our team will verify your 
+              payment and confirm your order shortly. You will be notified once 
+              the payment is verified.
+            </p>
+          )}
         </CardContent>
       </Card>
 

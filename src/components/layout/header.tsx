@@ -39,9 +39,10 @@ export function Header() {
   const cartItemsCount = useCartStore((state) => state.getTotalItems());
   const { data: session } = useSession();
   
-  // Only show cart count after hydration to prevent mismatch
+  // Only show cart count after hydration to prevent mismatch (cart uses localStorage)
   useEffect(() => {
-    setMounted(true);
+    const id = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(id);
   }, []);
   const user = session?.user;
   
@@ -151,14 +152,14 @@ export function Header() {
             {/* Center: Logo - absolutely centered in container */}
             <Link
               href="/"
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 relative h-9 w-9"
             >
               <Image
                 src="/logo.png"
                 alt={siteConfig.name}
-                width={36}
-                height={36}
-                className="h-9 w-auto"
+                fill
+                sizes="36px"
+                className="object-contain"
               />
             </Link>
 
@@ -192,13 +193,15 @@ export function Header() {
           <div className="hidden md:flex flex-1 items-center min-w-0">
             <div className="flex items-center gap-2 w-[200px] flex-shrink-0">
               <Link href="/" className="flex items-center gap-2">
-                <Image
-                  src="/logo.png"
-                  alt={siteConfig.name}
-                  width={40}
-                  height={40}
-                  className="h-10 w-auto"
-                />
+                <div className="relative h-10 w-10 flex-shrink-0">
+                  <Image
+                    src="/logo.png"
+                    alt={siteConfig.name}
+                    fill
+                    sizes="40px"
+                    className="object-contain"
+                  />
+                </div>
                 <span className="font-bold text-xl">{siteConfig.name}</span>
               </Link>
             </div>

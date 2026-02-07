@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, PaymentStatus } from "@prisma/client";
 
 // Helper to check admin role
 async function checkAdmin() {
@@ -29,7 +29,7 @@ export async function getAdminOrders(options?: {
   try {
     await checkAdmin();
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (options?.status) {
       where.status = options.status;
@@ -64,8 +64,18 @@ export async function getAdminOrders(options?: {
 
     const orders = ordersRaw.map((o) => ({
       ...o,
+      shippingCost: Number(o.shippingCost),
+      subtotal: Number(o.subtotal),
       total: Number(o.total),
-      items: o.items.map((item) => ({ ...item, price: Number(item.price) })),
+      items: o.items.map((item) => ({ 
+        ...item, 
+        price: Number(item.price),
+        product: item.product ? {
+          ...item.product,
+          regularPrice: Number(item.product.regularPrice),
+          salePrice: item.product.salePrice ? Number(item.product.salePrice) : null,
+        } : null,
+      })),
     }));
 
     return { success: true, data: { orders, total } };
@@ -99,13 +109,132 @@ export async function getOrderById(id: string) {
       return { success: false, error: "Order not found" };
     }
 
-    return { success: true, data: order };
+    // Build plain object with all Decimals as numbers (required for client components)
+    const serializedOrder = {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      userId: order.userId,
+      customerName: order.customerName,
+      customerEmail: order.customerEmail,
+      customerPhone: order.customerPhone,
+      shippingAddress: order.shippingAddress,
+      city: order.city,
+      altPhone: order.altPhone,
+      deliveryNote: order.deliveryNote,
+      shippingCost: Number(order.shippingCost),
+      subtotal: Number(order.subtotal),
+      total: Number(order.total),
+      status: order.status,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      senderNumber: order.senderNumber,
+      transactionId: order.transactionId,
+      paidAt: order.paidAt,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      items: order.items.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        orderId: item.orderId,
+        color: item.color,
+        size: item.size,
+        quantity: item.quantity,
+        price: Number(item.price),
+        product: item.product
+          ? {
+              id: item.product.id,
+              title: item.product.title,
+              slug: item.product.slug,
+              images: item.product.images,
+              regularPrice: Number(item.product.regularPrice),
+              salePrice: item.product.salePrice ? Number(item.product.salePrice) : null,
+            }
+          : null,
+      })),
+      user: order.user
+        ? {
+            id: order.user.id,
+            name: order.user.name,
+            email: order.user.email,
+          }
+        : null,
+    };
+
+    return { success: true, data: serializedOrder };
   } catch (error) {
     console.error("Error fetching order:", error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Failed to fetch order" 
     };
+  }
+}
+
+// Restore stock for order items (used when order is cancelled)
+async function restoreStockForOrder(orderId: string) {
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          product: {
+            include: {
+              variants: {
+                include: {
+                  attributes: {
+                    include: {
+                      attributeValue: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!order) return;
+
+  for (const item of order.items) {
+    const product = item.product;
+    if (!product) continue;
+
+    if (product.productType === "VARIABLE" && product.variants.length > 0) {
+      // For variable products, find matching variant by color and size
+      const matchingVariant = product.variants.find((variant) => {
+        const variantAttributes = variant.attributes.map(
+          (attr) => attr.attributeValue.displayValue.toLowerCase()
+        );
+        return (
+          variantAttributes.includes(item.color.toLowerCase()) &&
+          variantAttributes.includes(item.size.toLowerCase())
+        );
+      });
+
+      if (matchingVariant) {
+        // Restore variant stock
+        await db.productVariant.update({
+          where: { id: matchingVariant.id },
+          data: {
+            stock: {
+              increment: item.quantity,
+            },
+          },
+        });
+      }
+    } else {
+      // For simple products, restore product stock
+      await db.product.update({
+        where: { id: item.productId },
+        data: {
+          stock: {
+            increment: item.quantity,
+          },
+        },
+      });
+    }
   }
 }
 
@@ -118,6 +247,15 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
 
     if (!order) {
       return { success: false, error: "Order not found" };
+    }
+
+    // Check if order is being cancelled from a non-cancelled state
+    const wasNotCancelled = order.status !== "CANCELLED";
+    const isBeingCancelled = status === "CANCELLED";
+
+    // If order is being cancelled, restore stock
+    if (wasNotCancelled && isBeingCancelled) {
+      await restoreStockForOrder(id);
     }
 
     const updated = await db.order.update({
@@ -133,9 +271,27 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
     });
 
     revalidatePath("/admin/orders");
+    revalidatePath("/admin/products");
     revalidatePath(`/dashboard/orders`);
 
-    return { success: true, data: updated };
+    // Convert Decimal fields to numbers
+    const serializedOrder = {
+      ...updated,
+      shippingCost: Number(updated.shippingCost),
+      subtotal: Number(updated.subtotal),
+      total: Number(updated.total),
+      items: updated.items.map((item) => ({ 
+        ...item, 
+        price: Number(item.price),
+        product: item.product ? {
+          ...item.product,
+          regularPrice: Number(item.product.regularPrice),
+          salePrice: item.product.salePrice ? Number(item.product.salePrice) : null,
+        } : null,
+      })),
+    };
+
+    return { success: true, data: serializedOrder };
   } catch (error) {
     console.error("Error updating order status:", error);
     return { 
@@ -230,6 +386,8 @@ export async function getRecentOrders(limit: number = 5) {
 
     const orders = ordersRaw.map((o) => ({
       ...o,
+      shippingCost: Number(o.shippingCost),
+      subtotal: Number(o.subtotal),
       total: Number(o.total),
       items: o.items.map((item) => ({ ...item, price: Number(item.price) })),
     }));
@@ -270,3 +428,187 @@ export async function deleteOrder(id: string) {
     };
   }
 }
+
+// Verify payment (marks as PAID and changes order status to PROCESSING)
+export async function verifyPayment(orderId: string) {
+  try {
+    await checkAdmin();
+
+    const order = await db.order.findUnique({ where: { id: orderId } });
+
+    if (!order) {
+      return { success: false, error: "Order not found" };
+    }
+
+    if (order.paymentStatus === "PAID") {
+      return { success: false, error: "Payment already verified" };
+    }
+
+    if (order.paymentMethod === "COD") {
+      return { success: false, error: "COD orders cannot be verified this way" };
+    }
+
+    // Check if transaction ID and sender number exist
+    if (!order.transactionId || !order.senderNumber) {
+      return { success: false, error: "Missing payment details" };
+    }
+
+    const updated = await db.order.update({
+      where: { id: orderId },
+      data: {
+        paymentStatus: "PAID",
+        paidAt: new Date(),
+        // Also move order to PROCESSING status after payment verification
+        status: order.status === "PENDING" ? "PROCESSING" : order.status,
+      },
+    });
+
+    revalidatePath("/admin/orders");
+    revalidatePath(`/admin/orders/${orderId}`);
+    revalidatePath("/dashboard/orders");
+
+    return { 
+      success: true, 
+      data: updated,
+      message: "Payment verified successfully" 
+    };
+  } catch (error) {
+    console.error("Error verifying payment:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to verify payment" 
+    };
+  }
+}
+
+// Reject payment (marks as FAILED)
+export async function rejectPayment(orderId: string, reason?: string) {
+  try {
+    await checkAdmin();
+
+    const order = await db.order.findUnique({ where: { id: orderId } });
+
+    if (!order) {
+      return { success: false, error: "Order not found" };
+    }
+
+    if (order.paymentStatus === "PAID") {
+      return { success: false, error: "Cannot reject an already verified payment" };
+    }
+
+    if (order.paymentMethod === "COD") {
+      return { success: false, error: "COD orders cannot be rejected this way" };
+    }
+
+    const updated = await db.order.update({
+      where: { id: orderId },
+      data: {
+        paymentStatus: "FAILED",
+        // Optionally cancel the order
+        status: "CANCELLED",
+        // Add reason to delivery note for tracking
+        deliveryNote: reason 
+          ? `${order.deliveryNote || ""}\n[Payment Rejected: ${reason}]`.trim()
+          : order.deliveryNote,
+      },
+    });
+
+    revalidatePath("/admin/orders");
+    revalidatePath(`/admin/orders/${orderId}`);
+    revalidatePath("/dashboard/orders");
+
+    return { 
+      success: true, 
+      data: updated,
+      message: "Payment rejected and order cancelled" 
+    };
+  } catch (error) {
+    console.error("Error rejecting payment:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to reject payment" 
+    };
+  }
+}
+
+// Update payment status directly
+export async function updatePaymentStatus(orderId: string, paymentStatus: PaymentStatus) {
+  try {
+    await checkAdmin();
+
+    const order = await db.order.findUnique({ where: { id: orderId } });
+
+    if (!order) {
+      return { success: false, error: "Order not found" };
+    }
+
+    const updateData: { paymentStatus: PaymentStatus; paidAt?: Date } = { paymentStatus };
+    
+    // Set paidAt when marking as PAID
+    if (paymentStatus === "PAID") {
+      updateData.paidAt = new Date();
+    }
+
+    const updated = await db.order.update({
+      where: { id: orderId },
+      data: updateData,
+    });
+
+    revalidatePath("/admin/orders");
+    revalidatePath(`/admin/orders/${orderId}`);
+    revalidatePath("/dashboard/orders");
+
+    return { success: true, data: updated };
+  } catch (error) {
+    console.error("Error updating payment status:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to update payment status" 
+    };
+  }
+}
+
+// Get orders by payment status
+export async function getOrdersByPaymentStatus(paymentStatus: PaymentStatus) {
+  try {
+    await checkAdmin();
+
+    const ordersRaw = await db.order.findMany({
+      where: { paymentStatus },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+        user: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const orders = ordersRaw.map((o) => ({
+      ...o,
+      shippingCost: Number(o.shippingCost),
+      subtotal: Number(o.subtotal),
+      total: Number(o.total),
+      items: o.items.map((item) => ({ 
+        ...item, 
+        price: Number(item.price),
+        product: item.product ? {
+          ...item.product,
+          regularPrice: Number(item.product.regularPrice),
+          salePrice: item.product.salePrice ? Number(item.product.salePrice) : null,
+        } : null,
+      })),
+    }));
+
+    return { success: true, data: orders };
+  } catch (error) {
+    console.error("Error fetching orders by payment status:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to fetch orders" 
+    };
+  }
+}
+

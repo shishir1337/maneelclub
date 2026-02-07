@@ -315,6 +315,30 @@ export async function getCategories() {
 }
 
 /**
+ * Get featured categories for homepage (top-level categories with images)
+ */
+export async function getFeaturedCategories(limit = 4) {
+  try {
+    const categories = await db.category.findMany({
+      where: { 
+        isActive: true,
+        parentId: null, // Top-level categories only
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      take: limit,
+    });
+
+    return { 
+      success: true, 
+      data: categories.map((c) => transformCategory(c, true)) 
+    };
+  } catch (error) {
+    console.error("Error fetching featured categories:", error);
+    return { success: false, error: "Failed to fetch categories", data: [] };
+  }
+}
+
+/**
  * Get related products (same category, excluding current product)
  */
 export async function getRelatedProducts(categoryId: string, excludeProductId: string, limit = 4) {

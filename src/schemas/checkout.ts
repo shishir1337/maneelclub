@@ -1,9 +1,11 @@
 import { z } from "zod";
-import { CITIES } from "@/lib/constants";
+import { CITIES, PAYMENT_METHODS } from "@/lib/constants";
 
 const cityValues = CITIES.map((c) => c.value) as [string, ...string[]];
+const paymentMethodValues = PAYMENT_METHODS.map((p) => p.value) as [string, ...string[]];
 
-export const checkoutSchema = z.object({
+// Base checkout schema without payment
+const baseCheckoutSchema = z.object({
   // Contact Information
   fullName: z
     .string()
@@ -42,6 +44,46 @@ export const checkoutSchema = z.object({
     .string()
     .max(500, "Note is too long")
     .optional(),
+  
+  // Payment Information
+  paymentMethod: z.enum(paymentMethodValues as [string, ...string[]], {
+    error: "Please select a payment method",
+  }),
+  
+  // Mobile payment fields (optional at base level, validated conditionally)
+  senderNumber: z
+    .string()
+    .regex(/^01[3-9][0-9]{8}$/, "Please enter a valid 11-digit BD mobile number")
+    .optional()
+    .or(z.literal("")),
+  
+  transactionId: z
+    .string()
+    .min(4, "Transaction ID must be at least 4 characters")
+    .max(50, "Transaction ID is too long")
+    .optional()
+    .or(z.literal("")),
+});
+
+// Checkout schema with conditional validation for mobile payments
+export const checkoutSchema = baseCheckoutSchema.superRefine((data, ctx) => {
+  // If payment method is not COD, require sender number and transaction ID
+  if (data.paymentMethod !== "COD") {
+    if (!data.senderNumber || data.senderNumber === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter your mobile number used for payment",
+        path: ["senderNumber"],
+      });
+    }
+    if (!data.transactionId || data.transactionId === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter the transaction ID",
+        path: ["transactionId"],
+      });
+    }
+  }
 });
 
 export type CheckoutFormData = z.infer<typeof checkoutSchema>;
@@ -50,9 +92,27 @@ export type CheckoutFormData = z.infer<typeof checkoutSchema>;
 export const guestCheckoutSchema = checkoutSchema;
 
 // Schema for logged-in user checkout (can use saved address)
-export const userCheckoutSchema = checkoutSchema.extend({
+export const userCheckoutSchema = baseCheckoutSchema.extend({
   usesSavedAddress: z.boolean().optional(),
   savedAddressId: z.string().optional(),
+}).superRefine((data, ctx) => {
+  // If payment method is not COD, require sender number and transaction ID
+  if (data.paymentMethod !== "COD") {
+    if (!data.senderNumber || data.senderNumber === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter your mobile number used for payment",
+        path: ["senderNumber"],
+      });
+    }
+    if (!data.transactionId || data.transactionId === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter the transaction ID",
+        path: ["transactionId"],
+      });
+    }
+  }
 });
 
 export type UserCheckoutFormData = z.infer<typeof userCheckoutSchema>;

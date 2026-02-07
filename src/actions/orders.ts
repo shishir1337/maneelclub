@@ -7,6 +7,9 @@ import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { PaymentMethod, PaymentStatus } from "@prisma/client";
+import { sendPurchaseEvent } from "@/lib/conversions-api";
+import { getMetaCapiSettings } from "@/lib/settings";
 
 interface CartItem {
   productId: string;
@@ -16,11 +19,73 @@ interface CartItem {
   color: string;
   size: string;
   quantity: number;
+  variantId?: string; // Optional variant ID for variable products
 }
 
 interface CreateOrderInput {
   formData: CheckoutFormData;
   items: CartItem[];
+}
+
+/**
+ * Deduct stock for order items
+ * Handles both simple products (product.stock) and variable products (variant.stock)
+ */
+async function deductStock(items: CartItem[]) {
+  for (const item of items) {
+    // Get the product to check its type
+    const product = await db.product.findUnique({
+      where: { id: item.productId },
+      include: {
+        variants: {
+          include: {
+            attributes: {
+              include: {
+                attributeValue: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!product) continue;
+
+    if (product.productType === "VARIABLE" && product.variants.length > 0) {
+      // For variable products, find matching variant by color and size
+      const matchingVariant = product.variants.find((variant) => {
+        const variantAttributes = variant.attributes.map(
+          (attr) => attr.attributeValue.displayValue.toLowerCase()
+        );
+        return (
+          variantAttributes.includes(item.color.toLowerCase()) &&
+          variantAttributes.includes(item.size.toLowerCase())
+        );
+      });
+
+      if (matchingVariant) {
+        // Deduct from variant stock
+        await db.productVariant.update({
+          where: { id: matchingVariant.id },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+          },
+        });
+      }
+    } else {
+      // For simple products, deduct from product stock
+      await db.product.update({
+        where: { id: item.productId },
+        data: {
+          stock: {
+            decrement: item.quantity,
+          },
+        },
+      });
+    }
+  }
 }
 
 /**
@@ -63,44 +128,147 @@ export async function createOrder(input: CreateOrderInput) {
     const shippingCost = getShippingCost(formData.city);
     const total = subtotal + shippingCost;
     
-    // Create order in database
-    const order = await db.order.create({
-      data: {
-        orderNumber: generateOrderNumber(),
-        userId,
-        customerName: formData.fullName,
-        customerEmail: formData.email || null,
-        customerPhone: formData.phone,
-        shippingAddress: formData.address,
-        city: formData.city,
-        altPhone: formData.altPhone || null,
-        deliveryNote: formData.deliveryNote || null,
-        shippingCost,
-        subtotal,
-        total,
-        status: "PENDING",
-        items: {
-          create: items.map((item) => ({
-            productId: item.productId,
-            title: item.title,
-            color: item.color,
-            size: item.size,
-            quantity: item.quantity,
-            price: item.price,
-          })),
+    // Determine payment method and status
+    const paymentMethod = (formData.paymentMethod || "COD") as PaymentMethod;
+    // All orders start as PENDING payment status
+    // COD orders will be marked PAID on delivery
+    // Mobile payments will be verified by admin
+    const paymentStatus: PaymentStatus = "PENDING";
+    
+    // Create order in database using a transaction to ensure stock deduction is atomic
+    const order = await db.$transaction(async (tx) => {
+      // Create the order
+      const newOrder = await tx.order.create({
+        data: {
+          orderNumber: generateOrderNumber(),
+          userId,
+          customerName: formData.fullName,
+          customerEmail: formData.email || null,
+          customerPhone: formData.phone,
+          shippingAddress: formData.address,
+          city: formData.city,
+          altPhone: formData.altPhone || null,
+          deliveryNote: formData.deliveryNote || null,
+          shippingCost,
+          subtotal,
+          total,
+          status: "PENDING",
+          // Payment fields
+          paymentMethod,
+          paymentStatus,
+          senderNumber: formData.senderNumber || null,
+          transactionId: formData.transactionId || null,
+          items: {
+            create: items.map((item) => ({
+              productId: item.productId,
+              color: item.color,
+              size: item.size,
+              quantity: item.quantity,
+              price: item.price,
+            })),
+          },
         },
-      },
-      include: {
-        items: true,
-      },
+        include: {
+          items: true,
+        },
+      });
+
+      // Deduct stock for each item
+      for (const item of items) {
+        // Get the product to check its type
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          include: {
+            variants: {
+              include: {
+                attributes: {
+                  include: {
+                    attributeValue: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!product) continue;
+
+        if (product.productType === "VARIABLE" && product.variants.length > 0) {
+          // For variable products, find matching variant by color and size
+          const matchingVariant = product.variants.find((variant) => {
+            const variantAttributes = variant.attributes.map(
+              (attr) => attr.attributeValue.displayValue.toLowerCase()
+            );
+            return (
+              variantAttributes.includes(item.color.toLowerCase()) &&
+              variantAttributes.includes(item.size.toLowerCase())
+            );
+          });
+
+          if (matchingVariant) {
+            // Deduct from variant stock
+            await tx.productVariant.update({
+              where: { id: matchingVariant.id },
+              data: {
+                stock: {
+                  decrement: item.quantity,
+                },
+              },
+            });
+          }
+        } else {
+          // For simple products, deduct from product stock
+          await tx.product.update({
+            where: { id: item.productId },
+            data: {
+              stock: {
+                decrement: item.quantity,
+              },
+            },
+          });
+        }
+      }
+
+      return newOrder;
     });
     
     // Revalidate relevant paths
     revalidatePath("/admin/orders");
+    revalidatePath("/admin/products");
     if (userId) {
       revalidatePath("/dashboard/orders");
     }
-    
+
+    // Meta Conversions API: send Purchase for deduplication with Pixel (use orderNumber as event_id)
+    // Credentials from env or admin settings (configure after deployment)
+    try {
+      const h = await headers();
+      const clientIp =
+        h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        h.get("x-real-ip")?.trim() ||
+        undefined;
+      const clientUserAgent = h.get("user-agent") ?? undefined;
+      const capiSettings = await getMetaCapiSettings();
+      const credentials =
+        capiSettings.pixelId && capiSettings.accessToken
+          ? { pixelId: capiSettings.pixelId, accessToken: capiSettings.accessToken }
+          : undefined;
+      await sendPurchaseEvent({
+        order_id: order.orderNumber,
+        value: Number(order.total),
+        currency: "BDT",
+        num_items: order.items.reduce((sum, i) => sum + i.quantity, 0),
+        content_ids: order.items.map((i) => i.productId),
+        email: order.customerEmail ?? formData.email ?? null,
+        phone: order.customerPhone ?? formData.phone ?? null,
+        client_ip_address: clientIp ?? null,
+        client_user_agent: clientUserAgent ?? null,
+        ...(credentials && { _credentials: credentials }),
+      });
+    } catch (e) {
+      console.warn("[Conversions API] Purchase event failed:", e);
+    }
+
     return {
       success: true,
       data: {

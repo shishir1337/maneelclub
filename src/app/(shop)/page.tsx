@@ -11,9 +11,9 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { ProductGrid } from "@/components/product";
-import { ProductGridSkeleton } from "@/components/skeletons";
+import { ProductGridSkeleton, CategoryGridSkeleton } from "@/components/skeletons";
 import { siteConfig } from "@/lib/constants";
-import { getFeaturedProducts, getNewArrivals } from "@/actions/products";
+import { getFeaturedProducts, getNewArrivals, getFeaturedCategories } from "@/actions/products";
 
 // Hero slides data - images already contain text/buttons
 const heroSlides = [
@@ -31,13 +31,6 @@ const heroSlides = [
   },
 ];
 
-// Placeholder for featured categories
-const categories = [
-  { name: "T-Shirts", slug: "t-shirts", image: "/logo.png" },
-  { name: "Hoodies", slug: "hoodie", image: "/logo.png" },
-  { name: "Winter Collection", slug: "winter-collection", image: "/logo.png" },
-  { name: "New Arrivals", slug: "new-arrivals", image: "/logo.png" },
-];
 
 function HeroCarousel() {
   return (
@@ -58,6 +51,7 @@ function HeroCarousel() {
                     src={slide.image}
                     alt={slide.alt}
                     fill
+                    sizes="100vw"
                     className="object-cover"
                     priority
                   />
@@ -73,7 +67,14 @@ function HeroCarousel() {
   );
 }
 
-function CategoriesSection() {
+// Server component to fetch categories
+async function CategoriesSection() {
+  const { data: categories } = await getFeaturedCategories(4);
+
+  if (!categories || categories.length === 0) {
+    return null;
+  }
+
   return (
     <section className="py-12 md:py-16">
       <div className="container">
@@ -95,14 +96,15 @@ function CategoriesSection() {
               className="group relative aspect-square rounded-lg overflow-hidden bg-muted"
             >
               <Image
-                src={category.image}
+                src={category.image || "/logo.png"}
                 alt={category.name}
                 fill
+                sizes="(max-width: 768px) 50vw, 25vw"
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-white text-lg md:text-xl font-semibold">
+                <span className="text-white text-lg md:text-xl font-semibold text-center px-2">
                   {category.name}
                 </span>
               </div>
@@ -151,7 +153,9 @@ export default function HomePage() {
       <HeroCarousel />
 
       {/* Categories Section */}
-      <CategoriesSection />
+      <Suspense fallback={<CategoryGridSkeleton count={4} />}>
+        <CategoriesSection />
+      </Suspense>
 
       {/* Featured Products Section */}
       <section className="py-12 md:py-16">

@@ -6,6 +6,7 @@ import { ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/cart-store";
 import { toast } from "sonner";
+import { trackAddToCart } from "@/lib/data-layer";
 
 interface AddToCartButtonProps {
   productId: string;
@@ -58,6 +59,13 @@ export function AddToCartButton({
       color,
       size,
       quantity,
+    });
+
+    trackAddToCart({
+      content_ids: [productId],
+      content_name: title,
+      value: price * quantity,
+      num_items: quantity,
     });
 
     if (variant === "buy-now") {

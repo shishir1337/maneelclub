@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Search, MoreHorizontal, Pencil, Trash2, Eye, Loader2 } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Pencil, Trash2, Eye, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +44,11 @@ import { toast } from "sonner";
 import Link from "next/link";
 import Image from "next/image";
 
+interface ProductVariant {
+  id: string;
+  stock: number;
+}
+
 interface Product {
   id: string;
   title: string;
@@ -52,6 +57,8 @@ interface Product {
   salePrice: number | string | { toString(): string } | null;
   images: string[];
   stock: number;
+  productType: "SIMPLE" | "VARIABLE";
+  variants?: ProductVariant[];
   isActive: boolean;
   isFeatured: boolean;
   category?: {
@@ -62,6 +69,28 @@ interface Product {
     parent?: { name: string } | null;
   } | null;
   createdAt: Date;
+}
+
+// Low stock threshold
+const LOW_STOCK_THRESHOLD = 5;
+
+// Calculate total stock (including variants for variable products)
+function getTotalStock(product: Product): number {
+  if (product.productType === "VARIABLE" && product.variants && product.variants.length > 0) {
+    return product.variants.reduce((sum, v) => sum + v.stock, 0);
+  }
+  return product.stock;
+}
+
+// Check if product has low stock
+function isLowStock(product: Product): boolean {
+  const totalStock = getTotalStock(product);
+  return totalStock > 0 && totalStock <= LOW_STOCK_THRESHOLD;
+}
+
+// Check if product is out of stock
+function isOutOfStock(product: Product): boolean {
+  return getTotalStock(product) === 0;
 }
 
 interface Category {
@@ -79,6 +108,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all");
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -158,8 +188,23 @@ export default function AdminProductsPage() {
       categoryFilter === "all" ||
       product.category?.id === categoryFilter ||
       product.category?.parentId === categoryFilter;
-    return matchesSearch && matchesCategory;
+    
+    // Stock filter
+    let matchesStock = true;
+    if (stockFilter === "low") {
+      matchesStock = isLowStock(product);
+    } else if (stockFilter === "out") {
+      matchesStock = isOutOfStock(product);
+    } else if (stockFilter === "in") {
+      matchesStock = getTotalStock(product) > LOW_STOCK_THRESHOLD;
+    }
+    
+    return matchesSearch && matchesCategory && matchesStock;
   });
+
+  // Count low stock and out of stock products
+  const lowStockCount = products.filter(isLowStock).length;
+  const outOfStockCount = products.filter(isOutOfStock).length;
 
   if (loading) {
     return (
@@ -185,6 +230,44 @@ export default function AdminProductsPage() {
           </Button>
         </Link>
       </div>
+
+      {/* Stock Alerts */}
+      {(lowStockCount > 0 || outOfStockCount > 0) && (
+        <div className="flex flex-wrap gap-4">
+          {outOfStockCount > 0 && (
+            <Card 
+              className="flex-1 min-w-[200px] border-red-200 bg-red-50 dark:bg-red-950/20 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setStockFilter("out")}
+            >
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-full bg-red-100 dark:bg-red-900">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-red-800 dark:text-red-200">Out of Stock</p>
+                  <p className="text-2xl font-bold text-red-600">{outOfStockCount}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {lowStockCount > 0 && (
+            <Card 
+              className="flex-1 min-w-[200px] border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setStockFilter("low")}
+            >
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-full bg-yellow-100 dark:bg-yellow-900">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Low Stock</p>
+                  <p className="text-2xl font-bold text-yellow-600">{lowStockCount}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
@@ -215,6 +298,17 @@ export default function AdminProductsPage() {
                       : category.name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={stockFilter} onValueChange={setStockFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Stock Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stock</SelectItem>
+                <SelectItem value="in">In Stock</SelectItem>
+                <SelectItem value="low">Low Stock ({`≤${LOW_STOCK_THRESHOLD}`})</SelectItem>
+                <SelectItem value="out">Out of Stock</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -295,11 +389,36 @@ export default function AdminProductsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={product.stock > 10 ? "secondary" : "destructive"}
-                      >
-                        {product.stock} in stock
-                      </Badge>
+                      {(() => {
+                        const totalStock = getTotalStock(product);
+                        const outOfStock = isOutOfStock(product);
+                        const lowStock = isLowStock(product);
+                        
+                        return (
+                          <div className="flex items-center gap-2">
+                            {outOfStock ? (
+                              <Badge variant="destructive" className="flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Out of stock
+                              </Badge>
+                            ) : lowStock ? (
+                              <Badge className="bg-yellow-100 text-yellow-800 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                {totalStock} left
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">
+                                {totalStock} in stock
+                              </Badge>
+                            )}
+                            {product.productType === "VARIABLE" && product.variants && product.variants.length > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                ({product.variants.length} variants)
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <Badge

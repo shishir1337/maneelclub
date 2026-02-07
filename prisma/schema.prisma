@@ -15,6 +15,7 @@ model User {
   id            String    @id @default(cuid())
   email         String    @unique
   name          String?
+  phone         String?
   emailVerified Boolean   @default(false)
   image         String?
   role          Role      @default(CUSTOMER)
@@ -249,6 +250,14 @@ model Order {
   subtotal     Decimal     @db.Decimal(10, 2)
   total        Decimal     @db.Decimal(10, 2)
   status       OrderStatus @default(PENDING)
+
+  // Payment Information
+  paymentMethod PaymentMethod @default(COD)
+  paymentStatus PaymentStatus @default(PENDING)
+  senderNumber  String?       // Customer's mobile money number
+  transactionId String?       // Transaction reference from mobile payment
+  paidAt        DateTime?     // When payment was verified
+
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -258,6 +267,7 @@ model Order {
   @@index([userId])
   @@index([orderNumber])
   @@index([status])
+  @@index([paymentStatus])
   @@index([createdAt])
 }
 
@@ -280,18 +290,31 @@ model OrderItem {
 // ==================== USER DATA ====================
 
 model Address {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
   name      String
   phone     String
-  address   String  @db.Text
+  address   String   @db.Text
   city      String
   altPhone  String?
-  isDefault Boolean @default(false)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ==================== SETTINGS ====================
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
 }
 
 // ==================== ENUMS ====================
@@ -308,4 +331,17 @@ enum OrderStatus {
   SHIPPED
   DELIVERED
   CANCELLED
+}
+
+enum PaymentMethod {
+  COD
+  BKASH
+  NAGAD
+  ROCKET
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
 }

@@ -2,6 +2,7 @@
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { DataLayerProvider } from "@/components/analytics";
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -10,8 +11,9 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <TooltipProvider delayDuration={0}>
-      {children}
-      <Toaster 
+      <DataLayerProvider>
+        {children}
+        <Toaster 
         position="bottom-center"
         richColors
         closeButton
@@ -20,6 +22,7 @@ export function Providers({ children }: ProvidersProps) {
         }}
         mobileOffset={{ bottom: "88px" }}
       />
+      </DataLayerProvider>
     </TooltipProvider>
   );
 }

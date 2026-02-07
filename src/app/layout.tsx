@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { MetaPixelScript } from "@/components/analytics";
+import { getMetaPixelSettings } from "@/lib/settings";
 import { siteConfig } from "@/lib/constants";
 
 const inter = Inter({
@@ -45,14 +47,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const metaPixel = await getMetaPixelSettings();
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
+        <MetaPixelScript pixelId={metaPixel.pixelId} enabled={metaPixel.enabled} />
         <Providers>{children}</Providers>
       </body>
     </html>

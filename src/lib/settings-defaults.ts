@@ -1,0 +1,39 @@
+// Default settings values - shared between client and server
+export const DEFAULT_SETTINGS = {
+  // Store Information
+  storeName: "Maneel Club",
+  storeDescription: "Premium clothing brand in Bangladesh",
+  storeEmail: "support@maneelclub.com",
+  storePhone: "+8801997193518",
+  
+  // Social Links
+  facebookUrl: "https://www.facebook.com/maneelclub",
+  instagramUrl: "",
+  whatsappNumber: "+8801997193518",
+  
+  // Shipping Rates
+  shippingDhaka: "70",
+  shippingOutside: "130",
+  
+  // Payment Merchant Numbers
+  bkashNumber: "01854938837",
+  nagadNumber: "01854938837",
+  rocketNumber: "01854938837",
+  
+  // Announcements
+  announcementEnabled: "true",
+  announcementMessage: "Free shipping on orders over BDT 2000!",
+  announcementLink: "/shop",
+  announcementLinkText: "Shop Now",
+  
+  // Order Settings
+  lowStockThreshold: "5",
+  freeShippingMinimum: "2000",
+
+  // Meta Pixel / Facebook Tracking (configure after deployment)
+  metaPixelEnabled: "false",
+  metaPixelId: "",
+  metaCapiAccessToken: "",
+} as const;
+
+export type SettingsKey = keyof typeof DEFAULT_SETTINGS;

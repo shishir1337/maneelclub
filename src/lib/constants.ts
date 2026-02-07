@@ -50,6 +50,81 @@ export function getShippingCost(city: string): number {
   return found?.shippingCost ?? SHIPPING_RATES.outside;
 }
 
+// ==================== PAYMENT ====================
+
+export const MERCHANT_PHONE = "01854938837";
+
+export const PAYMENT_METHODS = [
+  {
+    value: "COD",
+    label: "Cash on Delivery",
+    labelBn: "ক্যাশ অন ডেলিভারি",
+    description: "Pay when you receive your order",
+    descriptionBn: "অর্ডার হাতে পেলে টাকা দিন",
+    instructions: null,
+  },
+  {
+    value: "BKASH",
+    label: "bKash",
+    labelBn: "বিকাশ",
+    description: "Pay with bKash mobile banking",
+    descriptionBn: "বিকাশ মোবাইল ব্যাংকিং দিয়ে পেমেন্ট করুন",
+    instructions: `১. আপনার মোবাইল থেকে *247# ডায়াল করুন
+২. প্রদর্শিত মেনু থেকে 3 চাপুন (Send Money)
+৩. নম্বরটি লিখুন: বিকাশ পার্সোনাল (${MERCHANT_PHONE})
+৪. কত টাকা পাঠাতে চান তা লিখুন এবং নিশ্চিত করুন
+৫. আপনার bKash PIN লিখুন এবং প্রক্রিয়া সম্পন্ন করুন
+৬. নিচে আপনার বিকাশ নাম্বার এবং Transaction ID টি লিখুন`,
+    merchantNumber: MERCHANT_PHONE,
+    dialCode: "*247#",
+  },
+  {
+    value: "NAGAD",
+    label: "Nagad",
+    labelBn: "নগদ",
+    description: "Pay with Nagad mobile banking",
+    descriptionBn: "নগদ মোবাইল ব্যাংকিং দিয়ে পেমেন্ট করুন",
+    instructions: `১. আপনার মোবাইল থেকে *167# ডায়াল করুন
+২. প্রদর্শিত মেনু থেকে 1 চাপুন (Send Money)
+৩. নম্বরটি লিখুন: নগদ পার্সোনাল (${MERCHANT_PHONE})
+৪. কত টাকা পাঠাতে চান তা লিখুন এবং নিশ্চিত করুন
+৫. আপনার নগদ PIN লিখুন এবং প্রক্রিয়া সম্পন্ন করুন
+৬. নিচে আপনার নগদ নাম্বার এবং Transaction ID টি লিখুন`,
+    merchantNumber: MERCHANT_PHONE,
+    dialCode: "*167#",
+  },
+  {
+    value: "ROCKET",
+    label: "Rocket",
+    labelBn: "রকেট",
+    description: "Pay with Rocket mobile banking",
+    descriptionBn: "রকেট মোবাইল ব্যাংকিং দিয়ে পেমেন্ট করুন",
+    instructions: `১. আপনার মোবাইল থেকে *322# ডায়াল করুন
+২. প্রদর্শিত মেনু থেকে 1 চাপুন (Send Money)
+৩. নম্বরটি লিখুন: রকেট পার্সোনাল (${MERCHANT_PHONE})
+৪. কত টাকা পাঠাতে চান তা লিখুন এবং নিশ্চিত করুন
+৫. আপনার রকেট PIN লিখুন এবং প্রক্রিয়া সম্পন্ন করুন
+৬. নিচে আপনার রকেট নাম্বার এবং Transaction ID টি লিখুন`,
+    merchantNumber: MERCHANT_PHONE,
+    dialCode: "*322#",
+  },
+] as const;
+
+export type PaymentMethodValue = (typeof PAYMENT_METHODS)[number]["value"];
+
+// Payment status display
+export const PAYMENT_STATUS = {
+  PENDING: { label: "Pending", labelBn: "অপেক্ষমাণ", color: "bg-yellow-100 text-yellow-800" },
+  PAID: { label: "Paid", labelBn: "পেইড", color: "bg-green-100 text-green-800" },
+  FAILED: { label: "Failed", labelBn: "ব্যর্থ", color: "bg-red-100 text-red-800" },
+} as const;
+
+export const PAYMENT_STATUSES = [
+  { value: "PENDING", label: "Pending", labelBn: "অপেক্ষমাণ", color: "bg-yellow-100 text-yellow-800" },
+  { value: "PAID", label: "Paid", labelBn: "পেইড", color: "bg-green-100 text-green-800" },
+  { value: "FAILED", label: "Failed", labelBn: "ব্যর্থ", color: "bg-red-100 text-red-800" },
+] as const;
+
 // ==================== ORDER STATUS ====================
 
 export const ORDER_STATUS = {
@@ -70,6 +145,7 @@ export const ORDER_STATUSES = [
   { value: "DELIVERED", label: "Delivered", color: "bg-green-100 text-green-800" },
   { value: "CANCELLED", label: "Cancelled", color: "bg-red-100 text-red-800" },
 ] as const;
+
 
 // ==================== PRODUCT ====================
 

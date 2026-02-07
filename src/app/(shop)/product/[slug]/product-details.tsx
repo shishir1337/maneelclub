@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { trackViewContent } from "@/lib/data-layer";
 import { Badge } from "@/components/ui/badge";
 import {
   ProductGallery,
@@ -65,7 +66,16 @@ interface ProductDetailsProps {
 }
 
 export function ProductDetails({ product }: ProductDetailsProps) {
-  
+  useEffect(() => {
+    const value = product.salePrice ?? product.regularPrice;
+    trackViewContent({
+      content_ids: [product.id],
+      content_type: "product",
+      content_name: product.title,
+      value: Number(value),
+    });
+  }, [product.id, product.title, product.salePrice, product.regularPrice]);
+
   // Get colors and sizes from product (or fallback to variants if available)
   const availableColors = useMemo(() => {
     if (product.colors && product.colors.length > 0) {

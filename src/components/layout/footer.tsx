@@ -34,13 +34,15 @@ export function Footer() {
             {/* Brand Info */}
             <div className="space-y-4">
               <Link href="/" className="flex items-center gap-2">
-                <Image
-                  src="/logo.png"
-                  alt={siteConfig.name}
-                  width={40}
-                  height={40}
-                  className="h-10 w-auto"
-                />
+                <div className="relative h-10 w-10">
+                  <Image
+                    src="/logo.png"
+                    alt={siteConfig.name}
+                    fill
+                    sizes="40px"
+                    className="object-contain"
+                  />
+                </div>
                 <span className="font-bold text-xl">{siteConfig.name}</span>
               </Link>
               <p className="text-sm text-muted-foreground">
