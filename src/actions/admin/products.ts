@@ -554,7 +554,8 @@ export async function createCategory(
   name: string,
   slug: string,
   description?: string,
-  parentId?: string | null
+  parentId?: string | null,
+  image?: string | null
 ) {
   try {
     await checkAdmin();
@@ -582,12 +583,19 @@ export async function createCategory(
     }
 
     const category = await db.category.create({
-      data: { name, slug, description, parentId: parentId || null },
+      data: {
+        name,
+        slug,
+        description,
+        parentId: parentId || null,
+        ...(image != null && image !== "" && { image }),
+      },
     });
 
     revalidatePath("/admin/products");
     revalidatePath("/admin/categories");
     revalidatePath("/shop");
+    revalidatePath("/");
 
     return { success: true, data: category };
   } catch (error) {
@@ -602,7 +610,13 @@ export async function createCategory(
 // Update category
 export async function updateCategory(
   id: string,
-  data: { name?: string; slug?: string; description?: string; parentId?: string | null }
+  data: {
+    name?: string;
+    slug?: string;
+    description?: string;
+    parentId?: string | null;
+    image?: string | null;
+  }
 ) {
   try {
     await checkAdmin();
@@ -649,12 +663,14 @@ export async function updateCategory(
         ...(data.slug !== undefined && { slug: data.slug }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.parentId !== undefined && { parentId: data.parentId }),
+        ...(data.image !== undefined && { image: data.image || null }),
       },
     });
 
     revalidatePath("/admin/products");
     revalidatePath("/admin/categories");
     revalidatePath("/shop");
+    revalidatePath("/");
 
     return { success: true, data: updated };
   } catch (error) {

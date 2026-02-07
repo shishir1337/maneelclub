@@ -78,7 +78,10 @@ export function ProductCard({
         
         {/* Discount Badge - Top left */}
         {hasDiscount && discountPercent > 0 && (
-          <Badge className="absolute top-2.5 left-2.5 bg-red-700 hover:bg-red-700 text-white font-bold text-xs px-2 py-1 rounded-md shadow-md">
+          <Badge
+            className="absolute top-2.5 left-2.5 border-0 bg-red-700 px-2 py-1 text-xs font-bold text-white shadow-md hover:bg-red-700 dark:bg-red-800 dark:text-white dark:hover:bg-red-800"
+            aria-label={`${discountPercent}% off`}
+          >
             -{discountPercent}%
           </Badge>
         )}
@@ -139,7 +142,10 @@ export function ProductCard({
             )}
             
             {hasDiscount && savings > 0 && (
-              <Badge className="bg-green-600 hover:bg-green-600 text-white font-semibold text-xs px-2 py-0.5 rounded-md">
+              <Badge
+                className="rounded-md border-0 bg-green-700 px-2 py-0.5 text-xs font-semibold text-white hover:bg-green-700 dark:bg-green-800 dark:text-white dark:hover:bg-green-800"
+                aria-label={`Save ${savings.toLocaleString("en-BD")} taka`}
+              >
                 Save {savings.toLocaleString("en-BD")}tk
               </Badge>
             )}

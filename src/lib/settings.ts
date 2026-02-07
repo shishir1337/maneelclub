@@ -117,3 +117,34 @@ export async function getMetaCapiSettings(): Promise<{ pixelId: string; accessTo
     accessToken: settings.metaCapiAccessToken || "",
   };
 }
+
+export type HeaderNavItem = { name: string; href: string };
+
+const DEFAULT_HEADER_MENU: HeaderNavItem[] = [
+  { name: "Home", href: "/" },
+  { name: "Shop", href: "/shop" },
+  { name: "New Arrivals", href: "/product-category/new-arrivals" },
+  { name: "Winter Collection", href: "/product-category/winter-collection" },
+  { name: "Hoodie", href: "/product-category/hoodie" },
+];
+
+// Get header navigation menu (for storefront header)
+export const getHeaderMenu = cache(async (): Promise<HeaderNavItem[]> => {
+  try {
+    const settings = await getSettings();
+    const raw = settings.headerMenu || "";
+    if (!raw.trim()) return DEFAULT_HEADER_MENU;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return DEFAULT_HEADER_MENU;
+    const items = parsed.filter(
+      (item): item is HeaderNavItem =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as HeaderNavItem).name === "string" &&
+        typeof (item as HeaderNavItem).href === "string"
+    );
+    return items.length > 0 ? items : DEFAULT_HEADER_MENU;
+  } catch {
+    return DEFAULT_HEADER_MENU;
+  }
+});

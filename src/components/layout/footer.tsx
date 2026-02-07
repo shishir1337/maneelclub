@@ -37,7 +37,7 @@ export function Footer() {
                 <div className="relative h-10 w-10">
                   <Image
                     src="/logo.png"
-                    alt={siteConfig.name}
+                    alt=""
                     fill
                     sizes="40px"
                     className="object-contain"

@@ -75,7 +75,7 @@ export default function DashboardLayout({
                   <Link href="/" className="flex items-center gap-2 mb-6">
                     <Image
                       src="/logo.png"
-                      alt={siteConfig.name}
+                      alt=""
                       width={32}
                       height={32}
                       className="h-8 w-auto"
@@ -91,7 +91,7 @@ export default function DashboardLayout({
             <Link href="/" className="flex items-center gap-2">
               <Image
                 src="/logo.png"
-                alt={siteConfig.name}
+                alt=""
                 width={32}
                 height={32}
                 className="h-8 w-auto"

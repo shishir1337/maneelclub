@@ -60,7 +60,7 @@ export const OrderInvoice = forwardRef<HTMLDivElement, OrderInvoiceProps>(
           <div className="flex items-center gap-3">
             <Image
               src="/logo.png"
-              alt={siteConfig.name}
+              alt=""
               width={60}
               height={60}
               className="object-contain"

@@ -15,7 +15,7 @@ export default function AuthLayout({
           <Link href="/" className="flex items-center gap-2 w-fit">
             <Image
               src="/logo.png"
-              alt={siteConfig.name}
+              alt=""
               width={40}
               height={40}
               className="h-10 w-auto"

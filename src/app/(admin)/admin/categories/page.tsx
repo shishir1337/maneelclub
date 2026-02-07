@@ -51,12 +51,14 @@ import { slugify } from "@/lib/format";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { ImageUploader } from "@/components/admin";
 
 interface Category {
   id: string;
   name: string;
   slug: string;
   description: string | null;
+  image: string | null;
   parentId: string | null;
   parent?: { id: string; name: string; slug: string } | null;
   children?: Category[];
@@ -76,6 +78,7 @@ export default function AdminCategoriesPage() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [image, setImage] = useState<string>("");
   const [parentId, setParentId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -116,7 +119,8 @@ export default function AdminCategoriesPage() {
         name.trim(),
         categorySlug,
         description.trim() || undefined,
-        parentId || undefined
+        parentId || undefined,
+        image.trim() || undefined
       );
 
       if (result.success) {
@@ -145,6 +149,7 @@ export default function AdminCategoriesPage() {
         slug: categorySlug,
         description: description.trim() || undefined,
         parentId: parentId || null,
+        image: image.trim() || null,
       });
 
       if (result.success) {
@@ -186,6 +191,7 @@ export default function AdminCategoriesPage() {
     setName("");
     setSlug("");
     setDescription("");
+    setImage("");
     setParentId(null);
   }
 
@@ -199,6 +205,7 @@ export default function AdminCategoriesPage() {
     setName(category.name);
     setSlug(category.slug);
     setDescription(category.description || "");
+    setImage(category.image || "");
     setParentId(category.parentId || null);
     setEditCategoryId(category.id);
     setDialogOpen(true);
@@ -434,6 +441,17 @@ export default function AdminCategoriesPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Category image</Label>
+              <p className="text-sm text-muted-foreground">
+                Shown on the homepage &quot;Shop by Category&quot; section. Leave empty to use default.
+              </p>
+              <ImageUploader
+                images={image ? [image] : []}
+                onChange={(urls) => setImage(urls[0] ?? "")}
+                maxImages={1}
               />
             </div>
           </div>

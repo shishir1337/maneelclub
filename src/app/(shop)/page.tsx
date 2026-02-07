@@ -31,8 +31,9 @@ async function CategoriesSection() {
           <Link
             href="/shop"
             className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+            aria-label="View all products"
           >
-            View All
+            View all products
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -45,7 +46,7 @@ async function CategoriesSection() {
             >
               <Image
                 src={category.image || "/logo.png"}
-                alt={category.name}
+                alt=""
                 fill
                 sizes="(max-width: 768px) 50vw, 25vw"
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -116,8 +117,9 @@ export default function HomePage() {
             <Link
               href="/shop"
               className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+              aria-label="View all products"
             >
-              View All
+              View all products
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -135,8 +137,9 @@ export default function HomePage() {
             <Link
               href="/product-category/new-arrivals"
               className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+              aria-label="View all new arrivals"
             >
-              View All
+              View all new arrivals
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

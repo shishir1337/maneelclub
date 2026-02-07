@@ -37,6 +37,15 @@ export const DEFAULT_SETTINGS = {
 
   // Google Tag Manager (container ID, e.g. GTM-52G5CZNB)
   gtmContainerId: "",
+
+  // Header navigation (JSON array of { name, href })
+  headerMenu: JSON.stringify([
+    { name: "Home", href: "/" },
+    { name: "Shop", href: "/shop" },
+    { name: "New Arrivals", href: "/product-category/new-arrivals" },
+    { name: "Winter Collection", href: "/product-category/winter-collection" },
+    { name: "Hoodie", href: "/product-category/hoodie" },
+  ]),
 } as const;
 
 export type SettingsKey = keyof typeof DEFAULT_SETTINGS;

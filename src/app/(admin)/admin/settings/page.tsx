@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Save, RefreshCw } from "lucide-react";
+import { Loader2, Save, RefreshCw, Plus, Trash2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +15,37 @@ import { DEFAULT_SETTINGS } from "@/lib/settings-defaults";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
+type NavItem = { name: string; href: string };
+
+const DEFAULT_HEADER_MENU: NavItem[] = [
+  { name: "Home", href: "/" },
+  { name: "Shop", href: "/shop" },
+  { name: "New Arrivals", href: "/product-category/new-arrivals" },
+  { name: "Winter Collection", href: "/product-category/winter-collection" },
+  { name: "Hoodie", href: "/product-category/hoodie" },
+];
+
+function parseHeaderMenu(raw: string | undefined): NavItem[] {
+  if (!raw?.trim()) return DEFAULT_HEADER_MENU;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return DEFAULT_HEADER_MENU;
+    const items = parsed.filter(
+      (item): item is NavItem =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as NavItem).name === "string" &&
+        typeof (item as NavItem).href === "string"
+    );
+    return items.length > 0 ? items : DEFAULT_HEADER_MENU;
+  } catch {
+    return DEFAULT_HEADER_MENU;
+  }
+}
+
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS as unknown as Record<string, string>);
+  const [menuItems, setMenuItems] = useState<NavItem[]>(DEFAULT_HEADER_MENU);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -31,6 +60,7 @@ export default function AdminSettingsPage() {
       const result = await getSettings();
       if (result.success && result.data) {
         setSettings(result.data);
+        setMenuItems(parseHeaderMenu(result.data.headerMenu));
       } else {
         toast.error(result.error || "Failed to load settings");
       }
@@ -71,8 +101,38 @@ export default function AdminSettingsPage() {
   async function handleReset() {
     if (confirm("Are you sure you want to reset all settings to defaults?")) {
       setSettings(DEFAULT_SETTINGS as unknown as Record<string, string>);
+      setMenuItems(DEFAULT_HEADER_MENU);
       setHasChanges(true);
     }
+  }
+
+  function updateMenuItems(next: NavItem[]) {
+    setMenuItems(next);
+    setSettings((prev) => ({ ...prev, headerMenu: JSON.stringify(next) }));
+    setHasChanges(true);
+  }
+
+  function addMenuItem() {
+    updateMenuItems([...menuItems, { name: "New Link", href: "/" }]);
+  }
+
+  function removeMenuItem(index: number) {
+    updateMenuItems(menuItems.filter((_, i) => i !== index));
+  }
+
+  function moveMenuItem(index: number, dir: "up" | "down") {
+    const newItems = [...menuItems];
+    const target = dir === "up" ? index - 1 : index + 1;
+    if (target < 0 || target >= newItems.length) return;
+    [newItems[index], newItems[target]] = [newItems[target], newItems[index]];
+    updateMenuItems(newItems);
+  }
+
+  function updateMenuItemField(index: number, field: "name" | "href", value: string) {
+    const next = menuItems.map((item, i) =>
+      i === index ? { ...item, [field]: value } : item
+    );
+    updateMenuItems(next);
   }
 
   if (isLoading) {
@@ -138,8 +198,9 @@ export default function AdminSettingsPage() {
       )}
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="navigation">Navigation</TabsTrigger>
           <TabsTrigger value="shipping">Shipping</TabsTrigger>
           <TabsTrigger value="payment">Payment</TabsTrigger>
           <TabsTrigger value="announcement">Announcement</TabsTrigger>
@@ -250,6 +311,86 @@ export default function AdminSettingsPage() {
                   Products with stock at or below this number will show a low stock warning
                 </p>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Navigation / Header Menu */}
+        <TabsContent value="navigation" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Header Menu</CardTitle>
+              <CardDescription>
+                Manage the main navigation links in the storefront header. Order is top to bottom (first item appears left).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                {menuItems.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex flex-col sm:flex-row gap-2 p-3 rounded-lg border bg-muted/30"
+                  >
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => moveMenuItem(index, "up")}
+                        disabled={index === 0}
+                        aria-label="Move up"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => moveMenuItem(index, "down")}
+                        disabled={index === menuItems.length - 1}
+                        aria-label="Move down"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => removeMenuItem(index)}
+                        disabled={menuItems.length <= 1}
+                        aria-label="Remove"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="flex-1 grid gap-2 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Label</Label>
+                        <Input
+                          value={item.name}
+                          onChange={(e) => updateMenuItemField(index, "name", e.target.value)}
+                          placeholder="e.g. Shop"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">URL</Label>
+                        <Input
+                          value={item.href}
+                          onChange={(e) => updateMenuItemField(index, "href", e.target.value)}
+                          placeholder="e.g. /shop or /product-category/slug"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button type="button" variant="outline" onClick={addMenuItem} className="w-full sm:w-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                Add menu item
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

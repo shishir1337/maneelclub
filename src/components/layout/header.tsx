@@ -22,7 +22,7 @@ import { useSession, signOut } from "@/lib/auth-client";
 import { SearchDialog } from "./search-dialog";
 import { useSearchStore } from "@/store/search-store";
 
-const navigation = [
+const defaultNavigation = [
   { name: "Home", href: "/" },
   { name: "Shop", href: "/shop" },
   { name: "New Arrivals", href: "/product-category/new-arrivals" },
@@ -30,7 +30,15 @@ const navigation = [
   { name: "Hoodie", href: "/product-category/hoodie" },
 ];
 
-export function Header() {
+export type NavItem = { name: string; href: string };
+
+interface HeaderProps {
+  /** Navigation items from admin settings. Falls back to default if not provided. */
+  navigation?: NavItem[];
+}
+
+export function Header({ navigation: navFromProps }: HeaderProps = {}) {
+  const navigation = navFromProps && navFromProps.length > 0 ? navFromProps : defaultNavigation;
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const searchOpen = useSearchStore((s) => s.isOpen);
@@ -157,7 +165,7 @@ export function Header() {
               <div className="relative h-9 w-9">
                 <Image
                   src="/logo.png"
-                  alt={siteConfig.name}
+                  alt=""
                   fill
                   sizes="36px"
                   className="object-contain"
@@ -198,7 +206,7 @@ export function Header() {
                 <div className="relative h-10 w-10 flex-shrink-0">
                   <Image
                     src="/logo.png"
-                    alt={siteConfig.name}
+                    alt=""
                     fill
                     sizes="40px"
                     className="object-contain"

@@ -33,10 +33,27 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
         className="w-full"
       >
         <CarouselContent>
-          {slides.map((slide) => (
-            <CarouselItem key={slide.id}>
-              {slide.link ? (
-                <Link href={slide.link} className="block">
+          {slides.map((slide, index) => {
+            const isLcp = index === 0;
+            return (
+              <CarouselItem key={slide.id}>
+                {slide.link ? (
+                  <Link href={slide.link} className="block">
+                    <div className="relative aspect-[2.2/1] sm:aspect-[2.7/1] lg:aspect-[3.2/1] w-full overflow-hidden">
+                      <Image
+                        src={slide.image}
+                        alt={slide.alt}
+                        fill
+                        sizes="100vw"
+                        className="object-cover"
+                        priority={isLcp}
+                        fetchPriority={isLcp ? "high" : undefined}
+                        loading={isLcp ? undefined : "lazy"}
+                        unoptimized={slide.image.startsWith("/uploads/")}
+                      />
+                    </div>
+                  </Link>
+                ) : (
                   <div className="relative aspect-[2.2/1] sm:aspect-[2.7/1] lg:aspect-[3.2/1] w-full overflow-hidden">
                     <Image
                       src={slide.image}
@@ -44,26 +61,16 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
                       fill
                       sizes="100vw"
                       className="object-cover"
-                      priority
+                      priority={isLcp}
+                      fetchPriority={isLcp ? "high" : undefined}
+                      loading={isLcp ? undefined : "lazy"}
                       unoptimized={slide.image.startsWith("/uploads/")}
                     />
                   </div>
-                </Link>
-              ) : (
-                <div className="relative aspect-[2.2/1] sm:aspect-[2.7/1] lg:aspect-[3.2/1] w-full overflow-hidden">
-                  <Image
-                    src={slide.image}
-                    alt={slide.alt}
-                    fill
-                    sizes="100vw"
-                    className="object-cover"
-                    priority
-                    unoptimized={slide.image.startsWith("/uploads/")}
-                  />
-                </div>
-              )}
-            </CarouselItem>
-          ))}
+                )}
+              </CarouselItem>
+            );
+          })}
         </CarouselContent>
         <CarouselPrevious className="left-2 md:left-4" />
         <CarouselNext className="right-2 md:right-4" />
