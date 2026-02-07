@@ -69,6 +69,8 @@ interface Order {
   paidAt: Date | null;
   items: OrderItem[];
   createdAt: Date;
+  /** Number of orders from this customer (matched by phone or email). 0 if none. */
+  timesPurchased?: number;
 }
 
 const statusColors: Record<string, string> = {
@@ -304,6 +306,7 @@ export default function AdminOrdersPage() {
                 <TableRow>
                   <TableHead>Order</TableHead>
                   <TableHead>Customer</TableHead>
+                  <TableHead>Purchases</TableHead>
                   <TableHead>Payment</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
@@ -314,7 +317,7 @@ export default function AdminOrdersPage() {
               <TableBody>
                 {filteredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       <p className="text-muted-foreground">
                         {orders.length === 0
                           ? "No orders yet"
@@ -348,6 +351,14 @@ export default function AdminOrdersPage() {
                             {order.city}
                           </p>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium tabular-nums">
+                          {order.timesPurchased ?? 0}
+                        </span>
+                        <p className="text-xs text-muted-foreground">
+                          {order.timesPurchased === 1 ? "order" : "orders"}
+                        </p>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">

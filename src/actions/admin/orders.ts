@@ -67,19 +67,40 @@ export async function getAdminOrders(options?: {
       db.order.count({ where }),
     ]);
 
-    const orders = ordersRaw.map((o) => ({
+    // Count how many times each customer has purchased (match by phone or email)
+    const purchaseCounts = await Promise.all(
+      ordersRaw.map((o) =>
+        db.order.count({
+          where: {
+            OR: [
+              { customerPhone: o.customerPhone },
+              ...(o.customerEmail
+                ? [{ customerEmail: o.customerEmail }]
+                : []),
+            ],
+          },
+        })
+      )
+    );
+
+    const orders = ordersRaw.map((o, i) => ({
       ...o,
       shippingCost: Number(o.shippingCost),
       subtotal: Number(o.subtotal),
       total: Number(o.total),
-      items: o.items.map((item) => ({ 
-        ...item, 
+      timesPurchased: purchaseCounts[i] ?? 0,
+      items: o.items.map((item) => ({
+        ...item,
         price: Number(item.price),
-        product: item.product ? {
-          ...item.product,
-          regularPrice: Number(item.product.regularPrice),
-          salePrice: item.product.salePrice ? Number(item.product.salePrice) : null,
-        } : null,
+        product: item.product
+          ? {
+              ...item.product,
+              regularPrice: Number(item.product.regularPrice),
+              salePrice: item.product.salePrice
+                ? Number(item.product.salePrice)
+                : null,
+            }
+          : null,
       })),
     }));
 
