@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS = {
   whatsappNumber: "+8801997193518",
   
   // Shipping Rates
-  shippingDhaka: "70",
+  shippingDhaka: "80",
   shippingOutside: "130",
   
   // Payment Merchant Numbers

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Package, ShoppingCart, Users, DollarSign, Loader2, TrendingUp, TrendingDown } from "lucide-react";
+import { Package, ShoppingCart, Users, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,6 +18,7 @@ import { getAdminProducts } from "@/actions/admin/products";
 import { getCustomerStats } from "@/actions/admin/customers";
 import { toast } from "sonner";
 import Link from "next/link";
+import { AdminDashboardSkeleton } from "@/components/skeletons/admin-dashboard-skeleton";
 
 interface Stats {
   totalRevenue: number;
@@ -108,11 +109,7 @@ export default function AdminDashboardPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <AdminDashboardSkeleton />;
   }
 
   return (

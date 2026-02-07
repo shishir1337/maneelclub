@@ -39,10 +39,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPrice } from "@/lib/format";
+import { UNLIMITED_STOCK } from "@/lib/constants";
 import { getAdminProducts, deleteProduct, toggleProductStatus, getAdminCategories } from "@/actions/admin/products";
 import { toast } from "sonner";
 import Link from "next/link";
 import Image from "next/image";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProductVariant {
   id: string;
@@ -208,8 +211,31 @@ export default function AdminProductsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <Skeleton className="h-8 w-28 mb-2" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-24" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Skeleton className="h-10 flex-1" />
+              <Skeleton className="h-10 w-[160px]" />
+              <Skeleton className="h-10 w-[160px]" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-0">
+            <TableSkeleton columns={6} rows={10} />
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -408,7 +434,7 @@ export default function AdminProductsPage() {
                               </Badge>
                             ) : (
                               <Badge variant="secondary">
-                                {totalStock} in stock
+                                {totalStock >= UNLIMITED_STOCK ? "Unlimited" : `${totalStock} in stock`}
                               </Badge>
                             )}
                             {product.productType === "VARIABLE" && product.variants && product.variants.length > 0 && (

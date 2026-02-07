@@ -23,6 +23,7 @@ async function checkAdmin() {
 export async function getAdminOrders(options?: {
   status?: OrderStatus;
   search?: string;
+  userId?: string;
   limit?: number;
   offset?: number;
 }) {
@@ -33,6 +34,10 @@ export async function getAdminOrders(options?: {
 
     if (options?.status) {
       where.status = options.status;
+    }
+
+    if (options?.userId) {
+      where.userId = options.userId;
     }
 
     if (options?.search) {

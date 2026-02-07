@@ -30,6 +30,7 @@ import {
 import { getProductById, updateProduct, getAdminCategories } from "@/actions/admin/products";
 import { AttributeSelector, ImageUploader, VariantMatrix } from "@/components/admin";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 
 const productSchema = z.object({
@@ -317,8 +318,39 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10" />
+          <div>
+            <Skeleton className="h-8 w-40 mb-2" />
+            <Skeleton className="h-4 w-28" />
+          </div>
+        </div>
+        <div className="grid lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader><Skeleton className="h-6 w-32" /></CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-32 w-full rounded-lg" />
+              <div className="flex gap-2">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-20 w-20 rounded-md" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><Skeleton className="h-6 w-24" /></CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <div className="grid grid-cols-2 gap-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -633,8 +665,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                       <FormItem>
                         <FormLabel>Category</FormLabel>
                         <Select
-                          onValueChange={field.onChange}
-                          value={field.value ?? undefined}
+                          value={field.value ?? "__none__"}
+                          onValueChange={(v) => field.onChange(v === "__none__" ? null : v)}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -642,15 +674,14 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {categories
-                              .filter((c) => c.parentId)
-                              .map((category) => (
-                                <SelectItem key={category.id} value={category.id}>
-                                  {category.parent
-                                    ? `${category.parent.name} › ${category.name}`
-                                    : category.name}
-                                </SelectItem>
-                              ))}
+                            <SelectItem value="__none__">No category</SelectItem>
+                            {categories.map((category) => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.parent
+                                  ? `${category.parent.name} › ${category.name}`
+                                  : category.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />

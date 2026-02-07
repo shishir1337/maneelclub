@@ -496,8 +496,8 @@ export default function NewProductPage() {
                       <FormItem>
                         <FormLabel>Category</FormLabel>
                         <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value ?? undefined}
+                          value={field.value ?? "__none__"}
+                          onValueChange={(v) => field.onChange(v === "__none__" ? null : v)}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -505,15 +505,14 @@ export default function NewProductPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {categories
-                              .filter((c) => c.parentId)
-                              .map((category) => (
-                                <SelectItem key={category.id} value={category.id}>
-                                  {category.parent
-                                    ? `${category.parent.name} › ${category.name}`
-                                    : category.name}
-                                </SelectItem>
-                              ))}
+                            <SelectItem value="__none__">No category</SelectItem>
+                            {categories.map((category) => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.parent
+                                  ? `${category.parent.name} › ${category.name}`
+                                  : category.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />

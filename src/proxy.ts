@@ -3,8 +3,8 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
-// Routes that require authentication
-const protectedRoutes = ["/dashboard", "/checkout"];
+// Routes that require authentication (checkout is allowed for guests)
+const protectedRoutes = ["/dashboard"];
 
 // Routes that require admin role
 const adminRoutes = ["/admin"];

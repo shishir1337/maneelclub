@@ -149,6 +149,9 @@ export const ORDER_STATUSES = [
 
 // ==================== PRODUCT ====================
 
+/** Stock value used for "unlimited" in admin; frontend shows "In stock" instead of the number when >= this */
+export const UNLIMITED_STOCK = 999999;
+
 export const PRODUCT_COLORS = [
   { value: "black", label: "Black", hex: "#000000" },
   { value: "white", label: "White", hex: "#FFFFFF" },

@@ -21,16 +21,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCartStore } from "@/store/cart-store";
 import { formatPrice } from "@/lib/format";
-import { CITIES, getShippingCost } from "@/lib/constants";
 import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { createOrder } from "@/actions/orders";
 import { PaymentMethodSelector } from "@/components/checkout/payment-method-selector";
@@ -43,14 +36,23 @@ interface MerchantNumbers {
   rocket: string;
 }
 
-interface CheckoutClientProps {
-  merchantNumbers: MerchantNumbers;
+interface ShippingRates {
+  dhaka: number;
+  outside: number;
 }
 
-export default function CheckoutClient({ merchantNumbers }: CheckoutClientProps) {
+interface CheckoutClientProps {
+  merchantNumbers: MerchantNumbers;
+  shippingRates: ShippingRates;
+}
+
+const OUTSIDE_DHAKA_AREAS =
+  "Ashulia, Dhamrai, Dohar, Hemayetpur, Savar, Keraniganj, Nawabganj";
+
+export default function CheckoutClient({ merchantNumbers, shippingRates }: CheckoutClientProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const { items, getSubtotal, clearCart } = useCartStore();
+  const { items, getSubtotal } = useCartStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Wait for hydration
@@ -76,6 +78,7 @@ export default function CheckoutClient({ merchantNumbers }: CheckoutClientProps)
       phone: "",
       address: "",
       city: "",
+      shippingZone: "inside_dhaka",
       altPhone: "",
       deliveryNote: "",
       paymentMethod: "COD",
@@ -83,10 +86,11 @@ export default function CheckoutClient({ merchantNumbers }: CheckoutClientProps)
       transactionId: "",
     },
   });
-  
-  const selectedCity = form.watch("city");
+
+  const shippingZone = form.watch("shippingZone");
   const subtotal = getSubtotal();
-  const shippingCost = selectedCity ? getShippingCost(selectedCity) : 0;
+  const shippingCost =
+    shippingZone === "inside_dhaka" ? shippingRates.dhaka : shippingRates.outside;
   const total = subtotal + shippingCost;
   
   // Show loading during hydration
@@ -166,10 +170,7 @@ export default function CheckoutClient({ merchantNumbers }: CheckoutClientProps)
       });
       
       if (result.success && result.data) {
-        // Clear cart
-        clearCart();
-        
-        // Redirect to confirmation
+        // Redirect first; cart is cleared on order-confirmation page to avoid flashing empty cart
         router.push(`/order-confirmation?order=${result.data.orderNumber}`);
       } else {
         toast.error(result.error || "Failed to place order");
@@ -193,12 +194,11 @@ export default function CheckoutClient({ merchantNumbers }: CheckoutClientProps)
       </nav>
       
       <h1 className="text-2xl md:text-3xl font-bold mb-8">Checkout</h1>
-      
-      <div className="grid lg:grid-cols-3 gap-8">
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="grid lg:grid-cols-3 gap-8">
         {/* Checkout Form */}
-        <div className="lg:col-span-2">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="lg:col-span-2 space-y-6">
               {/* Contact Information */}
               <Card>
                 <CardHeader>
@@ -289,29 +289,18 @@ export default function CheckoutClient({ merchantNumbers }: CheckoutClientProps)
                       name="city"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>City / District *</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select city" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {CITIES.map((city) => (
-                                <SelectItem key={city.value} value={city.value}>
-                                  {city.label} ({formatPrice(city.shippingCost)} delivery)
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <FormLabel>Area / City *</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="e.g. Dhanmondi, Mirpur, Uttara, Savar"
+                              {...field}
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={form.control}
                       name="altPhone"
@@ -383,12 +372,57 @@ export default function CheckoutClient({ merchantNumbers }: CheckoutClientProps)
                   )}
                 </Button>
               </div>
-            </form>
-          </Form>
         </div>
-        
-        {/* Order Summary */}
-        <div className="lg:col-span-1">
+
+        {/* Order Summary + Shipping */}
+        <div className="lg:col-span-1 space-y-4">
+          {/* Shipping options */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Shipping</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={form.control}
+                name="shippingZone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <RadioGroup
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        className="space-y-3"
+                      >
+                        <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+                          <RadioGroupItem value="inside_dhaka" className="mt-0.5" />
+                          <div className="flex-1 text-sm">
+                            <p className="font-medium">Inside Dhaka City Corporation</p>
+                            <p className="text-muted-foreground">
+                              Shipping Cost: {formatPrice(shippingRates.dhaka)}
+                            </p>
+                          </div>
+                        </label>
+                        <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+                          <RadioGroupItem value="outside_dhaka" className="mt-0.5" />
+                          <div className="flex-1 text-sm">
+                            <p className="font-medium">Outside Dhaka City Corporation</p>
+                            <p className="text-muted-foreground text-xs">
+                              ({OUTSIDE_DHAKA_AREAS})
+                            </p>
+                            <p className="text-muted-foreground mt-0.5">
+                              Shipping Cost: {formatPrice(shippingRates.outside)}
+                            </p>
+                          </div>
+                        </label>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
           <Card className="sticky top-24">
             <CardHeader>
               <CardTitle className="text-lg">Order Summary</CardTitle>
@@ -430,11 +464,9 @@ export default function CheckoutClient({ merchantNumbers }: CheckoutClientProps)
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
                   <span>
-                    {selectedCity ? (
-                      formatPrice(shippingCost)
-                    ) : (
-                      <span className="text-muted-foreground">Select city</span>
-                    )}
+                    {shippingZone === "inside_dhaka"
+                      ? `Inside DCC · ${formatPrice(shippingCost)}`
+                      : `Outside DCC · ${formatPrice(shippingCost)}`}
                   </span>
                 </div>
                 <Separator />
@@ -468,7 +500,8 @@ export default function CheckoutClient({ merchantNumbers }: CheckoutClientProps)
             </CardContent>
           </Card>
         </div>
-      </div>
+        </form>
+      </Form>
     </div>
   );
 }

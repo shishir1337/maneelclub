@@ -55,6 +55,7 @@ import {
   getRecentActivity,
 } from "@/actions/admin/analytics";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Colors for charts
 const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7300", "#0088fe"];
@@ -219,8 +220,31 @@ export default function AdminAnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-24 mb-2" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader><Skeleton className="h-6 w-40" /></CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full rounded-lg" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><Skeleton className="h-6 w-40" /></CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full rounded-lg" />
+            </CardContent>
+          </Card>
+        </div>
+        <Card>
+          <CardHeader><Skeleton className="h-6 w-32" /></CardHeader>
+          <CardContent>
+            <Skeleton className="h-[250px] w-full rounded-lg" />
+          </CardContent>
+        </Card>
       </div>
     );
   }

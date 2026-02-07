@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,8 @@ import { ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHODS } from "@/lib/constan
 import { getAdminOrders, updateOrderStatus, verifyPayment, rejectPayment } from "@/actions/admin/orders";
 import { toast } from "sonner";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface OrderItem {
   id: string;
@@ -91,6 +94,9 @@ const paymentMethodColors: Record<string, string> = {
 };
 
 export default function AdminOrdersPage() {
+  const searchParams = useSearchParams();
+  const customerId = searchParams.get("customer") ?? undefined;
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,12 +108,12 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [customerId]);
 
   async function loadOrders() {
     setLoading(true);
     try {
-      const result = await getAdminOrders();
+      const result = await getAdminOrders({ userId: customerId });
 
       if (result.success && result.data) {
         setOrders(result.data.orders as unknown as Order[]);
@@ -208,8 +214,28 @@ export default function AdminOrdersPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-24 mb-2" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-20" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Skeleton className="h-10 flex-1" />
+              <Skeleton className="h-10 w-[180px]" />
+              <Skeleton className="h-10 w-[180px]" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-0">
+            <TableSkeleton columns={7} rows={8} />
+          </CardContent>
+        </Card>
       </div>
     );
   }

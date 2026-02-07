@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, MoreHorizontal, Mail, ShoppingBag, Loader2, Users, UserCheck } from "lucide-react";
+import { Search, MoreHorizontal, Mail, ShoppingBag, Users, UserCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,8 @@ import {
 import { formatPrice, formatDate } from "@/lib/format";
 import { getAdminCustomers, getCustomerStats } from "@/actions/admin/customers";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 
 interface Customer {
   id: string;
@@ -99,8 +101,30 @@ export default function AdminCustomersPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-28 mb-2" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-4" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="h-3 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardContent className="p-0">
+            <TableSkeleton columns={5} rows={8} />
+          </CardContent>
+        </Card>
       </div>
     );
   }

@@ -274,7 +274,7 @@ export async function createProduct(input: ProductInput, variants?: VariantRecor
         where: { id: created.id },
         include: { category: true, variants: true },
       });
-    });
+    }, { timeout: 30000 });
 
     if (!product) {
       return { success: false, error: "Failed to create product" };
@@ -414,7 +414,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>, va
         where: { id },
         include: { category: true, variants: true },
       });
-    });
+    }, { timeout: 30000 });
 
     if (!updated) {
       return { success: false, error: "Failed to update product" };

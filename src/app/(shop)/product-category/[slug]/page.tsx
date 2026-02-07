@@ -13,7 +13,7 @@ interface CategoryPageProps {
   searchParams: Promise<{ sort?: string }>;
 }
 
-// Get category info from mock data
+// Get category info from database
 async function getCategoryInfo(slug: string) {
   const { data: categories } = await getCategories();
   return categories?.find((c) => c.slug === slug) || null;

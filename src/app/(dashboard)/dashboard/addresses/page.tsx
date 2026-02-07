@@ -52,6 +52,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { z } from "zod";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CITIES } from "@/lib/constants";
 import {
   getUserAddresses,
@@ -218,8 +219,37 @@ export default function AddressesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-10 w-10 lg:hidden" />
+            <div>
+              <Skeleton className="h-8 w-40 mb-2" />
+              <Skeleton className="h-4 w-56" />
+            </div>
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {[1, 2].map((i) => (
+            <Card key={i}>
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-5 w-14" />
+                  </div>
+                  <Skeleton className="h-8 w-8" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }

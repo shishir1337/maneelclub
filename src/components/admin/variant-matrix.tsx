@@ -4,6 +4,9 @@ import { useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Infinity } from "lucide-react";
+import { UNLIMITED_STOCK } from "@/lib/constants";
 import {
   Table,
   TableBody,
@@ -198,6 +201,7 @@ export function VariantMatrix({
     (sum, v) => sum + (v?.stock || 0),
     0
   );
+  const isUnlimited = totalStock >= UNLIMITED_STOCK;
 
   return (
     <Card>
@@ -210,13 +214,13 @@ export function VariantMatrix({
             </CardDescription>
           </div>
           <Badge variant="secondary" className="text-base">
-            Total: {totalStock} units
+            Total: {isUnlimited ? "Unlimited" : `${totalStock} units`}
           </Badge>
         </div>
       </CardHeader>
       <CardContent>
         {/* Bulk stock setter */}
-        <div className="flex items-center gap-4 mb-4 pb-4 border-b">
+        <div className="flex flex-wrap items-center gap-4 mb-4 pb-4 border-b">
           <Label className="text-sm font-medium">Set all stock to:</Label>
           <Input
             type="number"
@@ -240,6 +244,16 @@ export function VariantMatrix({
               }
             }}
           />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleBulkStockChange(UNLIMITED_STOCK)}
+            className="gap-1.5"
+          >
+            <Infinity className="h-4 w-4" />
+            Set unlimited
+          </Button>
         </div>
 
         <div className="overflow-x-auto">

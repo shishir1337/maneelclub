@@ -15,6 +15,7 @@ import {
   AddToCartButton,
 } from "@/components/product";
 import { formatPrice, calculateDiscount } from "@/lib/format";
+import { UNLIMITED_STOCK } from "@/lib/constants";
 
 interface ProductVariant {
   id: string;
@@ -294,9 +295,11 @@ export function ProductDetails({ product }: ProductDetailsProps) {
                 </span>
               ) : isInStock ? (
                 <span className="text-sm text-green-600 font-medium">
-                  {trackInventory 
-                    ? `✓ In Stock (${currentStock} available)` 
-                    : "✓ In Stock"}
+                  {trackInventory
+                    ? currentStock >= UNLIMITED_STOCK
+                      ? "✓ In stock"
+                      : `✓ In stock (${currentStock} available)`
+                    : "✓ In stock"}
                 </span>
               ) : (
                 <span className="text-sm text-destructive font-medium">

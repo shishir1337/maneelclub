@@ -6,6 +6,7 @@ import { siteConfig } from "@/lib/constants";
 const footerLinks = {
   shop: [
     { name: "All Products", href: "/shop" },
+    { name: "About Us", href: "/about" },
     { name: "New Arrivals", href: "/product-category/new-arrivals" },
     { name: "Winter Collection", href: "/product-category/winter-collection" },
     { name: "Hoodie", href: "/product-category/hoodie" },

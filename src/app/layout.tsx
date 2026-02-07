@@ -55,7 +55,7 @@ export default async function RootLayout({
   const metaPixel = await getMetaPixelSettings();
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
         <MetaPixelScript pixelId={metaPixel.pixelId} enabled={metaPixel.enabled} />
         <Providers>{children}</Providers>
       </body>

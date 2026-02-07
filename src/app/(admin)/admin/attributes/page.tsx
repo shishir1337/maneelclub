@@ -49,6 +49,8 @@ import {
 } from "@/actions/admin/attributes";
 import { slugify } from "@/lib/format";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 
 interface AttributeValue {
   id: string;
@@ -280,8 +282,19 @@ export default function AdminAttributesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <Skeleton className="h-8 w-24 mb-2" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <Card>
+          <CardContent className="p-0">
+            <TableSkeleton columns={4} rows={8} />
+          </CardContent>
+        </Card>
       </div>
     );
   }

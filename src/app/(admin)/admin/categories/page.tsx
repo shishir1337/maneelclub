@@ -49,6 +49,8 @@ import {
 } from "@/actions/admin/products";
 import { slugify } from "@/lib/format";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 
 interface Category {
   id: string;
@@ -238,8 +240,19 @@ export default function AdminCategoriesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <Skeleton className="h-8 w-28 mb-2" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+          <Skeleton className="h-10 w-36" />
+        </div>
+        <Card>
+          <CardContent className="p-0">
+            <TableSkeleton columns={4} rows={8} />
+          </CardContent>
+        </Card>
       </div>
     );
   }

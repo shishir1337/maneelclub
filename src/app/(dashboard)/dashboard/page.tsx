@@ -4,6 +4,8 @@ import { Package, MapPin, User, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getUserOrders } from "@/actions/orders";
+import { formatPrice, formatDate } from "@/lib/format";
 
 // Quick action cards data
 const quickActions = [
@@ -44,9 +46,9 @@ function DashboardSkeleton() {
 }
 
 async function DashboardContent() {
-  // In production, fetch user data here
-  // const session = await auth.api.getSession({ headers: await headers() });
-  
+  const ordersResult = await getUserOrders(5);
+  const recentOrders = ordersResult.success && ordersResult.data ? ordersResult.data : [];
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
@@ -80,7 +82,7 @@ async function DashboardContent() {
         ))}
       </div>
 
-      {/* Recent Orders Placeholder */}
+      {/* Recent Orders */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -94,14 +96,30 @@ async function DashboardContent() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No orders yet</p>
-            <p className="text-sm">Start shopping to see your orders here</p>
-            <Button className="mt-4" asChild>
-              <Link href="/shop">Browse Products</Link>
-            </Button>
-          </div>
+          {recentOrders.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No orders yet</p>
+              <p className="text-sm">Start shopping to see your orders here</p>
+              <Button className="mt-4" asChild>
+                <Link href="/shop">Browse Products</Link>
+              </Button>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {recentOrders.map((order) => (
+                <li key={order.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div>
+                    <Link href="/dashboard/orders" className="font-medium text-primary hover:underline">
+                      #{order.orderNumber}
+                    </Link>
+                    <p className="text-sm text-muted-foreground">{formatDate(order.createdAt)}</p>
+                  </div>
+                  <span className="font-medium">{formatPrice(Number(order.total))}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

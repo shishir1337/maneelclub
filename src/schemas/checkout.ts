@@ -1,8 +1,11 @@
 import { z } from "zod";
-import { CITIES, PAYMENT_METHODS } from "@/lib/constants";
+import { PAYMENT_METHODS } from "@/lib/constants";
 
-const cityValues = CITIES.map((c) => c.value) as [string, ...string[]];
 const paymentMethodValues = PAYMENT_METHODS.map((p) => p.value) as [string, ...string[]];
+
+// Shipping zone: inside Dhaka City Corporation or outside
+export const SHIPPING_ZONE_VALUES = ["inside_dhaka", "outside_dhaka"] as const;
+export type ShippingZone = (typeof SHIPPING_ZONE_VALUES)[number];
 
 // Base checkout schema without payment
 const baseCheckoutSchema = z.object({
@@ -30,8 +33,15 @@ const baseCheckoutSchema = z.object({
     .min(10, "Please enter a detailed address")
     .max(500, "Address is too long"),
   
-  city: z.enum(cityValues as [string, ...string[]], {
-    error: "Please select a city",
+  // Area / City (free text, e.g. Dhanmondi, Mirpur, Savar)
+  city: z
+    .string()
+    .min(2, "Please enter your area or city")
+    .max(100, "Area/City is too long"),
+  
+  // Which shipping rate applies (from admin settings)
+  shippingZone: z.enum(SHIPPING_ZONE_VALUES, {
+    message: "Please select shipping area",
   }),
   
   altPhone: z

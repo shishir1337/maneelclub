@@ -1,7 +1,11 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import * as dotenv from "dotenv";
+import * as path from "path";
+import { DEFAULT_SETTINGS } from "../src/lib/settings-defaults";
 
+// Load .env.local first (Next.js convention), then .env
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 dotenv.config();
 
 const adapter = new PrismaPg({
@@ -11,7 +15,21 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is not set. Use .env.local or .env.");
+  }
   console.log("Seeding database...");
+
+  // ==================== SEED SETTINGS ====================
+  console.log("Seeding settings...");
+  for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
+    await prisma.setting.upsert({
+      where: { key },
+      update: { value: String(value) },
+      create: { key, value: String(value) },
+    });
+  }
+  console.log(`Seeded ${Object.keys(DEFAULT_SETTINGS).length} settings`);
 
   // ==================== SEED ATTRIBUTES ====================
   console.log("Seeding attributes...");

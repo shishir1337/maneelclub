@@ -15,6 +15,8 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Separator } from "@/components/ui/separator";
 import { siteConfig } from "@/lib/constants";
 
+export const dynamic = "force-dynamic";
+
 const sidebarLinks = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "My Orders", href: "/dashboard/orders", icon: ShoppingBag },

@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { generateOrderNumber } from "@/lib/format";
-import { getShippingCost } from "@/lib/constants";
+import { getShippingRates } from "@/lib/settings";
 import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
@@ -123,9 +123,11 @@ export async function createOrder(input: CreateOrderInput) {
       // User not logged in, that's fine for guest checkout
     }
     
-    // Calculate totals
+    // Calculate totals (shipping from admin settings via shippingZone)
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const shippingCost = getShippingCost(formData.city);
+    const rates = await getShippingRates();
+    const shippingCost =
+      formData.shippingZone === "inside_dhaka" ? rates.dhaka : rates.outside;
     const total = subtotal + shippingCost;
     
     // Determine payment method and status
@@ -324,14 +326,14 @@ export async function getOrderByNumber(orderNumber: string) {
 }
 
 /**
- * Get orders for current user
+ * Get orders for current user (optionally limited for recent orders)
  */
-export async function getUserOrders() {
+export async function getUserOrders(limit?: number) {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
     });
-    
+
     if (!session?.user) {
       return {
         success: false,
@@ -339,7 +341,7 @@ export async function getUserOrders() {
         data: [],
       };
     }
-    
+
     const orders = await db.order.findMany({
       where: { userId: session.user.id },
       include: {
@@ -350,6 +352,7 @@ export async function getUserOrders() {
         },
       },
       orderBy: { createdAt: "desc" },
+      ...(limit != null && { take: limit }),
     });
 
     // Serialize Decimal fields to numbers (required when passing to Client Components)
