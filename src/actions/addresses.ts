@@ -38,10 +38,7 @@ export async function getUserAddresses() {
 
     const addresses = await db.address.findMany({
       where: { userId: currentUser.id },
-      orderBy: [
-        { isDefault: "desc" },
-        { createdAt: "desc" },
-      ],
+      orderBy: { isDefault: "desc" },
     });
 
     return { success: true, data: addresses };
@@ -218,7 +215,7 @@ export async function deleteAddress(id: string) {
     if (existing.isDefault) {
       const nextDefault = await db.address.findFirst({
         where: { userId: currentUser.id },
-        orderBy: { createdAt: "desc" },
+        orderBy: { isDefault: "desc" },
       });
 
       if (nextDefault) {
