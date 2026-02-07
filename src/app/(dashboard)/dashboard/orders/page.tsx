@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice, formatDate } from "@/lib/format";
+import { ORDER_STATUS } from "@/lib/constants";
 import { getUserOrders } from "@/actions/orders";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -119,15 +120,27 @@ export default function OrdersPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <CardTitle className="text-base">
-                      Order #{order.orderNumber}
+                      <Link
+                        href={`/dashboard/orders/${order.id}`}
+                        className="text-primary hover:underline"
+                      >
+                        Order #{order.orderNumber}
+                      </Link>
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">
                       Placed on {formatDate(new Date(order.createdAt))}
                     </p>
                   </div>
-                  <Badge className={statusColors[order.status]}>
-                    {order.status}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={statusColors[order.status]}>
+                      {ORDER_STATUS[order.status as keyof typeof ORDER_STATUS]?.label ?? order.status}
+                    </Badge>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/dashboard/orders/${order.id}`}>
+                        View details
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

@@ -26,12 +26,12 @@ interface ProductTabsProps {
 }
 
 const shippingInfo = `
-**Dhaka City Home Delivery - ৳70**
+**Dhaka City Home Delivery - ৳80**
 Products are delivered via Cash on Delivery (COD) within Dhaka City Corporation areas.
 After placing an order, you can pay the delivery person upon receiving the product.
 
 **Return Policy:**
-- Dhaka City: ৳70 return charge
+- Dhaka City: ৳80 return charge
 - Outside Dhaka: ৳130 return charge
 
 **Outside Dhaka - ৳130**
@@ -123,7 +123,7 @@ export function ProductTabs({ description, sizeChart }: ProductTabsProps) {
           <div className="space-y-4 text-muted-foreground">
             <div>
               <h4 className="font-semibold text-foreground mb-2">
-                Dhaka City Home Delivery - ৳70
+                Dhaka City Home Delivery - ৳80
               </h4>
               <p>
                 Products are delivered via Cash on Delivery (COD) within Dhaka City Corporation areas.

@@ -28,7 +28,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getProductById, updateProduct, getAdminCategories } from "@/actions/admin/products";
-import { AttributeSelector, ImageUploader, VariantMatrix } from "@/components/admin";
+import { AttributeSelector, ImageUploader, VariantMatrix, SizeGuideEditor } from "@/components/admin";
+import type { SizeChartValue } from "@/components/admin/size-guide-editor";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
@@ -89,6 +90,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   // Attribute and variant state
   const [selectedAttributes, setSelectedAttributes] = useState<SelectedAttribute[]>([]);
   const [variantStocks, setVariantStocks] = useState<VariantStock>({});
+  const [sizeChart, setSizeChart] = useState<SizeChartValue | null>(null);
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema) as Resolver<ProductFormData>,
@@ -151,6 +153,15 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         });
         
         setImages(product.images?.length ? product.images : []);
+
+        const existingSizeChart = (product as { sizeChart?: SizeChartValue | null }).sizeChart;
+        setSizeChart(
+          existingSizeChart &&
+            Array.isArray(existingSizeChart.headers) &&
+            Array.isArray(existingSizeChart.rows)
+            ? existingSizeChart
+            : null
+        );
 
         const p = product as unknown as {
           colors?: string[];
@@ -299,6 +310,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           stock: isVariable
             ? Object.values(variantStocks).reduce((sum, v) => sum + (v?.stock ?? 0), 0)
             : 999,
+          sizeChart: sizeChart?.headers?.length && sizeChart?.rows?.length ? sizeChart : null,
         },
         variantsData
       );
@@ -600,6 +612,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   <ImageUploader images={images} onChange={setImages} maxImages={10} />
                 </CardContent>
               </Card>
+
+              <SizeGuideEditor value={sizeChart} onChange={setSizeChart} />
             </div>
 
             {/* Sidebar */}

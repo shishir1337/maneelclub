@@ -113,6 +113,7 @@ export default function CartPage() {
                       alt={item.title}
                       fill
                       className="object-cover"
+                      unoptimized={item.image.startsWith("/uploads/")}
                     />
                   </Link>
 

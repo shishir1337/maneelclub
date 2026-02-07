@@ -21,12 +21,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCartStore } from "@/store/cart-store";
 import { formatPrice } from "@/lib/format";
 import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { createOrder } from "@/actions/orders";
 import { PaymentMethodSelector } from "@/components/checkout/payment-method-selector";
+import { CityCombobox } from "@/components/checkout/city-combobox";
 import { toast } from "sonner";
 import { trackInitiateCheckout } from "@/lib/data-layer";
 
@@ -41,15 +41,20 @@ interface ShippingRates {
   outside: number;
 }
 
+interface CityWithZone {
+  id: string;
+  name: string;
+  value: string;
+  shippingZone: "inside_dhaka" | "outside_dhaka";
+}
+
 interface CheckoutClientProps {
   merchantNumbers: MerchantNumbers;
   shippingRates: ShippingRates;
+  cities: CityWithZone[];
 }
 
-const OUTSIDE_DHAKA_AREAS =
-  "Ashulia, Dhamrai, Dohar, Hemayetpur, Savar, Keraniganj, Nawabganj";
-
-export default function CheckoutClient({ merchantNumbers, shippingRates }: CheckoutClientProps) {
+export default function CheckoutClient({ merchantNumbers, shippingRates, cities }: CheckoutClientProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const { items, getSubtotal } = useCartStore();
@@ -291,12 +296,19 @@ export default function CheckoutClient({ merchantNumbers, shippingRates }: Check
                         <FormItem>
                           <FormLabel>Area / City *</FormLabel>
                           <FormControl>
-                            <Input
-                              placeholder="e.g. Dhanmondi, Mirpur, Uttara, Savar"
-                              {...field}
+                            <CityCombobox
+                              cities={cities}
+                              value={field.value}
+                              onChange={(value, shippingZone) => {
+                                field.onChange(value);
+                                form.setValue("shippingZone", shippingZone);
+                              }}
+                              placeholder="Search area or city..."
+                              aria-invalid={!!form.formState.errors.city}
+                              aria-describedby={form.formState.errors.city ? "city-error" : undefined}
                             />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage id="city-error" />
                         </FormItem>
                       )}
                     />
@@ -376,50 +388,25 @@ export default function CheckoutClient({ merchantNumbers, shippingRates }: Check
 
         {/* Order Summary + Shipping */}
         <div className="lg:col-span-1 space-y-4">
-          {/* Shipping options */}
+          {/* Shipping - Auto-set from city selection */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Shipping</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Delivery zone is set automatically based on your selected area/city.
+              </p>
             </CardHeader>
             <CardContent>
-              <FormField
-                control={form.control}
-                name="shippingZone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <RadioGroup
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        className="space-y-3"
-                      >
-                        <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-                          <RadioGroupItem value="inside_dhaka" className="mt-0.5" />
-                          <div className="flex-1 text-sm">
-                            <p className="font-medium">Inside Dhaka City Corporation</p>
-                            <p className="text-muted-foreground">
-                              Shipping Cost: {formatPrice(shippingRates.dhaka)}
-                            </p>
-                          </div>
-                        </label>
-                        <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-                          <RadioGroupItem value="outside_dhaka" className="mt-0.5" />
-                          <div className="flex-1 text-sm">
-                            <p className="font-medium">Outside Dhaka City Corporation</p>
-                            <p className="text-muted-foreground text-xs">
-                              ({OUTSIDE_DHAKA_AREAS})
-                            </p>
-                            <p className="text-muted-foreground mt-0.5">
-                              Shipping Cost: {formatPrice(shippingRates.outside)}
-                            </p>
-                          </div>
-                        </label>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="rounded-lg border p-3 bg-muted/30">
+                <p className="text-sm font-medium">
+                  {shippingZone === "inside_dhaka"
+                    ? "Inside Dhaka City Corporation"
+                    : "Outside Dhaka City Corporation"}
+                </p>
+                <p className="text-muted-foreground text-sm mt-0.5">
+                  Shipping: {formatPrice(shippingCost)}
+                </p>
+              </div>
             </CardContent>
           </Card>
 
@@ -438,6 +425,7 @@ export default function CheckoutClient({ merchantNumbers, shippingRates }: Check
                         alt={item.title}
                         fill
                         className="object-cover"
+                        unoptimized={item.image.startsWith("/uploads/")}
                       />
                     </div>
                     <div className="flex-1 min-w-0">

@@ -30,10 +30,13 @@ export const DEFAULT_SETTINGS = {
   lowStockThreshold: "5",
   freeShippingMinimum: "2000",
 
-  // Meta Pixel / Facebook Tracking (configure after deployment)
+  // Meta Pixel / Facebook Tracking (configure in Admin → Settings → Tracking)
   metaPixelEnabled: "false",
   metaPixelId: "",
   metaCapiAccessToken: "",
+
+  // Google Tag Manager (container ID, e.g. GTM-52G5CZNB)
+  gtmContainerId: "",
 } as const;
 
 export type SettingsKey = keyof typeof DEFAULT_SETTINGS;

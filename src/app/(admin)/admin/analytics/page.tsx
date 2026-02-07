@@ -45,6 +45,7 @@ import {
   Cell,
 } from "recharts";
 import { formatPrice } from "@/lib/format";
+import { ORDER_STATUS } from "@/lib/constants";
 import {
   getAnalyticsOverview,
   getRevenueByPeriod,
@@ -467,6 +468,7 @@ export default function AdminAnalyticsPage() {
                         alt={product.title}
                         fill
                         className="object-cover"
+                        unoptimized={(product.image ?? "").startsWith("/uploads/")}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -649,7 +651,7 @@ export default function AdminAnalyticsPage() {
                     <div className="text-right">
                       <p className="font-medium">{formatPrice(order.total)}</p>
                       <Badge className={STATUS_COLORS[order.status] || ""}>
-                        {order.status}
+                        {ORDER_STATUS[order.status as keyof typeof ORDER_STATUS]?.label ?? order.status}
                       </Badge>
                     </div>
                   </div>
@@ -671,7 +673,7 @@ export default function AdminAnalyticsPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 rounded-lg bg-yellow-50 dark:bg-yellow-950/20">
                 <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  Pending
+                  Hold
                 </p>
                 <p className="text-2xl font-bold text-yellow-600">
                   {overview.ordersByStatus.pending}

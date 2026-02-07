@@ -69,8 +69,11 @@ export default async function OrderConfirmationPage({ searchParams }: OrderConfi
         <h1 className="text-2xl md:text-3xl font-bold text-green-600 mb-2">
           Order Placed Successfully!
         </h1>
-        <p className="text-muted-foreground">
-          Thank you for your order. We&apos;ll contact you soon to confirm.
+        <p className="text-muted-foreground mb-3">
+          Thank you for your order.
+        </p>
+        <p className="text-base font-medium text-foreground bg-muted/60 inline-block px-4 py-2 rounded-lg border border-border">
+          We will call you within 24 hours to confirm your order.
         </p>
       </div>
 
@@ -90,7 +93,7 @@ export default async function OrderConfirmationPage({ searchParams }: OrderConfi
               <div>
                 <p className="font-medium">What&apos;s Next?</p>
                 <p className="text-sm text-muted-foreground">
-                  We&apos;ll call you to confirm your order and delivery details.
+                  We will call you within 24 hours to confirm your order and delivery details.
                   Your order will be delivered within 2-5 business days.
                 </p>
               </div>

@@ -18,6 +18,8 @@ interface AddToCartButtonProps {
   size: string;
   quantity: number;
   variant?: "default" | "buy-now";
+  /** When false, product has no color/size attributes; don't require selection */
+  requiresColorSize?: boolean;
   className?: string;
   disabled?: boolean;
 }
@@ -32,6 +34,7 @@ export function AddToCartButton({
   size,
   quantity,
   variant = "default",
+  requiresColorSize = true,
   className,
   disabled = false,
 }: AddToCartButtonProps) {
@@ -40,7 +43,7 @@ export function AddToCartButton({
   const router = useRouter();
 
   const handleClick = async () => {
-    if (!color || !size) {
+    if (requiresColorSize && (!color || !size)) {
       toast.error("Please select color and size");
       return;
     }
@@ -56,8 +59,8 @@ export function AddToCartButton({
       slug,
       image,
       price,
-      color,
-      size,
+      color: color || "—",
+      size: size || "—",
       quantity,
     });
 
@@ -71,9 +74,8 @@ export function AddToCartButton({
     if (variant === "buy-now") {
       router.push("/checkout");
     } else {
-      toast.success("Added to cart", {
-        description: `${title} - ${color}, ${size}`,
-      });
+      const desc = requiresColorSize ? `${title} - ${color}, ${size}` : title;
+      toast.success("Added to cart", { description: desc });
     }
 
     setIsLoading(false);

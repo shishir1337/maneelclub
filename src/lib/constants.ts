@@ -23,7 +23,7 @@ export const siteConfig = {
 // ==================== SHIPPING ====================
 
 export const SHIPPING_RATES = {
-  dhaka: 70,
+  dhaka: 80,
   outside: 130,
 } as const;
 
@@ -114,13 +114,13 @@ export type PaymentMethodValue = (typeof PAYMENT_METHODS)[number]["value"];
 
 // Payment status display
 export const PAYMENT_STATUS = {
-  PENDING: { label: "Pending", labelBn: "অপেক্ষমাণ", color: "bg-yellow-100 text-yellow-800" },
+  PENDING: { label: "Hold", labelBn: "অপেক্ষমাণ", color: "bg-yellow-100 text-yellow-800" },
   PAID: { label: "Paid", labelBn: "পেইড", color: "bg-green-100 text-green-800" },
   FAILED: { label: "Failed", labelBn: "ব্যর্থ", color: "bg-red-100 text-red-800" },
 } as const;
 
 export const PAYMENT_STATUSES = [
-  { value: "PENDING", label: "Pending", labelBn: "অপেক্ষমাণ", color: "bg-yellow-100 text-yellow-800" },
+  { value: "PENDING", label: "Hold", labelBn: "অপেক্ষমাণ", color: "bg-yellow-100 text-yellow-800" },
   { value: "PAID", label: "Paid", labelBn: "পেইড", color: "bg-green-100 text-green-800" },
   { value: "FAILED", label: "Failed", labelBn: "ব্যর্থ", color: "bg-red-100 text-red-800" },
 ] as const;
@@ -128,17 +128,17 @@ export const PAYMENT_STATUSES = [
 // ==================== ORDER STATUS ====================
 
 export const ORDER_STATUS = {
-  PENDING: { label: "Pending", color: "bg-yellow-100 text-yellow-800" },
-  CONFIRMED: { label: "Confirmed", color: "bg-blue-100 text-blue-800" },
+  PENDING: { label: "Hold", color: "bg-yellow-100 text-yellow-800" },
+  CONFIRMED: { label: "Confirmed", color: "bg-blue-100 text-blue-800" }, // Legacy - kept for existing orders
   PROCESSING: { label: "Processing", color: "bg-purple-100 text-purple-800" },
   SHIPPED: { label: "Shipped", color: "bg-indigo-100 text-indigo-800" },
   DELIVERED: { label: "Delivered", color: "bg-green-100 text-green-800" },
   CANCELLED: { label: "Cancelled", color: "bg-red-100 text-red-800" },
 } as const;
 
-// Array format for dropdowns/selects
+// Array format for dropdowns/selects (CONFIRMED kept for legacy orders display only)
 export const ORDER_STATUSES = [
-  { value: "PENDING", label: "Pending", color: "bg-yellow-100 text-yellow-800" },
+  { value: "PENDING", label: "Hold", color: "bg-yellow-100 text-yellow-800" },
   { value: "CONFIRMED", label: "Confirmed", color: "bg-blue-100 text-blue-800" },
   { value: "PROCESSING", label: "Processing", color: "bg-purple-100 text-purple-800" },
   { value: "SHIPPED", label: "Shipped", color: "bg-indigo-100 text-indigo-800" },

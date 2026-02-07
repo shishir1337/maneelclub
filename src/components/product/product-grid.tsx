@@ -33,6 +33,11 @@ export function ProductGrid({ products, columns = 4 }: ProductGridProps) {
           salePrice={product.salePrice ? Number(product.salePrice) : null}
           image={product.image || product.images?.[0] || "/productImage.jpeg"}
           category={product.categoryName || product.category?.name}
+          hasColorSizeAttributes={
+            (product.colors?.length ?? 0) > 0 ||
+            (product.sizes?.length ?? 0) > 0 ||
+            (product.variants?.length ?? 0) > 0
+          }
         />
       ))}
     </div>

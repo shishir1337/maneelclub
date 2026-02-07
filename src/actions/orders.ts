@@ -132,7 +132,7 @@ export async function createOrder(input: CreateOrderInput) {
     
     // Determine payment method and status
     const paymentMethod = (formData.paymentMethod || "COD") as PaymentMethod;
-    // All orders start as PENDING payment status
+    // All orders start as PROCESSING order status and PENDING payment status
     // COD orders will be marked PAID on delivery
     // Mobile payments will be verified by admin
     const paymentStatus: PaymentStatus = "PENDING";
@@ -154,7 +154,7 @@ export async function createOrder(input: CreateOrderInput) {
           shippingCost,
           subtotal,
           total,
-          status: "PENDING",
+          status: "PROCESSING",
           // Payment fields
           paymentMethod,
           paymentStatus,
@@ -390,6 +390,84 @@ export async function getUserOrders(limit?: number) {
       success: false,
       error: "Failed to fetch orders",
       data: [],
+    };
+  }
+}
+
+/**
+ * Get a single order by id for the current user (dashboard order details).
+ * Returns 404 if order not found or not owned by the user.
+ */
+export async function getOrderForUser(orderId: string) {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Not authenticated",
+        data: null,
+      };
+    }
+
+    const order = await db.order.findFirst({
+      where: {
+        id: orderId,
+        userId: session.user.id,
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return {
+        success: false,
+        error: "Order not found",
+        data: null,
+      };
+    }
+
+    const serialized = {
+      ...order,
+      shippingCost: Number(order.shippingCost),
+      subtotal: Number(order.subtotal),
+      total: Number(order.total),
+      items: order.items.map((item) => ({
+        id: item.id,
+        orderId: item.orderId,
+        productId: item.productId,
+        color: item.color,
+        size: item.size,
+        quantity: item.quantity,
+        price: Number(item.price),
+        title: item.product?.title ?? "",
+        product: item.product
+          ? {
+              ...item.product,
+              regularPrice: Number(item.product.regularPrice),
+              salePrice: item.product.salePrice ? Number(item.product.salePrice) : null,
+            }
+          : null,
+      })),
+    };
+
+    return {
+      success: true,
+      data: serialized,
+    };
+  } catch (error) {
+    console.error("Error fetching order:", error);
+    return {
+      success: false,
+      error: "Failed to fetch order",
+      data: null,
     };
   }
 }

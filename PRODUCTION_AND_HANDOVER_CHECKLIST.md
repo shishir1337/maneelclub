@@ -13,7 +13,7 @@
 | **Auth** | Better Auth: sign up, sign in, session, roles (CUSTOMER/ADMIN) |
 | **Guest checkout** | Checkout allowed without login; orders stored with `userId: null` |
 | **Payments** | COD + bKash/Nagad/Rocket; admin can verify/reject mobile payments |
-| **Customer dashboard** | Profile, addresses CRUD, order history, recent orders on dashboard home |
+| **Customer dashboard** | Profile, addresses CRUD, order history with **order details** (view by order), recent orders on dashboard home |
 | **Admin** | Dashboard, orders (list/detail/filter by customer, status, payment verify), products CRUD (variants, images), categories, attributes, customers, **Hero Slider**, settings, analytics, invoice print |
 | **Route protection** | Proxy: `/dashboard` and `/admin` protected; non-admins redirected from `/admin` |
 | **Error handling** | `error.tsx` (Try again / Home), `not-found.tsx` (branded 404) |
@@ -21,19 +21,13 @@
 | **SEO** | Root metadata; `generateMetadata` on product, category, shop, key pages |
 | **Loading / UX** | Route-level `loading.tsx` and skeletons across shop, admin, dashboard |
 | **Tech** | Prisma + PostgreSQL, MinIO/local uploads, `.env.example` with DB, Auth, App URL, WhatsApp, MinIO, Meta CAPI |
-| **Meta** | Data layer (PageView, ViewContent, AddToCart, InitiateCheckout, Purchase); server Conversions API for Purchase |
+| **Tracking (GTM + Meta)** | **Data layer** for GTM/Meta; **Google Tag Manager** and **Meta Pixel** configurable from Admin → Settings → Tracking (GTM container ID, Pixel ID, CAPI token). Scripts injected from admin values; no code changes needed. |
 
 ---
 
 ## 🔴 Must Fix Before Launch (Blockers)
 
-### 1. **Track Order link is broken**
-
-- **Issue:** Footer has "Track Order" → `/track-order`, but that route does not exist (404).
-- **Options:**
-  - **A)** Add a simple **Track Order** page: user enters order number + phone (or email); show order status and details (public, no login). Best for guests and shared link.
-  - **B)** Change footer "Track Order" to "My Orders" → `/dashboard/orders` (only makes sense for logged-in users; guests can’t use it).
-- **Recommendation:** Add a minimal `/track-order` page (order number + phone lookup) so both guests and logged-in users can track. If you prefer not to build it now, change the footer link to `/dashboard/orders` and add a note that guests should save their order number and contact support.
+- **Track Order:** The footer "Track Order" link has been **removed** for now. Logged-in users can see order status and full details via **My Orders** → **View details** (`/dashboard/orders` and `/dashboard/orders/[id]`). A public track-order page (order number + phone) can be added later if needed.
 
 ---
 
@@ -78,11 +72,9 @@
 
 - No dynamic `sitemap.xml` or `robots.txt`. Adding them (e.g. Next.js app route for sitemap with products/categories, and a simple robots.txt) helps SEO. Optional before launch.
 
-### 7. **Meta Pixel base code and eventID**
+### 7. **Meta Pixel eventID (if using CAPI)**
 
-- Data layer and server CAPI are implemented. Document for the client:
-  - Install the **Meta Pixel base snippet** (in layout or via GTM).
-  - For **Purchase** events, send **eventID** equal to the order number so Meta can deduplicate with server-side Purchase.
+- Meta Pixel and GTM are configured in **Admin → Settings → Tracking**. The app injects the Pixel base script when enabled and pushes events to `dataLayer` for GTM. If using Conversions API, in GTM (or Meta’s setup) send **eventID** equal to the order number for Purchase so Meta can deduplicate with server-side events.
 
 ### 8. **Security headers**
 
@@ -98,13 +90,13 @@
 
 | Item | Priority | Action |
 |------|----------|--------|
-| Track Order page or fix footer link | **Must fix** | Add `/track-order` (order number + phone lookup) OR change link to `/dashboard/orders` and document for guests |
+| Track Order (public page) | **Later** | Removed from footer; users see status via My Orders → View details. Add `/track-order` later if needed. |
 | README + env + deploy notes | **Strongly recommended** | Update README with run, env, DB, build, deploy |
 | Stock validation before order creation | **Strongly recommended** | In `createOrder`, validate stock for each item; return clear error if insufficient |
 | Production env checklist (doc) | **Strongly recommended** | Document in README or handover doc |
 | Rate limiting (auth/checkout) | Nice to have | Add post-launch if needed |
 | Sitemap / robots.txt | Nice to have | Add for SEO when ready |
-| Meta Pixel + eventID (doc) | Nice to have | Document for client |
+| Meta Pixel eventID in GTM (doc) | Nice to have | Document if using CAPI dedup |
 | Security headers | Nice to have | Optional |
 
 ---
@@ -112,7 +104,7 @@
 ## Conclusion
 
 - **Core app is production-ready:** shop, checkout (including guest), auth, dashboard, admin (including hero slider), payments, legal pages, error/404, loading states, and SEO basics.
-- **Before business launch:** fix the **Track Order** link (add page or change link + document), and add **README/handover docs** plus **stock validation** and a **production env checklist** so the client can run and deploy safely.
+- **Before business launch:** add **README/handover docs**, **stock validation** at checkout, and a **production env checklist** so the client can run and deploy safely. Track Order is deferred; users use My Orders → View details for status.
 - **After launch:** rate limiting, sitemap/robots, Meta Pixel docs, and security headers can be done as needed.
 
 Once the “Must fix” and “Strongly recommended” items are done, the application is in good shape for production handover and client-led business launch.

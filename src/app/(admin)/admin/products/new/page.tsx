@@ -28,7 +28,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createProduct, getAdminCategories } from "@/actions/admin/products";
-import { AttributeSelector, ImageUploader, VariantMatrix } from "@/components/admin";
+import { AttributeSelector, ImageUploader, VariantMatrix, SizeGuideEditor } from "@/components/admin";
+import type { SizeChartValue } from "@/components/admin/size-guide-editor";
 import { slugify } from "@/lib/format";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -87,6 +88,7 @@ export default function NewProductPage() {
   // Attribute and variant state
   const [selectedAttributes, setSelectedAttributes] = useState<SelectedAttribute[]>([]);
   const [variantStocks, setVariantStocks] = useState<VariantStock>({});
+  const [sizeChart, setSizeChart] = useState<SizeChartValue | null>(null);
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema) as Resolver<ProductFormData>,
@@ -169,6 +171,7 @@ export default function NewProductPage() {
           stock: isVariable
             ? Object.values(variantStocks).reduce((sum, v) => sum + (v?.stock ?? 0), 0)
             : 999,
+          sizeChart: sizeChart && sizeChart.headers.length > 0 && sizeChart.rows.length > 0 ? sizeChart : null,
         },
         variantsData
       );
@@ -431,7 +434,10 @@ export default function NewProductPage() {
                   <ImageUploader images={images} onChange={setImages} maxImages={10} />
                 </CardContent>
               </Card>
+
+              <SizeGuideEditor value={sizeChart} onChange={setSizeChart} />
             </div>
+
 
             {/* Sidebar */}
             <div className="space-y-6">

@@ -320,6 +320,25 @@ model HeroSlide {
   @@index([isActive, sortOrder])
 }
 
+// ==================== CITIES (Delivery Areas) ====================
+
+enum ShippingZone {
+  inside_dhaka
+  outside_dhaka
+}
+
+model City {
+  id           String       @id @default(cuid())
+  name         String       // Display name e.g. "Dhaka", "Dhanmondi"
+  value        String       @unique // Slug for form value e.g. "dhaka", "dhanmondi"
+  shippingZone ShippingZone // inside_dhaka or outside_dhaka - determines delivery rate
+  sortOrder    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([shippingZone])
+}
+
 // ==================== SETTINGS ====================
 
 model Setting {

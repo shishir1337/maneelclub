@@ -107,7 +107,8 @@ export function trackInitiateCheckout(payload: {
 }
 
 /** Purchase – order placed successfully (fire on thank-you / order confirmation page).
- * Pass event_id (e.g. order_id) so Meta Pixel can send eventID for deduplication with Conversions API. */
+ * Pass event_id (e.g. order_id) so Meta Pixel can send eventID for deduplication with Conversions API.
+ * Note: Meta Pixel does not accept top-level 'currency' for Purchase; value is sent without currency. */
 export function trackPurchase(payload: {
   order_id: string;
   value: number;
@@ -119,10 +120,10 @@ export function trackPurchase(payload: {
   pushDataLayer("Purchase", {
     order_id: payload.order_id,
     value: payload.value,
-    currency: payload.currency ?? DEFAULT_CURRENCY,
     num_items: payload.num_items,
     content_ids: payload.content_ids ?? [],
     ...(payload.event_id && { event_id: payload.event_id }),
+    // currency omitted for fbq - Meta flags it as invalid for Purchase; dataLayer still available for GTM
   });
 }
 

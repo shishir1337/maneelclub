@@ -268,7 +268,7 @@ export default function AdminSettingsPage() {
                   <Input
                     id="shippingDhaka"
                     type="number"
-                    value={settings.shippingDhaka || "70"}
+                    value={settings.shippingDhaka || "80"}
                     onChange={(e) => handleChange("shippingDhaka", e.target.value)}
                   />
                 </div>
@@ -412,9 +412,32 @@ export default function AdminSettingsPage() {
         <TabsContent value="tracking" className="space-y-6">
           <Card>
             <CardHeader>
+              <CardTitle>Google Tag Manager</CardTitle>
+              <CardDescription>
+                Enter your GTM container ID to load the Google Tag Manager script site-wide. The site uses a <code className="text-xs bg-muted px-1 rounded">dataLayer</code> so you can configure tags (e.g. Meta Pixel, GA4) inside GTM.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="gtmContainerId">GTM Container ID</Label>
+                <Input
+                  id="gtmContainerId"
+                  value={settings.gtmContainerId || ""}
+                  onChange={(e) => handleChange("gtmContainerId", e.target.value)}
+                  placeholder="GTM-52G5CZNB"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Found in Google Tag Manager → Admin → Container ID. Example: GTM-52G5CZNB
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Meta Pixel / Facebook Tracking</CardTitle>
               <CardDescription>
-                Configure Facebook (Meta) Pixel and Conversions API for ad attribution. Set these after deployment—tracking does not work reliably on localhost.
+                Enable Meta Pixel to load the base script (init + PageView). Events (ViewContent, AddToCart, InitiateCheckout, Purchase) are pushed to <code className="text-xs bg-muted px-1 rounded">dataLayer</code>—use GTM to forward them to Meta, or they can be used by your own Pixel config. Set these after deployment; tracking does not work reliably on localhost.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -422,7 +445,7 @@ export default function AdminSettingsPage() {
                 <div>
                   <Label>Enable Meta Pixel</Label>
                   <p className="text-sm text-muted-foreground">
-                    Load the Pixel script and send events (PageView, ViewContent, AddToCart, InitiateCheckout, Purchase)
+                    Load the Pixel script (fbq init + PageView) on every page
                   </p>
                 </div>
                 <Switch
@@ -437,7 +460,7 @@ export default function AdminSettingsPage() {
                   id="metaPixelId"
                   value={settings.metaPixelId || ""}
                   onChange={(e) => handleChange("metaPixelId", e.target.value)}
-                  placeholder="1234567890123456"
+                  placeholder="4205919286299642"
                 />
                 <p className="text-sm text-muted-foreground">
                   Found in Meta Events Manager → Data Sources → Your Pixel → Settings
@@ -445,7 +468,7 @@ export default function AdminSettingsPage() {
               </div>
               <Separator />
               <div className="space-y-2">
-                <Label htmlFor="metaCapiAccessToken">Conversions API Access Token</Label>
+                <Label htmlFor="metaCapiAccessToken">Conversions API Access Token (optional)</Label>
                 <Input
                   id="metaCapiAccessToken"
                   type="password"
@@ -455,7 +478,7 @@ export default function AdminSettingsPage() {
                   autoComplete="off"
                 />
                 <p className="text-sm text-muted-foreground">
-                  For server-side Purchase events (recommended for ad optimization). Generate in Events Manager → Settings → Conversions API. Stored securely—never sent to the browser.
+                  For server-side Purchase events. Generate in Events Manager → Settings → Conversions API. Stored securely—never sent to the browser.
                 </p>
               </div>
             </CardContent>

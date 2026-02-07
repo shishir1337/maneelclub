@@ -150,13 +150,13 @@ export async function getShippingRates() {
     ]);
     
     return {
-      dhaka: parseInt(dhakaResult.data || "70", 10),
+      dhaka: parseInt(dhakaResult.data || "80", 10),
       outside: parseInt(outsideResult.data || "130", 10),
     };
   } catch (error) {
     console.error("Error fetching shipping rates:", error);
     return {
-      dhaka: 70,
+      dhaka: 80,
       outside: 130,
     };
   }

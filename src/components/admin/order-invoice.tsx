@@ -3,7 +3,7 @@
 import { forwardRef } from "react";
 import Image from "next/image";
 import { formatPrice, formatDate } from "@/lib/format";
-import { siteConfig } from "@/lib/constants";
+import { siteConfig, PAYMENT_STATUS } from "@/lib/constants";
 
 interface OrderItem {
   id: string;
@@ -181,7 +181,7 @@ export const OrderInvoice = forwardRef<HTMLDivElement, OrderInvoiceProps>(
                     ? "text-red-600" 
                     : "text-yellow-600"
               }`}>
-                {order.paymentStatus}
+                {PAYMENT_STATUS[order.paymentStatus as keyof typeof PAYMENT_STATUS]?.label ?? order.paymentStatus}
               </p>
             </div>
           </div>

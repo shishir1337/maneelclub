@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { formatPrice, formatDate } from "@/lib/format";
 import { getOrderStats, getRecentOrders } from "@/actions/admin/orders";
+import { ORDER_STATUS } from "@/lib/constants";
 import { getAdminProducts } from "@/actions/admin/products";
 import { getCustomerStats } from "@/actions/admin/customers";
 import { toast } from "sonner";
@@ -252,7 +253,7 @@ export default function AdminDashboardPage() {
                     <TableCell>{formatPrice(order.total)}</TableCell>
                     <TableCell>
                       <Badge className={statusColors[order.status]}>
-                        {order.status}
+                        {ORDER_STATUS[order.status as keyof typeof ORDER_STATUS]?.label ?? order.status}
                       </Badge>
                     </TableCell>
                     <TableCell>

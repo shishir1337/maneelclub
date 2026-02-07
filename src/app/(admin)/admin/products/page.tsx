@@ -376,6 +376,7 @@ export default function AdminProductsPage() {
                           alt={product.title}
                           fill
                           className="object-cover"
+                          unoptimized={(product.images?.[0] ?? "").startsWith("/uploads/")}
                         />
                       </div>
                     </TableCell>

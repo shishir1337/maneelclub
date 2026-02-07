@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPrice, formatDate } from "@/lib/format";
-import { ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHODS } from "@/lib/constants";
+import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUS, PAYMENT_STATUSES, PAYMENT_METHODS } from "@/lib/constants";
 import { getAdminOrders, updateOrderStatus, verifyPayment, rejectPayment } from "@/actions/admin/orders";
 import { toast } from "sonner";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
@@ -355,7 +355,7 @@ export default function AdminOrdersPage() {
                             {order.paymentMethod}
                           </Badge>
                           <Badge className={paymentStatusColors[order.paymentStatus]}>
-                            {order.paymentStatus}
+                            {PAYMENT_STATUS[order.paymentStatus as keyof typeof PAYMENT_STATUS]?.label ?? order.paymentStatus}
                           </Badge>
                           {order.paymentMethod !== "COD" && order.senderNumber && (
                             <div className="text-xs text-muted-foreground">
@@ -381,7 +381,7 @@ export default function AdminOrdersPage() {
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <Badge className={statusColors[order.status]}>
-                                {order.status}
+                                {ORDER_STATUS[order.status as keyof typeof ORDER_STATUS]?.label ?? order.status}
                               </Badge>
                             )}
                           </SelectTrigger>
@@ -428,10 +428,10 @@ export default function AdminOrdersPage() {
                             )}
                             <DropdownMenuItem
                               onClick={() =>
-                                handleStatusChange(order.id, "CONFIRMED")
+                                handleStatusChange(order.id, "PENDING")
                               }
                             >
-                              Mark as Confirmed
+                              Mark as Hold
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() =>

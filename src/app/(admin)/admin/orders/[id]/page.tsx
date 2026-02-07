@@ -40,7 +40,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatPrice, formatDate } from "@/lib/format";
-import { ORDER_STATUSES } from "@/lib/constants";
+import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUS } from "@/lib/constants";
 import { 
   getOrderById, 
   updateOrderStatus, 
@@ -119,10 +119,9 @@ const paymentMethodColors: Record<string, string> = {
   ROCKET: "bg-purple-100 text-purple-800",
 };
 
-// Order timeline steps
+// Order timeline steps (CONFIRMED removed - Hold → Processing directly)
 const orderTimeline = [
-  { status: "PENDING", label: "Order Placed", icon: Clock },
-  { status: "CONFIRMED", label: "Confirmed", icon: CheckCircle },
+  { status: "PENDING", label: "Hold", icon: Clock },
   { status: "PROCESSING", label: "Processing", icon: Package },
   { status: "SHIPPED", label: "Shipped", icon: Truck },
   { status: "DELIVERED", label: "Delivered", icon: CheckCircle },
@@ -364,12 +363,12 @@ export default function AdminOrderDetailPage({
             <Printer className="h-4 w-4 mr-2" />
             Print Invoice
           </Button>
-          <Badge className={statusColors[order.status]}>{order.status}</Badge>
+          <Badge className={statusColors[order.status]}>{ORDER_STATUS[order.status as keyof typeof ORDER_STATUS]?.label ?? order.status}</Badge>
           <Badge className={paymentMethodColors[order.paymentMethod]}>
             {order.paymentMethod}
           </Badge>
           <Badge className={paymentStatusColors[order.paymentStatus]}>
-            {order.paymentStatus}
+            {PAYMENT_STATUS[order.paymentStatus as keyof typeof PAYMENT_STATUS]?.label ?? order.paymentStatus}
           </Badge>
         </div>
       </div>
@@ -463,6 +462,7 @@ export default function AdminOrderDetailPage({
                       alt={item.product.title}
                       fill
                       className="object-cover"
+                      unoptimized={(item.product.images[0] ?? "").startsWith("/uploads/")}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -524,7 +524,7 @@ export default function AdminOrderDetailPage({
                 <div>
                   <p className="text-sm text-muted-foreground">Payment Status</p>
                   <Badge className={paymentStatusColors[order.paymentStatus]}>
-                    {order.paymentStatus}
+                    {PAYMENT_STATUS[order.paymentStatus as keyof typeof PAYMENT_STATUS]?.label ?? order.paymentStatus}
                   </Badge>
                 </div>
               </div>
@@ -672,16 +672,6 @@ export default function AdminOrderDetailPage({
               {/* Quick actions */}
               <div className="flex flex-wrap gap-2">
                 {order.status === "PENDING" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleStatusChange("CONFIRMED")}
-                    disabled={actionLoading}
-                  >
-                    Confirm
-                  </Button>
-                )}
-                {order.status === "CONFIRMED" && (
                   <Button
                     size="sm"
                     variant="outline"

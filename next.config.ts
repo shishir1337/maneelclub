@@ -20,6 +20,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    // In production, files added to public/uploads at runtime are not served by Next.js.
+    // Serve them via API route so uploads work after pnpm build && pnpm start.
+    return [
+      { source: "/uploads/:path*", destination: "/api/uploads/:path*" },
+    ];
+  },
 };
 
 export default nextConfig;

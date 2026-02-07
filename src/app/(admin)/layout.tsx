@@ -12,7 +12,8 @@ import {
   BarChart3,
   FolderTree,
   Palette,
-  ImageIcon
+  ImageIcon,
+  MapPin
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -36,6 +37,7 @@ const sidebarLinks: SidebarLinkItem[] = [
   { name: "Customers", href: "/admin/customers", icon: Users },
   { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { name: "Hero Slider", href: "/admin/hero", icon: ImageIcon },
+  { name: "Cities", href: "/admin/cities", icon: MapPin },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

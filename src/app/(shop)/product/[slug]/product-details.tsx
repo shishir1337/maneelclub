@@ -77,7 +77,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     });
   }, [product.id, product.title, product.salePrice, product.regularPrice]);
 
-  // Get colors and sizes from product (or fallback to variants if available)
+  // Get colors and sizes from product (or fallback to variants if available). No fallback when product has no attributes.
   const availableColors = useMemo(() => {
     if (product.colors && product.colors.length > 0) {
       return product.colors;
@@ -85,7 +85,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     if (product.variants && product.variants.length > 0) {
       return [...new Set(product.variants.map((v) => v.color))];
     }
-    return ["Default"];
+    return [];
   }, [product.colors, product.variants]);
   
   const availableSizes = useMemo(() => {
@@ -95,7 +95,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     } else if (product.variants && product.variants.length > 0) {
       sizes = [...new Set(product.variants.map((v) => v.size))];
     } else {
-      sizes = ["M", "L", "XL", "XXL"];
+      sizes = [];
     }
     // Sort sizes in order: S, M, L, XL, XXL
     const sizeOrder = ["S", "M", "L", "XL", "XXL", "3XL"];
@@ -150,8 +150,12 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     return null;
   }, [product.variants, selectedColor, selectedSize]);
   
-  // Variable products: require color+size selected; simple products: always in stock
-  const hasValidSelection = !trackInventory || (selectedColor && selectedSize && currentVariant);
+  // Variable products: require color+size selected; simple products (no attributes): no selection needed
+  const hasColorSizeAttributes = availableColors.length > 0 || availableSizes.length > 0;
+  const hasValidSelection =
+    !hasColorSizeAttributes ||
+    !trackInventory ||
+    (selectedColor && selectedSize && currentVariant);
   const currentStock = trackInventory 
     ? (currentVariant?.stock ?? 0)
     : 999;
@@ -359,6 +363,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
                 color={selectedColor}
                 size={selectedSize}
                 quantity={quantity}
+                requiresColorSize={hasColorSizeAttributes}
                 disabled={!isInStock}
                 className="w-full"
               />
@@ -372,6 +377,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
                 size={selectedSize}
                 quantity={quantity}
                 variant="buy-now"
+                requiresColorSize={hasColorSizeAttributes}
                 disabled={!isInStock}
                 className="w-full"
               />

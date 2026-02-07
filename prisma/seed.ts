@@ -364,6 +364,30 @@ async function main() {
 
   console.log(`Created ${products.length} products`);
 
+  // ==================== SEED CITIES ====================
+  console.log("Seeding cities...");
+  const citiesSeed = [
+    { name: "Dhaka", value: "dhaka", shippingZone: "inside_dhaka" as const, sortOrder: 0 },
+    { name: "Gazipur", value: "gazipur", shippingZone: "inside_dhaka" as const, sortOrder: 1 },
+    { name: "Narayanganj", value: "narayanganj", shippingZone: "inside_dhaka" as const, sortOrder: 2 },
+    { name: "Chittagong", value: "chittagong", shippingZone: "outside_dhaka" as const, sortOrder: 3 },
+    { name: "Sylhet", value: "sylhet", shippingZone: "outside_dhaka" as const, sortOrder: 4 },
+    { name: "Rajshahi", value: "rajshahi", shippingZone: "outside_dhaka" as const, sortOrder: 5 },
+    { name: "Khulna", value: "khulna", shippingZone: "outside_dhaka" as const, sortOrder: 6 },
+    { name: "Barishal", value: "barishal", shippingZone: "outside_dhaka" as const, sortOrder: 7 },
+    { name: "Rangpur", value: "rangpur", shippingZone: "outside_dhaka" as const, sortOrder: 8 },
+    { name: "Mymensingh", value: "mymensingh", shippingZone: "outside_dhaka" as const, sortOrder: 9 },
+    { name: "Comilla", value: "comilla", shippingZone: "outside_dhaka" as const, sortOrder: 10 },
+  ];
+  for (const city of citiesSeed) {
+    await prisma.city.upsert({
+      where: { value: city.value },
+      update: { name: city.name, shippingZone: city.shippingZone, sortOrder: city.sortOrder },
+      create: city,
+    });
+  }
+  console.log(`Seeded ${citiesSeed.length} cities`);
+
   // Create admin user if not exists
   const adminEmail = "admin@maneelclub.com";
   const existingAdmin = await prisma.user.findUnique({

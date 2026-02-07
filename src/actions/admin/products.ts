@@ -6,6 +6,17 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
+// Size guide table (optional, shown on product page)
+const sizeChartSchema = z.object({
+  headers: z.array(z.string()),
+  rows: z.array(
+    z.object({
+      size: z.string(),
+      measurements: z.array(z.string()),
+    })
+  ),
+});
+
 // Schema for product creation/update (WooCommerce-style: Simple vs Variable)
 const productSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -22,6 +33,7 @@ const productSchema = z.object({
   trackInventory: z.boolean().default(false), // kept for DB; derived from productType when saving
   isActive: z.boolean().default(true),
   isFeatured: z.boolean().default(false),
+  sizeChart: sizeChartSchema.optional().nullable(),
 });
 
 const variantSchema = z.object({
@@ -203,6 +215,11 @@ export async function createProduct(input: ProductInput, variants?: VariantRecor
           trackInventory,
           isActive: validated.isActive,
           isFeatured: validated.isFeatured,
+          ...(validated.sizeChart &&
+            validated.sizeChart.headers.length > 0 &&
+            validated.sizeChart.rows.length > 0 && {
+              sizeChart: validated.sizeChart as object,
+            }),
         } as Parameters<typeof tx.product.create>[0]["data"],
       });
 
@@ -342,6 +359,13 @@ export async function updateProduct(id: string, input: Partial<ProductInput>, va
           trackInventory,
           ...(input.isActive !== undefined && { isActive: input.isActive }),
           ...(input.isFeatured !== undefined && { isFeatured: input.isFeatured }),
+          ...(input.sizeChart !== undefined && {
+            sizeChart: input.sizeChart &&
+              input.sizeChart.headers.length > 0 &&
+              input.sizeChart.rows.length > 0
+              ? (input.sizeChart as object)
+              : null,
+          }),
         } as Parameters<typeof tx.product.update>[0]["data"],
       });
 

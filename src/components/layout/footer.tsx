@@ -20,7 +20,6 @@ const footerLinks = {
   account: [
     { name: "My Account", href: "/dashboard" },
     { name: "My Orders", href: "/dashboard/orders" },
-    { name: "Track Order", href: "/track-order" },
   ],
 };
 

@@ -31,7 +31,7 @@ export async function getSetting(key: string): Promise<string> {
 export async function getShippingRates(): Promise<{ dhaka: number; outside: number }> {
   const settings = await getSettings();
   return {
-    dhaka: parseInt(settings.shippingDhaka || "70", 10),
+    dhaka: parseInt(settings.shippingDhaka || "80", 10),
     outside: parseInt(settings.shippingOutside || "130", 10),
   };
 }
@@ -97,6 +97,15 @@ export async function getMetaPixelSettings(): Promise<{ enabled: boolean; pixelI
   return {
     enabled: settings.metaPixelEnabled === "true",
     pixelId: settings.metaPixelId || "",
+  };
+}
+
+// Get GTM container ID for script injection (public - safe to expose)
+export async function getGtmSettings(): Promise<{ containerId: string }> {
+  const settings = await getSettings();
+  const id = (settings.gtmContainerId || "").trim();
+  return {
+    containerId: id.startsWith("GTM-") ? id : id ? `GTM-${id}` : "",
   };
 }
 
