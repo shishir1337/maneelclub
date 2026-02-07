@@ -351,10 +351,35 @@ export async function getUserOrders() {
       },
       orderBy: { createdAt: "desc" },
     });
+
+    // Serialize Decimal fields to numbers (required when passing to Client Components)
+    const serializedOrders = orders.map((order) => ({
+      ...order,
+      shippingCost: Number(order.shippingCost),
+      subtotal: Number(order.subtotal),
+      total: Number(order.total),
+      items: order.items.map((item) => ({
+        id: item.id,
+        orderId: item.orderId,
+        productId: item.productId,
+        color: item.color,
+        size: item.size,
+        quantity: item.quantity,
+        price: Number(item.price),
+        title: item.product?.title ?? "",
+        product: item.product
+          ? {
+              ...item.product,
+              regularPrice: Number(item.product.regularPrice),
+              salePrice: item.product.salePrice ? Number(item.product.salePrice) : null,
+            }
+          : null,
+      })),
+    }));
     
     return {
       success: true,
-      data: orders,
+      data: serializedOrders,
     };
   } catch (error) {
     console.error("Error fetching user orders:", error);

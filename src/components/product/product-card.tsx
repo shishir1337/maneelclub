@@ -82,7 +82,7 @@ export function ProductCard({
         {/* Discount Badge */}
         {hasDiscount && discountPercent > 0 && (
           <Badge 
-            className="absolute top-2.5 left-2.5 bg-red-500 hover:bg-red-500 text-white font-bold text-xs px-2 py-1 rounded-md shadow-md"
+            className="absolute top-2.5 left-2.5 bg-red-700 hover:bg-red-700 text-white font-bold text-xs px-2 py-1 rounded-md shadow-md"
           >
             -{discountPercent}%
           </Badge>
