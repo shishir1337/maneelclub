@@ -107,6 +107,16 @@ const protectedRoutes = ["/dashboard"];  // remove "/checkout"
 
 ---
 
+## What’s Left for Production Launch
+
+See **PRODUCTION_AND_HANDOVER_CHECKLIST.md** for the full list. In short:
+
+- **Must fix:** Footer “Track Order” links to `/track-order` which doesn’t exist — add a track-order page (order number + phone lookup) or change the link and document for guests.
+- **Strongly recommended:** README with env, DB, and deploy notes; stock validation before order creation; production env checklist for the client.
+- **Nice to have:** Rate limiting, sitemap/robots, Meta Pixel eventID docs, security headers.
+
+---
+
 ## Conclusion
 
-**The site is ready for production handover.** All critical and important items are done. Before go-live: set production env (e.g. `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_URL`, optional Meta CAPI vars) and run migrations + seed on production DB. Nice-to-have (README, rate limiting, etc.) can follow before or after launch.
+**The site is ready for production handover.** All critical and important items from this report are done. Before business launch: fix the Track Order link (or replace it), add README/handover docs, stock validation, and a production env checklist. See PRODUCTION_AND_HANDOVER_CHECKLIST.md for details. Nice-to-have (rate limiting, sitemap, etc.) can follow before or after launch.

@@ -3,68 +3,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
 import { ProductGrid } from "@/components/product";
 import { ProductGridSkeleton, CategoryGridSkeleton } from "@/components/skeletons";
+import { HeroCarousel } from "@/components/home/hero-carousel";
 import { siteConfig } from "@/lib/constants";
 import { getFeaturedProducts, getNewArrivals, getFeaturedCategories } from "@/actions/products";
+import { getHeroSlides } from "@/actions/hero-slides";
 
-// Hero slides data - images already contain text/buttons
-const heroSlides = [
-  {
-    id: 1,
-    image: "/sliderimagepolo.png",
-    alt: "Premium Polo Collection - New Collection at Maneel Club",
-    link: "/product-category/polo",
-  },
-  {
-    id: 2,
-    image: "/sliderimagesummersale.png",
-    alt: "Summer Sale - Up to 50% off on selected items",
-    link: "/product-category/sale",
-  },
-];
-
-
-function HeroCarousel() {
-  return (
-    <section className="w-full">
-      <Carousel
-        opts={{
-          loop: true,
-        }}
-        className="w-full"
-      >
-        <CarouselContent>
-          {heroSlides.map((slide) => (
-            <CarouselItem key={slide.id}>
-              <Link href={slide.link} className="block">
-                {/* Simple image display - no overlay since images have their own text */}
-                <div className="relative aspect-[2.2/1] sm:aspect-[2.7/1] lg:aspect-[3.2/1] w-full overflow-hidden">
-                  <Image
-                    src={slide.image}
-                    alt={slide.alt}
-                    fill
-                    sizes="100vw"
-                    className="object-cover"
-                    priority
-                  />
-                </div>
-              </Link>
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <CarouselPrevious className="left-2 md:left-4" />
-        <CarouselNext className="right-2 md:right-4" />
-      </Carousel>
-    </section>
-  );
+async function HeroSection() {
+  const { data: slides } = await getHeroSlides();
+  return <HeroCarousel slides={slides} />;
 }
 
 // Server component to fetch categories
@@ -150,7 +98,9 @@ export default function HomePage() {
   return (
     <>
       {/* Hero Section */}
-      <HeroCarousel />
+      <Suspense fallback={<div className="w-full aspect-[2.2/1] sm:aspect-[2.7/1] lg:aspect-[3.2/1] bg-muted animate-pulse" />}>
+        <HeroSection />
+      </Suspense>
 
       {/* Categories Section */}
       <Suspense fallback={<CategoryGridSkeleton count={4} />}>

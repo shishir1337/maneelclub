@@ -107,9 +107,16 @@ export function ShopHeader({ categories, searchParams }: ShopHeaderProps) {
           ))}
         </div>
 
-        {/* Row 2: Subcategories (when a parent is selected) */}
+        {/* Row 2: All + subcategories (when a parent is selected) — "All" repeated for mobile so it's visible without scrolling */}
         {subcategories.length > 0 && (
           <div className="flex flex-wrap gap-2 pl-2">
+            <button
+              type="button"
+              onClick={() => handleParentClick(null)}
+              className={badgeClass(!selectedCategorySlug)}
+            >
+              All
+            </button>
             {subcategories.map((sub) => (
               <button
                 key={sub.id}

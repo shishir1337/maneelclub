@@ -226,6 +226,18 @@ async function main() {
 
   console.log("Created parent and subcategories");
 
+  // ==================== SEED HERO SLIDES (only if empty) ====================
+  const existingSlides = await prisma.heroSlide.count();
+  if (existingSlides === 0) {
+    await prisma.heroSlide.createMany({
+      data: [
+        { image: "/sliderimagepolo.png", alt: "Premium Polo Collection - New Collection at Maneel Club", link: "/product-category/polo", sortOrder: 0 },
+        { image: "/sliderimagesummersale.png", alt: "Summer Sale - Up to 50% off on selected items", link: "/product-category/sale", sortOrder: 1 },
+      ],
+    });
+    console.log("Seeded 2 default hero slides");
+  }
+
   // Create products (assigned to subcategories only)
   const products = [
     {
