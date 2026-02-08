@@ -26,7 +26,7 @@ import { formatPrice } from "@/lib/format";
 import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { createOrder } from "@/actions/orders";
 import { PaymentMethodSelector } from "@/components/checkout/payment-method-selector";
-import { CityCombobox } from "@/components/checkout/city-combobox";
+import { CitySelect } from "@/components/checkout/city-select";
 import { toast } from "sonner";
 import { trackInitiateCheckout } from "@/lib/data-layer";
 
@@ -332,14 +332,14 @@ export default function CheckoutClient({ merchantNumbers, shippingRates, cities,
                           Area / City *
                         </FormLabel>
                         <FormControl>
-                          <CityCombobox
+                          <CitySelect
                             cities={cities}
                             value={field.value}
                             onChange={(value, shippingZone) => {
                               field.onChange(value);
                               form.setValue("shippingZone", shippingZone);
                             }}
-                            placeholder="Search area or city..."
+                            placeholder="Select area or city..."
                             aria-invalid={!!form.formState.errors.city}
                             aria-describedby={
                               form.formState.errors.city
