@@ -7,12 +7,12 @@ export const auth = betterAuth({
   database: prismaAdapter(db, {
     provider: "postgresql",
   }),
-  
+
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
   },
-  
+
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // Update session every 24 hours
@@ -21,7 +21,7 @@ export const auth = betterAuth({
       maxAge: 60 * 5, // 5 minutes
     },
   },
-  
+
   user: {
     additionalFields: {
       role: {
@@ -32,9 +32,20 @@ export const auth = betterAuth({
       },
     },
   },
-  
+
+  // Built-in rate limiting (per IP). Production: on by default; development: off (set enabled: true to test).
+  rateLimit: {
+    window: 60,
+    max: 100,
+    storage: "database", // survives serverless restarts; run `npx @better-auth/cli generate` then migrate
+    customRules: {
+      "/sign-in/email": { window: 10, max: 3 },
+      "/sign-up/email": { window: 60, max: 5 },
+    },
+  },
+
   plugins: [nextCookies()],
-  
+
   trustedOrigins: [
     process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   ],

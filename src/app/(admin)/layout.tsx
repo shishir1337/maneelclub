@@ -1,8 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
-import { 
-  LayoutDashboard, 
-  ShoppingBag, 
+import { redirect } from "next/navigation";
+import {
+  LayoutDashboard,
+  ShoppingBag,
   Package,
   Users,
   Settings,
@@ -20,6 +21,8 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { siteConfig } from "@/lib/constants";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 interface SidebarLinkItem {
   name: string;
@@ -75,11 +78,21 @@ function AdminSidebar({ className = "" }: { className?: string }) {
   );
 }
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user) {
+    redirect("/sign-in?callbackUrl=/admin");
+  }
+  if (session.user.role !== "ADMIN") {
+    redirect("/");
+  }
+
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Header */}

@@ -1,11 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { 
-  LayoutDashboard, 
-  ShoppingBag, 
-  MapPin, 
-  User, 
-  LogOut,
+import { redirect } from "next/navigation";
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  MapPin,
+  User,
   Menu,
   Home,
   ChevronRight
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { siteConfig } from "@/lib/constants";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -51,11 +53,18 @@ function Sidebar({ className = "" }: { className?: string }) {
   );
 }
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user) {
+    redirect("/sign-in?callbackUrl=/dashboard");
+  }
+
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Header */}

@@ -53,17 +53,17 @@ export function CityCombobox({
           aria-describedby={ariaDescribedBy}
           disabled={disabled}
           className={cn(
-            "w-full justify-between font-normal",
+            "w-full justify-between font-normal h-12 text-base px-4 rounded-lg border-2 min-h-12",
             !value && "text-muted-foreground"
           )}
         >
           {selectedCity ? selectedCity.name : placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ml-2 h-5 w-5 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search city..." />
+          <CommandInput placeholder="Search city..." className="h-11 text-base" />
           <CommandList>
             <CommandEmpty>No city found.</CommandEmpty>
             <CommandGroup>
@@ -83,9 +83,6 @@ export function CityCombobox({
                     )}
                   />
                   {city.name}
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {city.shippingZone === "inside_dhaka" ? "Inside DCC" : "Outside DCC"}
-                  </span>
                 </CommandItem>
               ))}
             </CommandGroup>

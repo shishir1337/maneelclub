@@ -44,10 +44,10 @@
   - **Production:** `pnpm build`, `pnpm start` (or Vercel/deploy commands).
   - Short **deployment note:** e.g. Vercel + Postgres (e.g. Neon/Supabase) + optional MinIO; which env to set in the host dashboard.
 
-### 3. **Stock validation at checkout**
+### 3. **Stock and price validation at checkout** ✅ Done
 
-- **Issue:** `createOrder` deducts stock but does not check availability first. Under concurrency or race conditions, stock could go negative (oversell).
-- **Fix:** Before creating the order, validate each line item (product/variant) has enough stock; if any fail, return a clear error (e.g. "Product X (Color/Size) is out of stock or quantity reduced") and do not create the order. Optionally re-fetch cart availability on the checkout page before submit.
+- **Issue:** `createOrder` used client-supplied prices and did not validate stock before deducting.
+- **Fix applied:** Server-side resolution in `createOrder`: for each cart item we validate product/variant, resolve price from DB, check stock; subtotal/total and order lines use only server-resolved prices. Stock is validated before order creation and deducted inside the same transaction. See `AUDIT_REPORT.md`.
 
 ### 4. **Production environment checklist**
 

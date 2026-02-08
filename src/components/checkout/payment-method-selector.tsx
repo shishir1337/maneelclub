@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import Image from "next/image";
 import { UseFormReturn } from "react-hook-form";
-import { Phone, CreditCard, Banknote } from "lucide-react";
+import { CreditCard, Banknote } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -30,17 +31,43 @@ interface PaymentMethodSelectorProps {
   merchantNumbers?: MerchantNumbers;
 }
 
-// Get icon for payment method
+// Get icon for payment method (COD = Banknote, mobile payments = brand logos)
 function getPaymentIcon(method: string) {
   switch (method) {
     case "COD":
-      return <Banknote className="h-5 w-5" />;
+      return <Banknote className="h-6 w-6 shrink-0" />;
     case "BKASH":
+      return (
+        <Image
+          src="/assets/images/bkash.png"
+          alt="bKash"
+          width={96}
+          height={36}
+          className="h-9 w-auto object-contain"
+        />
+      );
     case "NAGAD":
+      return (
+        <Image
+          src="/assets/images/nagad.webp"
+          alt="Nagad"
+          width={96}
+          height={36}
+          className="h-9 w-auto object-contain"
+        />
+      );
     case "ROCKET":
-      return <Phone className="h-5 w-5" />;
+      return (
+        <Image
+          src="/assets/images/rocket.webp"
+          alt="Rocket"
+          width={96}
+          height={36}
+          className="h-9 w-auto object-contain"
+        />
+      );
     default:
-      return <CreditCard className="h-5 w-5" />;
+      return <CreditCard className="h-6 w-6 shrink-0" />;
   }
 }
 
@@ -129,22 +156,25 @@ export function PaymentMethodSelector({
   
   const isMobilePayment = selectedMethod && selectedMethod !== "COD";
 
+  const inputClass =
+    "h-12 text-base px-4 rounded-lg border-2 focus-visible:ring-2 min-w-0";
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 md:space-y-6">
       {/* Payment Method Selection */}
       <FormField
         control={form.control}
         name="paymentMethod"
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="text-base font-medium">
+            <FormLabel className="text-base md:text-lg font-semibold">
               Select Payment Method / পেমেন্ট পদ্ধতি নির্বাচন করুন
             </FormLabel>
             <FormControl>
               <RadioGroup
                 onValueChange={field.onChange}
                 defaultValue={field.value}
-                className="grid gap-3"
+                className="grid gap-4"
               >
                 {paymentMethods.map((method) => {
                   const isSelected = field.value === method.value;
@@ -153,10 +183,10 @@ export function PaymentMethodSelector({
                       <Label
                         htmlFor={`payment-${method.value}`}
                         className={cn(
-                          "flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all",
+                          "flex items-center gap-4 p-5 md:p-6 border-2 rounded-xl cursor-pointer transition-all min-h-[72px]",
                           isSelected
                             ? getPaymentColor(method.value)
-                            : "border-border hover:border-muted-foreground/50"
+                            : "border-border hover:border-muted-foreground/50 hover:bg-muted/20"
                         )}
                       >
                         <RadioGroupItem
@@ -166,25 +196,27 @@ export function PaymentMethodSelector({
                         />
                         <div
                           className={cn(
-                            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
+                            "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors",
                             isSelected
                               ? "border-primary bg-primary"
                               : "border-muted-foreground/50"
                           )}
                         >
                           {isSelected && (
-                            <div className="w-2 h-2 rounded-full bg-white" />
+                            <div className="w-2.5 h-2.5 rounded-full bg-white" />
                           )}
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
                             {getPaymentIcon(method.value)}
-                            <span className="font-medium">{method.label}</span>
-                            <span className="text-muted-foreground">
+                            <span className="font-semibold text-base">
+                              {method.label}
+                            </span>
+                            <span className="text-muted-foreground text-base">
                               ({method.labelBn})
                             </span>
                           </div>
-                          <p className="text-sm text-muted-foreground mt-0.5">
+                          <p className="text-base text-muted-foreground mt-1">
                             {method.description}
                           </p>
                         </div>
@@ -194,7 +226,7 @@ export function PaymentMethodSelector({
                 })}
               </RadioGroup>
             </FormControl>
-            <FormMessage />
+            <FormMessage className="text-base" />
           </FormItem>
         )}
       />
@@ -203,40 +235,40 @@ export function PaymentMethodSelector({
       {isMobilePayment && selectedPaymentMethod?.instructions && (
         <div
           className={cn(
-            "p-4 rounded-lg border-2 space-y-4",
+            "p-5 md:p-6 rounded-xl border-2 space-y-5",
             getPaymentColor(selectedMethod)
           )}
         >
           {/* Amount to Send */}
-          <div className="text-center p-3 bg-white dark:bg-background rounded-lg border">
-            <p className="text-sm text-muted-foreground">
+          <div className="text-center p-5 bg-white dark:bg-background rounded-xl border-2">
+            <p className="text-base text-muted-foreground">
               You need to send us / আপনাকে পাঠাতে হবে
             </p>
-            <p className="text-2xl font-bold text-primary">
+            <p className="text-3xl md:text-4xl font-bold text-primary mt-1">
               {formatPrice(totalAmount)}
             </p>
           </div>
 
           {/* Instructions */}
-          <div className="space-y-2">
-            <h4 className="font-medium">
+          <div className="space-y-3">
+            <h4 className="font-semibold text-base md:text-lg">
               Instructions / নির্দেশাবলী ({selectedPaymentMethod.label}):
             </h4>
-            <div className="text-sm whitespace-pre-line bg-white dark:bg-background p-3 rounded-lg border">
+            <div className="text-base whitespace-pre-line bg-white dark:bg-background p-4 rounded-xl border-2 leading-relaxed">
               {selectedPaymentMethod.instructions}
             </div>
           </div>
 
           {/* Input Fields */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-2">
             <FormField
               control={form.control}
               name="senderNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
+                  <FormLabel className="text-base font-medium">
                     Your {selectedPaymentMethod.label} Number *
-                    <span className="block text-xs text-muted-foreground font-normal">
+                    <span className="block text-sm text-muted-foreground font-normal mt-0.5">
                       আপনার {selectedPaymentMethod.labelBn} নাম্বার
                     </span>
                   </FormLabel>
@@ -244,10 +276,11 @@ export function PaymentMethodSelector({
                     <Input
                       type="tel"
                       placeholder="01XXXXXXXXX"
+                      className={inputClass}
                       {...field}
                     />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-base" />
                 </FormItem>
               )}
             />
@@ -257,34 +290,35 @@ export function PaymentMethodSelector({
               name="transactionId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
+                  <FormLabel className="text-base font-medium">
                     Transaction ID *
-                    <span className="block text-xs text-muted-foreground font-normal">
+                    <span className="block text-sm text-muted-foreground font-normal mt-0.5">
                       ট্রানজেকশন আইডি
                     </span>
                   </FormLabel>
                   <FormControl>
                     <Input
                       placeholder="Enter Transaction ID"
+                      className={inputClass}
                       {...field}
                     />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-base" />
                 </FormItem>
               )}
             />
           </div>
 
           {/* Important Note */}
-          <div className="text-xs text-muted-foreground bg-white dark:bg-background p-3 rounded-lg border">
-            <p className="font-medium text-foreground mb-1">
+          <div className="text-base text-muted-foreground bg-white dark:bg-background p-4 rounded-xl border-2">
+            <p className="font-semibold text-foreground mb-2">
               Important / গুরুত্বপূর্ণ:
             </p>
-            <p>
+            <p className="leading-relaxed">
               Please ensure you enter the correct sender number and transaction
               ID. Your order will be verified manually before processing.
             </p>
-            <p className="mt-1">
+            <p className="mt-2 leading-relaxed">
               সঠিক সেন্ডার নাম্বার এবং ট্রানজেকশন আইডি লিখুন। আপনার অর্ডার
               প্রসেসিং এর আগে ম্যানুয়ালি যাচাই করা হবে।
             </p>
@@ -294,15 +328,24 @@ export function PaymentMethodSelector({
 
       {/* COD Notice */}
       {selectedMethod === "COD" && (
-        <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
-          <p className="text-sm">
-            <span className="font-medium">Cash on Delivery:</span> Pay when you
+        <div className="p-5 md:p-6 rounded-xl border-2 border-primary bg-primary/5">
+          <p className="text-base leading-relaxed">
+            <span className="font-semibold">Cash on Delivery:</span> Pay when you
             receive your order. Please keep exact change ready for the delivery
             person.
           </p>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-base text-muted-foreground mt-2 leading-relaxed">
             ক্যাশ অন ডেলিভারি: অর্ডার হাতে পেলে টাকা দিন। ডেলিভারি ম্যানের জন্য
             সঠিক টাকা প্রস্তুত রাখুন।
+          </p>
+          <p className="text-base mt-4 text-amber-700 dark:text-amber-400 leading-relaxed">
+            <span className="font-semibold">Note:</span> If you want to return or
+            cancel the order, you will need to pay the delivery charge for the
+            return (as per our policy).
+          </p>
+          <p className="text-base text-muted-foreground mt-1 leading-relaxed">
+            নোট: অর্ডার রিটার্ন বা ক্যানসেল করতে চাইলে রিটার্নের ডেলিভারি চার্জ
+            আপনাকে বহন করতে হবে (আমাদের নীতিমালা অনুযায়ী)।
           </p>
         </div>
       )}

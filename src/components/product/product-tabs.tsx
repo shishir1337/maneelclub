@@ -145,7 +145,7 @@ export function ProductTabs({ description, sizeChart }: ProductTabsProps) {
                 Return Policy
               </h4>
               <ul className="list-disc list-inside space-y-1">
-                <li>Dhaka City: ৳70 return charge</li>
+                <li>Dhaka City: ৳80 return charge</li>
                 <li>Outside Dhaka: ৳130 return charge</li>
               </ul>
             </div>

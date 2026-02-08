@@ -19,7 +19,19 @@ interface CartItem {
   color: string;
   size: string;
   quantity: number;
-  variantId?: string; // Optional variant ID for variable products
+  variantId?: string;
+}
+
+/** Server-resolved line item: price and stock validated from DB; used for order creation. */
+interface ResolvedLineItem {
+  productId: string;
+  title: string;
+  image: string;
+  color: string;
+  size: string;
+  quantity: number;
+  price: number;
+  variantId?: string;
 }
 
 interface CreateOrderInput {
@@ -28,12 +40,20 @@ interface CreateOrderInput {
 }
 
 /**
- * Deduct stock for order items
- * Handles both simple products (product.stock) and variable products (variant.stock)
+ * Resolve cart items against the database: validate product exists and is active,
+ * resolve variant (for variable products), enforce stock, and return server-side prices.
+ * Never trust client-supplied price or quantity for totals.
  */
-async function deductStock(items: CartItem[]) {
+async function resolveCartItems(items: CartItem[]): Promise<
+  { success: true; resolved: ResolvedLineItem[] } | { success: false; error: string }
+> {
+  const resolved: ResolvedLineItem[] = [];
+
   for (const item of items) {
-    // Get the product to check its type
+    if (item.quantity < 1) {
+      return { success: false, error: `Invalid quantity for ${item.title || item.productId}` };
+    }
+
     const product = await db.product.findUnique({
       where: { id: item.productId },
       include: {
@@ -41,7 +61,7 @@ async function deductStock(items: CartItem[]) {
           include: {
             attributes: {
               include: {
-                attributeValue: true,
+                attributeValue: { include: { attribute: true } },
               },
             },
           },
@@ -49,10 +69,18 @@ async function deductStock(items: CartItem[]) {
       },
     });
 
-    if (!product) continue;
+    if (!product) {
+      return { success: false, error: `Product not found: ${item.title || item.productId}` };
+    }
+    if (!product.isActive) {
+      return { success: false, error: `Product is no longer available: ${product.title}` };
+    }
+
+    const regularPrice = Number(product.regularPrice?.toString() ?? 0);
+    const salePrice = product.salePrice != null ? Number(product.salePrice.toString()) : null;
+    const productPrice = salePrice != null && salePrice < regularPrice ? salePrice : regularPrice;
 
     if (product.productType === "VARIABLE" && product.variants.length > 0) {
-      // For variable products, find matching variant by color and size
       const matchingVariant = product.variants.find((variant) => {
         const variantAttributes = variant.attributes.map(
           (attr) => attr.attributeValue.displayValue.toLowerCase()
@@ -63,26 +91,75 @@ async function deductStock(items: CartItem[]) {
         );
       });
 
-      if (matchingVariant) {
-        // Deduct from variant stock
-        await db.productVariant.update({
-          where: { id: matchingVariant.id },
-          data: {
-            stock: {
-              decrement: item.quantity,
-            },
-          },
-        });
+      if (!matchingVariant) {
+        return {
+          success: false,
+          error: `Variant (${item.color} / ${item.size}) not found for ${product.title}`,
+        };
       }
+
+      const variantStock = matchingVariant.stock ?? 0;
+      if (variantStock < item.quantity) {
+        return {
+          success: false,
+          error: `Insufficient stock for ${product.title} (${item.color} / ${item.size}). Available: ${variantStock}`,
+        };
+      }
+
+      const variantPrice = matchingVariant.price != null ? Number(matchingVariant.price.toString()) : null;
+      const effectivePrice = variantPrice ?? productPrice;
+
+      resolved.push({
+        productId: item.productId,
+        title: product.title,
+        image: item.image || (product.images?.[0] ?? ""),
+        color: item.color,
+        size: item.size,
+        quantity: item.quantity,
+        price: effectivePrice,
+        variantId: matchingVariant.id,
+      });
     } else {
-      // For simple products, deduct from product stock
-      await db.product.update({
+      const stock = product.stock ?? 0;
+      if (stock < item.quantity) {
+        return {
+          success: false,
+          error: `Insufficient stock for ${product.title}. Available: ${stock}`,
+        };
+      }
+
+      resolved.push({
+        productId: item.productId,
+        title: product.title,
+        image: item.image || (product.images?.[0] ?? ""),
+        color: item.color,
+        size: item.size,
+        quantity: item.quantity,
+        price: productPrice,
+      });
+    }
+  }
+
+  return { success: true, resolved };
+}
+
+/**
+ * Deduct stock for order items (called inside transaction with resolved items).
+ */
+async function deductStockInTransaction(
+  tx: Parameters<Parameters<typeof db.$transaction>[0]>[0],
+  items: ResolvedLineItem[]
+) {
+  for (const item of items) {
+    if (item.variantId) {
+      await tx.productVariant.update({
+        where: { id: item.variantId },
+        data: { stock: { decrement: item.quantity } },
+      });
+    } else {
+      await tx.product.update({
         where: { id: item.productId },
-        data: {
-          stock: {
-            decrement: item.quantity,
-          },
-        },
+        data: { stock: { decrement: item.quantity } },
       });
     }
   }
@@ -104,14 +181,21 @@ export async function createOrder(input: CreateOrderInput) {
     }
     
     const { items, formData } = input;
-    
+
     if (!items || items.length === 0) {
       return {
         success: false,
         error: "No items in cart",
       };
     }
-    
+
+    // Resolve all cart items server-side: validate products, variants, stock, and get authoritative prices
+    const resolution = await resolveCartItems(items);
+    if (!resolution.success) {
+      return { success: false, error: resolution.error };
+    }
+    const resolvedItems = resolution.resolved;
+
     // Get user if logged in
     let userId: string | null = null;
     try {
@@ -122,9 +206,9 @@ export async function createOrder(input: CreateOrderInput) {
     } catch {
       // User not logged in, that's fine for guest checkout
     }
-    
-    // Calculate totals (shipping from admin settings via shippingZone)
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    // Calculate totals from server-resolved prices (never from client)
+    const subtotal = resolvedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const rates = await getShippingRates();
     const shippingCost =
       formData.shippingZone === "inside_dhaka" ? rates.dhaka : rates.outside;
@@ -161,7 +245,7 @@ export async function createOrder(input: CreateOrderInput) {
           senderNumber: formData.senderNumber || null,
           transactionId: formData.transactionId || null,
           items: {
-            create: items.map((item) => ({
+            create: resolvedItems.map((item) => ({
               productId: item.productId,
               color: item.color,
               size: item.size,
@@ -175,65 +259,10 @@ export async function createOrder(input: CreateOrderInput) {
         },
       });
 
-      // Deduct stock for each item
-      for (const item of items) {
-        // Get the product to check its type
-        const product = await tx.product.findUnique({
-          where: { id: item.productId },
-          include: {
-            variants: {
-              include: {
-                attributes: {
-                  include: {
-                    attributeValue: true,
-                  },
-                },
-              },
-            },
-          },
-        });
-
-        if (!product) continue;
-
-        if (product.productType === "VARIABLE" && product.variants.length > 0) {
-          // For variable products, find matching variant by color and size
-          const matchingVariant = product.variants.find((variant) => {
-            const variantAttributes = variant.attributes.map(
-              (attr) => attr.attributeValue.displayValue.toLowerCase()
-            );
-            return (
-              variantAttributes.includes(item.color.toLowerCase()) &&
-              variantAttributes.includes(item.size.toLowerCase())
-            );
-          });
-
-          if (matchingVariant) {
-            // Deduct from variant stock
-            await tx.productVariant.update({
-              where: { id: matchingVariant.id },
-              data: {
-                stock: {
-                  decrement: item.quantity,
-                },
-              },
-            });
-          }
-        } else {
-          // For simple products, deduct from product stock
-          await tx.product.update({
-            where: { id: item.productId },
-            data: {
-              stock: {
-                decrement: item.quantity,
-              },
-            },
-          });
-        }
-      }
-
+      await deductStockInTransaction(tx, resolvedItems);
       return newOrder;
     });
-    
+
     // Revalidate relevant paths
     revalidatePath("/admin/orders");
     revalidatePath("/admin/products");

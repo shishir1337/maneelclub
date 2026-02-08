@@ -187,307 +187,358 @@ export default function CheckoutClient({ merchantNumbers, shippingRates, cities 
     }
   };
 
+  const inputClass =
+    "h-12 text-base md:text-base px-4 rounded-lg border-2 focus-visible:ring-2 min-w-0";
+  const textareaClass =
+    "min-h-[100px] text-base px-4 py-3 rounded-lg border-2 focus-visible:ring-2 resize-y";
+  const labelClass = "text-base font-medium";
+
   return (
-    <div className="container py-8">
+    <div className="container py-8 md:py-10 max-w-6xl">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-6">
-        <Link href="/" className="hover:text-primary">Home</Link>
-        <ChevronRight className="h-4 w-4" />
-        <Link href="/cart" className="hover:text-primary">Cart</Link>
-        <ChevronRight className="h-4 w-4" />
-        <span className="text-foreground">Checkout</span>
+      <nav
+        className="flex items-center gap-1.5 text-sm md:text-base text-muted-foreground mb-6"
+        aria-label="Breadcrumb"
+      >
+        <Link href="/" className="hover:text-primary transition-colors">
+          Home
+        </Link>
+        <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+        <Link href="/cart" className="hover:text-primary transition-colors">
+          Cart
+        </Link>
+        <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+        <span className="text-foreground font-medium">Checkout</span>
       </nav>
-      
-      <h1 className="text-2xl md:text-3xl font-bold mb-8">Checkout</h1>
+
+      <h1 className="text-2xl md:text-4xl font-bold mb-8 md:mb-10 tracking-tight">
+        Checkout
+      </h1>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="grid lg:grid-cols-3 gap-8">
-        {/* Checkout Form */}
-        <div className="lg:col-span-2 space-y-6">
-              {/* Contact Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Contact Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter your full name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="email" 
-                              placeholder="your@email.com" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone Number *</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="tel" 
-                              placeholder="01XXXXXXXXX" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {/* Shipping Address */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Shipping Address</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Detailed Address *</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="House/Flat, Road, Area, Landmark..."
-                            className="min-h-[80px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Area / City *</FormLabel>
-                          <FormControl>
-                            <CityCombobox
-                              cities={cities}
-                              value={field.value}
-                              onChange={(value, shippingZone) => {
-                                field.onChange(value);
-                                form.setValue("shippingZone", shippingZone);
-                              }}
-                              placeholder="Search area or city..."
-                              aria-invalid={!!form.formState.errors.city}
-                              aria-describedby={form.formState.errors.city ? "city-error" : undefined}
-                            />
-                          </FormControl>
-                          <FormMessage id="city-error" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="altPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Alt. Phone</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="tel" 
-                              placeholder="Alternative number (optional)" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <FormField
-                    control={form.control}
-                    name="deliveryNote"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Note for Delivery</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Any special instructions for delivery..."
-                            className="min-h-[60px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-              
-              {/* Payment Method */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Payment Method</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <PaymentMethodSelector 
-                    form={form} 
-                    totalAmount={total}
-                    merchantNumbers={merchantNumbers}
-                  />
-                </CardContent>
-              </Card>
-              
-              {/* Submit Button - Mobile */}
-              <div className="lg:hidden">
-                <Button 
-                  type="submit" 
-                  size="lg" 
-                  className="w-full"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Placing Order...
-                    </>
-                  ) : (
-                    `Place Order - ${formatPrice(total)}`
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="grid lg:grid-cols-3 gap-8 lg:gap-10"
+        >
+          {/* Checkout Form */}
+          <div className="lg:col-span-2 space-y-6 md:space-y-8">
+            {/* Contact Information */}
+            <Card className="rounded-2xl border-2 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl md:text-2xl">
+                  Contact Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <FormField
+                  control={form.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={labelClass}>Full Name *</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter your full name"
+                          className={inputClass}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-base" />
+                    </FormItem>
                   )}
-                </Button>
-              </div>
-        </div>
+                />
 
-        {/* Order Summary + Shipping */}
-        <div className="lg:col-span-1 space-y-4">
-          {/* Shipping - Auto-set from city selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Shipping</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Delivery zone is set automatically based on your selected area/city.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-lg border p-3 bg-muted/30">
-                <p className="text-sm font-medium">
-                  {shippingZone === "inside_dhaka"
-                    ? "Inside Dhaka City Corporation"
-                    : "Outside Dhaka City Corporation"}
-                </p>
-                <p className="text-muted-foreground text-sm mt-0.5">
-                  Shipping: {formatPrice(shippingCost)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className={labelClass}>Email</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="your@email.com"
+                            className={inputClass}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-base" />
+                      </FormItem>
+                    )}
+                  />
 
-          <Card className="sticky top-24">
-            <CardHeader>
-              <CardTitle className="text-lg">Order Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Items */}
-              <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                {items.map((item) => (
-                  <div key={item.id} className="flex gap-3">
-                    <div className="relative w-16 h-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                      <Image
-                        src={item.image}
-                        alt={item.title}
-                        fill
-                        className="object-cover"
-                        unoptimized={item.image.startsWith("/uploads/")}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium line-clamp-1">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.color} / {item.size} × {item.quantity}
-                      </p>
-                      <p className="text-sm font-medium">
-                        {formatPrice(item.price * item.quantity)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <Separator />
-              
-              {/* Totals */}
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatPrice(subtotal)}</span>
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className={labelClass}>
+                          Phone Number *
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="tel"
+                            placeholder="01XXXXXXXXX"
+                            className={inputClass}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-base" />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span>
-                    {shippingZone === "inside_dhaka"
-                      ? `Inside DCC · ${formatPrice(shippingCost)}`
-                      : `Outside DCC · ${formatPrice(shippingCost)}`}
-                  </span>
+              </CardContent>
+            </Card>
+
+            {/* Shipping Address */}
+            <Card className="rounded-2xl border-2 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl md:text-2xl">
+                  Shipping Address
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={labelClass}>
+                        Detailed Address *
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="House/Flat, Road, Area, Landmark..."
+                          className={textareaClass}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-base" />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className={labelClass}>
+                          Area / City *
+                        </FormLabel>
+                        <FormControl>
+                          <CityCombobox
+                            cities={cities}
+                            value={field.value}
+                            onChange={(value, shippingZone) => {
+                              field.onChange(value);
+                              form.setValue("shippingZone", shippingZone);
+                            }}
+                            placeholder="Search area or city..."
+                            aria-invalid={!!form.formState.errors.city}
+                            aria-describedby={
+                              form.formState.errors.city
+                                ? "city-error"
+                                : undefined
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage id="city-error" className="text-base" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="altPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className={labelClass}>
+                          Alt. Phone
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="tel"
+                            placeholder="Alternative number (optional)"
+                            className={inputClass}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-base" />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-                <Separator />
-                <div className="flex justify-between text-base font-semibold">
-                  <span>Total</span>
-                  <span className="text-primary">{formatPrice(total)}</span>
-                </div>
-              </div>
-              
-              {/* Submit Button - Desktop */}
-              <Button 
+
+                <FormField
+                  control={form.control}
+                  name="deliveryNote"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={labelClass}>
+                        Note for Delivery
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Any special instructions for delivery..."
+                          className={textareaClass}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-base" />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Payment Method */}
+            <Card className="rounded-2xl border-2 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl md:text-2xl">
+                  Payment Method
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PaymentMethodSelector
+                  form={form}
+                  totalAmount={total}
+                  merchantNumbers={merchantNumbers}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Submit Button - Mobile */}
+            <div className="lg:hidden pt-2">
+              <Button
                 type="submit"
-                size="lg" 
-                className="w-full hidden lg:flex"
+                size="lg"
+                className="w-full h-14 text-lg font-semibold rounded-xl"
                 disabled={isSubmitting}
-                onClick={form.handleSubmit(onSubmit)}
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
                     Placing Order...
                   </>
                 ) : (
-                  "Place Order"
+                  `Place Order — ${formatPrice(total)}`
                 )}
               </Button>
-              
-              <p className="text-xs text-muted-foreground text-center">
-                By placing this order, you agree to our Terms of Service
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </div>
+
+          {/* Order Summary + Shipping */}
+          <div className="lg:col-span-1 space-y-4 md:space-y-5">
+            {/* Shipping */}
+            <Card className="rounded-2xl border-2 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg md:text-xl">Shipping</CardTitle>
+                <p className="text-sm md:text-base text-muted-foreground mt-1">
+                  Zone is set from your selected area/city.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-xl border-2 p-4 bg-muted/30">
+                  <p className="text-base font-semibold">
+                    {shippingZone === "inside_dhaka"
+                      ? "Inside Dhaka City Corporation"
+                      : "Outside Dhaka City Corporation"}
+                  </p>
+                  <p className="text-muted-foreground text-base mt-1">
+                    Shipping: {formatPrice(shippingCost)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="sticky top-24 rounded-2xl border-2 shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg md:text-xl">
+                  Order Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1">
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex gap-4 p-2 rounded-lg hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                        <Image
+                          src={item.image}
+                          alt={item.title}
+                          fill
+                          className="object-cover"
+                          unoptimized={item.image.startsWith("/uploads/")}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-base font-medium line-clamp-2">
+                          {item.title}
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {item.color} / {item.size} × {item.quantity}
+                        </p>
+                        <p className="text-base font-semibold mt-1">
+                          {formatPrice(item.price * item.quantity)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Separator className="my-1" />
+
+                <div className="space-y-2.5 text-base">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatPrice(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Shipping</span>
+                    <span>
+                      {shippingZone === "inside_dhaka"
+                        ? `Inside DCC · ${formatPrice(shippingCost)}`
+                        : `Outside DCC · ${formatPrice(shippingCost)}`}
+                    </span>
+                  </div>
+                  <Separator className="my-1" />
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Total</span>
+                    <span className="text-primary">
+                      {formatPrice(total)}
+                    </span>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full hidden lg:flex h-14 text-lg font-semibold rounded-xl"
+                  disabled={isSubmitting}
+                  onClick={form.handleSubmit(onSubmit)}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                      Placing Order...
+                    </>
+                  ) : (
+                    "Place Order"
+                  )}
+                </Button>
+
+                <p className="text-sm text-muted-foreground text-center">
+                  By placing this order, you agree to our Terms of Service
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </form>
       </Form>
     </div>
