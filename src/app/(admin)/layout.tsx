@@ -152,16 +152,16 @@ export default async function AdminLayout({
       </header>
 
       {/* Main Content */}
-      <div className="flex">
+      <div className="flex min-h-[calc(100vh-4rem)]">
         {/* Desktop Sidebar */}
-        <div className="hidden lg:block w-64 border-r bg-background min-h-[calc(100vh-4rem)]">
+        <div className="hidden lg:block w-64 shrink-0 border-r bg-background overflow-y-auto">
           <div className="p-4">
             <AdminSidebar />
           </div>
         </div>
 
-        {/* Content */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8">
+        {/* Content - scrollable area with visible scrollbar */}
+        <main className="flex-1 min-w-0 p-4 md:p-6 lg:p-8 overflow-y-auto overflow-x-auto">
           {children}
         </main>
       </div>
