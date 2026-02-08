@@ -1,13 +1,12 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { generateOrderNumber } from "@/lib/format";
 import { getShippingRates, getFreeShippingMinimum } from "@/lib/settings";
 import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { PaymentMethod, PaymentStatus } from "@prisma/client";
+import { PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { sendPurchaseEvent } from "@/lib/conversions-api";
 import { getMetaCapiSettings } from "@/lib/settings";
 
@@ -227,10 +226,17 @@ export async function createOrder(input: CreateOrderInput) {
     
     // Create order in database using a transaction to ensure stock deduction is atomic
     const order = await db.$transaction(async (tx) => {
+      // Next serial order number (numeric only, starting from 2000)
+      const rows = await tx.$queryRaw<Array<{ orderNumber: string }>>(
+        Prisma.sql`SELECT "orderNumber" FROM "Order" WHERE "orderNumber" ~ '^[0-9]+$' ORDER BY ("orderNumber"::integer) DESC LIMIT 1`
+      );
+      const lastNum = rows[0] ? parseInt(rows[0].orderNumber, 10) : 1999;
+      const orderNumber = String(Math.max(2000, lastNum + 1));
+
       // Create the order
       const newOrder = await tx.order.create({
         data: {
-          orderNumber: generateOrderNumber(),
+          orderNumber,
           userId,
           customerName: formData.fullName,
           customerEmail: formData.email || null,
