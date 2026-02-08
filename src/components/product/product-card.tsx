@@ -69,8 +69,7 @@ export function ProductCard({
           alt={title}
           fill
           className="object-cover object-top transition-transform duration-500 ease-out group-hover:scale-105"
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          unoptimized={image.startsWith("/uploads/")}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 315px"
         />
         
         {/* Overlay on hover */}

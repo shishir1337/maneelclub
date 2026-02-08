@@ -161,11 +161,12 @@ export function Header({ navigation: navFromProps }: HeaderProps = {}) {
             <Link
               href="/"
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 flex items-center justify-center"
+              aria-label="Home"
             >
               <div className="relative h-9 w-9">
                 <Image
                   src="/logo.png"
-                  alt=""
+                  alt={siteConfig.name}
                   fill
                   sizes="36px"
                   className="object-contain"

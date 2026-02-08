@@ -44,12 +44,11 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
                         src={slide.image}
                         alt={slide.alt}
                         fill
-                        sizes="100vw"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1280px"
                         className="object-cover"
                         priority={isLcp}
                         fetchPriority={isLcp ? "high" : undefined}
                         loading={isLcp ? undefined : "lazy"}
-                        unoptimized={slide.image.startsWith("/uploads/")}
                       />
                     </div>
                   </Link>
@@ -59,12 +58,11 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
                       src={slide.image}
                       alt={slide.alt}
                       fill
-                      sizes="100vw"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1280px"
                       className="object-cover"
                       priority={isLcp}
                       fetchPriority={isLcp ? "high" : undefined}
                       loading={isLcp ? undefined : "lazy"}
-                      unoptimized={slide.image.startsWith("/uploads/")}
                     />
                   </div>
                 )}

@@ -46,11 +46,10 @@ async function CategoriesSection() {
             >
               <Image
                 src={category.image || "/logo.png"}
-                alt=""
+                alt={category.name}
                 fill
                 sizes="(max-width: 768px) 50vw, 25vw"
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
-                unoptimized={(category.image ?? "").startsWith("/uploads/")}
               />
               <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors" />
               <div className="absolute inset-0 flex items-center justify-center">
