@@ -3,16 +3,21 @@
 import { useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { ZoomIn, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Plus, Minus, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 interface ProductGalleryProps {
   images: string[];
   title: string;
 }
 
+const LIGHTBOX_ZOOM_MIN = 0.5;
+const LIGHTBOX_ZOOM_MAX = 3;
+const LIGHTBOX_ZOOM_STEP = 0.25;
+
 export function ProductGallery({ images, title }: ProductGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxScale, setLightboxScale] = useState(1);
 
   // Ensure we have at least one image. Use unoptimized for /uploads/ so production serves them (files added at runtime).
   const galleryImages = images.length > 0 ? images : ["/logo.png"];
@@ -25,6 +30,11 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
   const goNext = useCallback(() => {
     setSelectedIndex((i) => (i >= galleryImages.length - 1 ? 0 : i + 1));
   }, [galleryImages.length]);
+
+  // Reset zoom when changing image or opening lightbox
+  useEffect(() => {
+    setLightboxScale(1);
+  }, [lightboxOpen, selectedIndex]);
 
   // Close lightbox on Escape, lock body scroll when open
   useEffect(() => {
@@ -44,7 +54,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
 
   return (
     <div className="space-y-3 w-full max-w-full overflow-hidden">
-      {/* Main Image - hover zoom icon, click opens lightbox */}
+      {/* Main Image - click opens lightbox */}
       <div
         role="button"
         tabIndex={0}
@@ -55,7 +65,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
             setLightboxOpen(true);
           }
         }}
-        className="group relative aspect-square md:aspect-[3/4] w-full overflow-hidden rounded-lg bg-muted cursor-zoom-in"
+        className="relative aspect-square md:aspect-[3/4] w-full overflow-hidden rounded-lg bg-muted cursor-zoom-in"
         aria-label="View image full screen"
       >
         <Image
@@ -67,12 +77,6 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
           sizes="(max-width: 768px) 100vw, 50vw"
           unoptimized={isUpload(galleryImages[selectedIndex])}
         />
-        {/* Zoom icon on hover */}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors duration-200 rounded-lg">
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center w-12 h-12 rounded-full bg-background/90 text-foreground shadow-md">
-            <ZoomIn className="h-6 w-6" aria-hidden />
-          </div>
-        </div>
       </div>
 
       {/* Thumbnails - horizontal scroll with hidden scrollbar */}
@@ -158,24 +162,63 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
             </>
           )}
 
-          {/* Image container - click doesn't close so we can tap image on mobile */}
+          {/* Image container - zoomable, click doesn't close */}
           <div
-            className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center p-12 sm:p-16"
+            className="relative w-full h-full flex items-center justify-center p-12 sm:p-16 overflow-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <Image
-              src={galleryImages[selectedIndex]}
-              alt={`${title} - Image ${selectedIndex + 1}`}
-              fill
-              className="object-contain"
-              sizes="100vw"
-              priority
-              unoptimized={isUpload(galleryImages[selectedIndex])}
-            />
+            <div
+              className="relative w-[min(90vw,80rem)] h-[min(90vh,80rem)] flex-shrink-0 transition-transform duration-200"
+              style={{
+                transform: `scale(${lightboxScale})`,
+                transformOrigin: "center",
+              }}
+            >
+              <Image
+                src={galleryImages[selectedIndex]}
+                alt={`${title} - Image ${selectedIndex + 1}`}
+                fill
+                className="object-contain"
+                sizes="100vw"
+                priority
+                unoptimized={isUpload(galleryImages[selectedIndex])}
+              />
+            </div>
+          </div>
+
+          {/* Zoom controls */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLightboxScale((s) => Math.max(LIGHTBOX_ZOOM_MIN, s - LIGHTBOX_ZOOM_STEP));
+              }}
+              className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+              aria-label="Zoom out"
+              disabled={lightboxScale <= LIGHTBOX_ZOOM_MIN}
+            >
+              <Minus className="h-5 w-5" />
+            </button>
+            <span className="text-white/80 text-sm min-w-[3rem] text-center">
+              {Math.round(lightboxScale * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLightboxScale((s) => Math.min(LIGHTBOX_ZOOM_MAX, s + LIGHTBOX_ZOOM_STEP));
+              }}
+              className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+              aria-label="Zoom in"
+              disabled={lightboxScale >= LIGHTBOX_ZOOM_MAX}
+            >
+              <Plus className="h-5 w-5" />
+            </button>
           </div>
 
           {/* Counter */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-white/80 text-sm">
+          <div className="absolute bottom-4 right-4 z-10 text-white/80 text-sm">
             {selectedIndex + 1} / {galleryImages.length}
           </div>
         </div>
