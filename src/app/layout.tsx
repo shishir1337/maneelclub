@@ -59,6 +59,12 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+        {/* Initialize dataLayer before GTM/Meta so all tags can read events */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "window.dataLayer = window.dataLayer || [];",
+          }}
+        />
         <GTMScript containerId={gtm.containerId} />
         <MetaPixelScript pixelId={metaPixel.pixelId} enabled={metaPixel.enabled} />
         <Providers>{children}</Providers>

@@ -8,6 +8,7 @@ type Fbq = ((action: "init", pixelId: string) => void) & ((action: "track", even
 /**
  * Loads Meta Pixel base script when pixelId is set and enabled.
  * Configure in Admin → Settings → Tracking.
+ * Only inits the pixel here; PageView and other events are sent via DataLayerProvider + pushDataLayer.
  */
 interface MetaPixelScriptProps {
   pixelId: string;
@@ -26,7 +27,7 @@ export function MetaPixelScript({ pixelId, enabled }: MetaPixelScriptProps) {
         const fbq = (typeof window !== "undefined" && (window as { fbq?: Fbq }).fbq) as Fbq | undefined;
         if (fbq) {
           fbq("init", pixelId);
-          fbq("track", "PageView");
+          // PageView is sent by DataLayerProvider on route change (single source of truth)
         }
       }}
     />
