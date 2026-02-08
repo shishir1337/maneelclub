@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { generateOrderNumber } from "@/lib/format";
-import { getShippingRates } from "@/lib/settings";
+import { getShippingRates, getFreeShippingMinimum } from "@/lib/settings";
 import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
@@ -209,9 +209,13 @@ export async function createOrder(input: CreateOrderInput) {
 
     // Calculate totals from server-resolved prices (never from client)
     const subtotal = resolvedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const rates = await getShippingRates();
+    const [rates, freeShippingMinimum] = await Promise.all([
+      getShippingRates(),
+      getFreeShippingMinimum(),
+    ]);
+    const zoneRate = formData.shippingZone === "inside_dhaka" ? rates.dhaka : rates.outside;
     const shippingCost =
-      formData.shippingZone === "inside_dhaka" ? rates.dhaka : rates.outside;
+      freeShippingMinimum > 0 && subtotal >= freeShippingMinimum ? 0 : zoneRate;
     const total = subtotal + shippingCost;
     
     // Determine payment method and status

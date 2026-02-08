@@ -52,9 +52,10 @@ interface CheckoutClientProps {
   merchantNumbers: MerchantNumbers;
   shippingRates: ShippingRates;
   cities: CityWithZone[];
+  freeShippingMinimum: number;
 }
 
-export default function CheckoutClient({ merchantNumbers, shippingRates, cities }: CheckoutClientProps) {
+export default function CheckoutClient({ merchantNumbers, shippingRates, cities, freeShippingMinimum }: CheckoutClientProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const { items, getSubtotal } = useCartStore();
@@ -94,8 +95,9 @@ export default function CheckoutClient({ merchantNumbers, shippingRates, cities 
 
   const shippingZone = form.watch("shippingZone");
   const subtotal = getSubtotal();
+  const zoneRate = shippingZone === "inside_dhaka" ? shippingRates.dhaka : shippingRates.outside;
   const shippingCost =
-    shippingZone === "inside_dhaka" ? shippingRates.dhaka : shippingRates.outside;
+    freeShippingMinimum > 0 && subtotal >= freeShippingMinimum ? 0 : zoneRate;
   const total = subtotal + shippingCost;
   
   // Show loading during hydration
@@ -449,7 +451,11 @@ export default function CheckoutClient({ merchantNumbers, shippingRates, cities 
                       : "Outside Dhaka City Corporation"}
                   </p>
                   <p className="text-muted-foreground text-base mt-1">
-                    Shipping: {formatPrice(shippingCost)}
+                    {shippingCost === 0 ? (
+                      "Shipping: Free"
+                    ) : (
+                      <>Shipping: {formatPrice(shippingCost)}</>
+                    )}
                   </p>
                 </div>
               </CardContent>
@@ -502,9 +508,11 @@ export default function CheckoutClient({ merchantNumbers, shippingRates, cities 
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Shipping</span>
                     <span>
-                      {shippingZone === "inside_dhaka"
-                        ? `Inside DCC · ${formatPrice(shippingCost)}`
-                        : `Outside DCC · ${formatPrice(shippingCost)}`}
+                      {shippingCost === 0
+                        ? "Free"
+                        : shippingZone === "inside_dhaka"
+                          ? `Inside Dhaka · ${formatPrice(shippingCost)}`
+                          : `Outside Dhaka · ${formatPrice(shippingCost)}`}
                     </span>
                   </div>
                   <Separator className="my-1" />

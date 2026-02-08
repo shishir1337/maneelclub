@@ -10,7 +10,8 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCartStore } from "@/store/cart-store";
 import { formatPrice } from "@/lib/format";
-import { SHIPPING_RATES } from "@/lib/constants";
+
+const FREE_SHIPPING_MINIMUM = 2000;
 
 export default function CartPage() {
   const [mounted, setMounted] = useState(false);
@@ -23,8 +24,9 @@ export default function CartPage() {
   }, []);
   
   const subtotal = getSubtotal();
-  const estimatedShipping = subtotal > 2000 ? 0 : SHIPPING_RATES.dhaka;
-  const total = subtotal + estimatedShipping;
+  // Free shipping at FREE_SHIPPING_MINIMUM+ (match checkout). Below that, don't add shipping to total — city is unknown until checkout.
+  const qualifiesForFreeShipping = subtotal >= FREE_SHIPPING_MINIMUM;
+  const total = subtotal;
 
   const handleUpdateQuantity = (itemId: string, newQuantity: number) => {
     setIsUpdating(itemId);
@@ -208,17 +210,17 @@ export default function CartPage() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
                   <span className="font-medium">
-                    {estimatedShipping === 0 ? (
+                    {qualifiesForFreeShipping ? (
                       <span className="text-green-600">Free</span>
                     ) : (
-                      `From ${formatPrice(estimatedShipping)}`
+                      "Calculated at checkout"
                     )}
                   </span>
                 </div>
 
-                {subtotal < 2000 && (
+                {subtotal < FREE_SHIPPING_MINIMUM && (
                   <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                    Add {formatPrice(2000 - subtotal)} more for free shipping!
+                    Add {formatPrice(FREE_SHIPPING_MINIMUM - subtotal)} more for free shipping!
                   </p>
                 )}
 
