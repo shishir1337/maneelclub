@@ -259,10 +259,10 @@ export default function AdminProductsPage() {
 
       {/* Stock Alerts */}
       {(lowStockCount > 0 || outOfStockCount > 0) && (
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-3 sm:gap-4">
           {outOfStockCount > 0 && (
             <Card 
-              className="flex-1 min-w-[200px] border-red-200 bg-red-50 dark:bg-red-950/20 cursor-pointer hover:shadow-md transition-shadow"
+              className="flex-1 min-w-[140px] sm:min-w-[200px] border-red-200 bg-red-50 dark:bg-red-950/20 cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => setStockFilter("out")}
             >
               <CardContent className="p-4 flex items-center gap-3">
@@ -278,7 +278,7 @@ export default function AdminProductsPage() {
           )}
           {lowStockCount > 0 && (
             <Card 
-              className="flex-1 min-w-[200px] border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 cursor-pointer hover:shadow-md transition-shadow"
+              className="flex-1 min-w-[140px] sm:min-w-[200px] border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => setStockFilter("low")}
             >
               <CardContent className="p-4 flex items-center gap-3">
@@ -341,10 +341,105 @@ export default function AdminProductsPage() {
         </CardContent>
       </Card>
 
-      {/* Products Table */}
-      <Card>
+      {/* Mobile: Product cards (small screens only) */}
+      <div className="block md:hidden space-y-3">
+        {filteredProducts.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center">
+              <p className="text-muted-foreground">No products found</p>
+              <Link href="/admin/products/new">
+                <Button variant="link" className="mt-2">Add your first product</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredProducts.map((product) => {
+            const totalStock = getTotalStock(product);
+            const outOfStock = isOutOfStock(product);
+            const lowStock = isLowStock(product);
+            return (
+              <Card key={product.id} className="overflow-hidden">
+                <CardContent className="p-3">
+                  <div className="flex gap-3">
+                    <div className="relative h-16 w-16 flex-shrink-0 rounded-md overflow-hidden bg-muted">
+                      <Image
+                        src={product.images?.[0] || "/productImage.jpeg"}
+                        alt={product.title}
+                        fill
+                        className="object-cover"
+                        unoptimized={(product.images?.[0] ?? "").startsWith("/uploads/")}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm line-clamp-2">{product.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {product.category
+                          ? product.category.parent
+                            ? `${product.category.parent.name} › ${product.category.name}`
+                            : product.category.name
+                          : "Uncategorized"}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span className="text-sm font-medium">
+                          {product.salePrice
+                            ? formatPrice(Number(product.salePrice.toString()))
+                            : formatPrice(Number(product.regularPrice.toString()))}
+                        </span>
+                        {outOfStock ? (
+                          <Badge variant="destructive" className="text-xs">Out</Badge>
+                        ) : lowStock ? (
+                          <Badge className="bg-yellow-100 text-yellow-800 text-xs">{totalStock} left</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            {totalStock >= UNLIMITED_STOCK ? "Unlimited" : `${totalStock} in stock`}
+                          </Badge>
+                        )}
+                        <Badge
+                          variant={product.isActive ? "default" : "secondary"}
+                          className="text-xs cursor-pointer"
+                          onClick={() => handleToggleStatus(product.id)}
+                        >
+                          {actionLoading === product.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : product.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
+                          <Link href={`/product/${product.slug}`} target="_blank">
+                            <Eye className="h-3 w-3 mr-1" />
+                            View
+                          </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
+                          <Link href={`/admin/products/${product.id}`}>
+                            <Pencil className="h-3 w-3 mr-1" />
+                            Edit
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs text-destructive hover:text-destructive"
+                          onClick={() => setDeleteProductId(product.id)}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop: Products Table (md and up) */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
-          <Table>
+          <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[80px]">Image</TableHead>
