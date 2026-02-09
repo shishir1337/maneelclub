@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard, User, Mail, MapPin, Package, Calendar } from "lucide-react";
+import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard, User, Mail, MapPin, Package, Calendar, Copy, Check } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,7 +68,10 @@ interface Order {
   customerName: string;
   customerEmail: string | null;
   customerPhone: string;
+  shippingAddress?: string;
   city: string;
+  altPhone?: string | null;
+  deliveryNote?: string | null;
   total: number;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
@@ -117,6 +120,7 @@ export default function AdminOrdersPage() {
   const [paymentDialogOrder, setPaymentDialogOrder] = useState<Order | null>(null);
   const [summaryDialogOrder, setSummaryDialogOrder] = useState<Order | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   useEffect(() => {
     loadOrders();
@@ -206,6 +210,17 @@ export default function AdminOrdersPage() {
       toast.error("Failed to reject payment");
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  async function copyToClipboard(text: string, fieldId: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldId);
+      setTimeout(() => setCopiedField(null), 2000);
+      toast.success("Copied to clipboard");
+    } catch (error) {
+      toast.error("Failed to copy");
     }
   }
 
@@ -374,9 +389,6 @@ export default function AdminOrdersPage() {
                         <div className="space-y-1">
                           <Badge className={paymentMethodColors[order.paymentMethod]}>
                             {order.paymentMethod}
-                          </Badge>
-                          <Badge className={paymentStatusColors[order.paymentStatus]}>
-                            {PAYMENT_STATUS[order.paymentStatus as keyof typeof PAYMENT_STATUS]?.label ?? order.paymentStatus}
                           </Badge>
                           {order.paymentMethod !== "COD" && order.senderNumber && (
                             <div className="text-xs text-muted-foreground">
@@ -648,44 +660,182 @@ export default function AdminOrdersPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
+                    {/* Name */}
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex items-start gap-2 text-sm">
+                        <User className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs text-muted-foreground">Name</p>
                           <p className="font-medium truncate">{summaryDialogOrder.customerName}</p>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0"
+                          onClick={() => copyToClipboard(summaryDialogOrder.customerName, `name-${summaryDialogOrder.id}`)}
+                        >
+                          {copiedField === `name-${summaryDialogOrder.id}` ? (
+                            <Check className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
                       </div>
                     </div>
+
+                    {/* Phone */}
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex items-start gap-2 text-sm">
+                        <Phone className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs text-muted-foreground">Phone</p>
                           <p className="font-medium">{summaryDialogOrder.customerPhone}</p>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0"
+                          onClick={() => copyToClipboard(summaryDialogOrder.customerPhone, `phone-${summaryDialogOrder.id}`)}
+                        >
+                          {copiedField === `phone-${summaryDialogOrder.id}` ? (
+                            <Check className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
                       </div>
                     </div>
+
+                    {/* Alt Phone */}
+                    {summaryDialogOrder.altPhone && (
+                      <div className="space-y-1">
+                        <div className="flex items-start gap-2 text-sm">
+                          <Phone className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-muted-foreground">Alt. Phone</p>
+                            <p className="font-medium">{summaryDialogOrder.altPhone}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={() => copyToClipboard(summaryDialogOrder.altPhone!, `altPhone-${summaryDialogOrder.id}`)}
+                          >
+                            {copiedField === `altPhone-${summaryDialogOrder.id}` ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Email */}
                     {summaryDialogOrder.customerEmail && (
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="flex items-start gap-2 text-sm">
+                          <Mail className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
                             <p className="text-xs text-muted-foreground">Email</p>
                             <p className="font-medium truncate">{summaryDialogOrder.customerEmail}</p>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={() => copyToClipboard(summaryDialogOrder.customerEmail!, `email-${summaryDialogOrder.id}`)}
+                          >
+                            {copiedField === `email-${summaryDialogOrder.id}` ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
                         </div>
                       </div>
                     )}
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-muted-foreground">City</p>
-                          <p className="font-medium">{summaryDialogOrder.city}</p>
+
+                    <Separator />
+
+                    {/* Shipping Address */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Shipping Address</h4>
+                      
+                      {/* Address */}
+                      {summaryDialogOrder.shippingAddress && (
+                        <div className="space-y-1">
+                          <div className="flex items-start gap-2 text-sm">
+                            <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground">Address</p>
+                              <p className="font-medium whitespace-pre-wrap break-words">{summaryDialogOrder.shippingAddress}</p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0"
+                              onClick={() => copyToClipboard(summaryDialogOrder.shippingAddress!, `address-${summaryDialogOrder.id}`)}
+                            >
+                              {copiedField === `address-${summaryDialogOrder.id}` ? (
+                                <Check className="h-3 w-3 text-green-600" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* City */}
+                      <div className="space-y-1">
+                        <div className="flex items-start gap-2 text-sm">
+                          <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-muted-foreground">City</p>
+                            <p className="font-medium">{summaryDialogOrder.city}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={() => copyToClipboard(summaryDialogOrder.city, `city-${summaryDialogOrder.id}`)}
+                          >
+                            {copiedField === `city-${summaryDialogOrder.id}` ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
                         </div>
                       </div>
+
+                      {/* Delivery Note */}
+                      {summaryDialogOrder.deliveryNote && (
+                        <div className="space-y-1 pt-1">
+                          <div className="flex items-start gap-2 text-sm">
+                            <Package className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground">Delivery Note</p>
+                              <p className="font-medium text-xs whitespace-pre-wrap break-words">{summaryDialogOrder.deliveryNote}</p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0"
+                              onClick={() => copyToClipboard(summaryDialogOrder.deliveryNote!, `note-${summaryDialogOrder.id}`)}
+                            >
+                              {copiedField === `note-${summaryDialogOrder.id}` ? (
+                                <Check className="h-3 w-3 text-green-600" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
+
                     {summaryDialogOrder.timesPurchased !== undefined && summaryDialogOrder.timesPurchased > 0 && (
                       <div className="pt-2 border-t">
                         <div className="flex items-center gap-2 text-sm">
@@ -709,19 +859,11 @@ export default function AdminOrdersPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Method</p>
-                        <Badge className={paymentMethodColors[summaryDialogOrder.paymentMethod]} variant="outline">
-                          {summaryDialogOrder.paymentMethod}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Status</p>
-                        <Badge className={paymentStatusColors[summaryDialogOrder.paymentStatus]} variant="outline">
-                          {PAYMENT_STATUS[summaryDialogOrder.paymentStatus as keyof typeof PAYMENT_STATUS]?.label ?? summaryDialogOrder.paymentStatus}
-                        </Badge>
-                      </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Method</p>
+                      <Badge className={paymentMethodColors[summaryDialogOrder.paymentMethod]} variant="outline">
+                        {summaryDialogOrder.paymentMethod}
+                      </Badge>
                     </div>
                     {summaryDialogOrder.paymentMethod !== "COD" && (
                       <div className="pt-2 border-t space-y-2">
