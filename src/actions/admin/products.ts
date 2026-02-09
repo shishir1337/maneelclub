@@ -93,6 +93,15 @@ export async function getAdminProducts() {
     const products = await db.product.findMany({
       include: {
         category: { include: { parent: true } },
+        categories: {
+          include: {
+            category: {
+              include: {
+                parent: true,
+              },
+            },
+          },
+        },
         variants: true,
       },
       orderBy: { createdAt: "desc" },

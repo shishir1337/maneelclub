@@ -166,9 +166,11 @@ export async function getProductsByCategory(categorySlug: string) {
       return { success: true, data: [] };
     }
 
+    // If it's a subcategory, search for products in that category
+    // If it's a parent category, search for products in that category AND its children
     const categoryIds: string[] = category.parentId
-      ? [category.id]
-      : (category.children?.map((c) => c.id) ?? []);
+      ? [category.id] // Subcategory: search only this category
+      : [category.id, ...(category.children?.map((c) => c.id) ?? [])]; // Parent: search this category + children
 
     if (categoryIds.length === 0) {
       return { success: true, data: [] };

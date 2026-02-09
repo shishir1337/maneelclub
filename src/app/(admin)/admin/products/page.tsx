@@ -71,6 +71,15 @@ interface Product {
     parentId?: string | null;
     parent?: { name: string } | null;
   } | null;
+  categories?: Array<{
+    category: {
+      id: string;
+      name: string;
+      slug: string;
+      parentId?: string | null;
+      parent?: { name: string } | null;
+    };
+  }>;
   createdAt: Date;
 }
 
@@ -190,7 +199,11 @@ export default function AdminProductsPage() {
     const matchesCategory =
       categoryFilter === "all" ||
       product.category?.id === categoryFilter ||
-      product.category?.parentId === categoryFilter;
+      product.category?.parentId === categoryFilter ||
+      product.categories?.some((pc) => 
+        pc.category.id === categoryFilter || 
+        pc.category.parentId === categoryFilter
+      ) || false;
     
     // Stock filter
     let matchesStock = true;
@@ -372,13 +385,26 @@ export default function AdminProductsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm line-clamp-2">{product.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {product.category
-                          ? product.category.parent
-                            ? `${product.category.parent.name} › ${product.category.name}`
-                            : product.category.name
-                          : "Uncategorized"}
-                      </p>
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {product.categories && product.categories.length > 0 ? (
+                          product.categories.map((pc, idx) => (
+                            <p key={pc.category.id} className="text-xs text-muted-foreground">
+                              {pc.category.parent
+                                ? `${pc.category.parent.name} › ${pc.category.name}`
+                                : pc.category.name}
+                              {idx < product.categories!.length - 1 && <span className="mx-1">•</span>}
+                            </p>
+                          ))
+                        ) : product.category ? (
+                          <p className="text-xs text-muted-foreground">
+                            {product.category.parent
+                              ? `${product.category.parent.name} › ${product.category.name}`
+                              : product.category.name}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Uncategorized</p>
+                        )}
+                      </div>
                       <div className="flex flex-wrap items-center gap-1.5 mt-2">
                         <span className="text-sm font-medium">
                           {product.salePrice
@@ -484,13 +510,25 @@ export default function AdminProductsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">
-                        {product.category
-                          ? product.category.parent
-                            ? `${product.category.parent.name} › ${product.category.name}`
-                            : product.category.name
-                          : "Uncategorized"}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {product.categories && product.categories.length > 0 ? (
+                          product.categories.map((pc) => (
+                            <Badge key={pc.category.id} variant="outline" className="text-xs">
+                              {pc.category.parent
+                                ? `${pc.category.parent.name} › ${pc.category.name}`
+                                : pc.category.name}
+                            </Badge>
+                          ))
+                        ) : product.category ? (
+                          <Badge variant="outline">
+                            {product.category.parent
+                              ? `${product.category.parent.name} › ${product.category.name}`
+                              : product.category.name}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">Uncategorized</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div>
