@@ -128,7 +128,16 @@ export function Footer() {
                 </li>
                 <li className="flex items-start gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <span>Bangladesh</span>
+                  <a
+                    href="https://maps.app.goo.gl/eva1uWFvVgVcTaKC9"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-primary transition-colors"
+                  >
+                    <span className="block">Block #A, Muntaha Tower (Grand Floor)</span>
+                    <span className="block">Behind Al Baraka Hospital, Model Town</span>
+                    <span className="block">Keraniganj, Dhaka- 1310</span>
+                  </a>
                 </li>
               </ul>
             </div>

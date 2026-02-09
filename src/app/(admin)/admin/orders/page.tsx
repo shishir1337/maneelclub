@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard } from "lucide-react";
+import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard, User, Mail, MapPin, Package, Calendar } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatPrice, formatDate } from "@/lib/format";
+import { Separator } from "@/components/ui/separator";
+import { formatPrice, formatDate, formatDateWithRelativeTime } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUS, PAYMENT_STATUSES, PAYMENT_METHODS } from "@/lib/constants";
 import { getAdminOrders, updateOrderStatus, verifyPayment, rejectPayment } from "@/actions/admin/orders";
 import { toast } from "sonner";
@@ -48,9 +49,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface OrderItem {
   id: string;
-  title: string;
+  productId: string;
+  color?: string;
+  size?: string;
   quantity: number;
   price: number;
+  product?: {
+    id: string;
+    title: string;
+    slug: string;
+    images: string[];
+  } | null;
 }
 
 interface Order {
@@ -106,6 +115,7 @@ export default function AdminOrdersPage() {
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [paymentDialogOrder, setPaymentDialogOrder] = useState<Order | null>(null);
+  const [summaryDialogOrder, setSummaryDialogOrder] = useState<Order | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
@@ -407,11 +417,20 @@ export default function AdminOrdersPage() {
                       </TableCell>
                       <TableCell>
                         <p className="text-sm">
-                          {formatDate(new Date(order.createdAt))}
+                          {formatDateWithRelativeTime(new Date(order.createdAt))}
                         </p>
                       </TableCell>
                       <TableCell className="text-right">
-                        <DropdownMenu>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setSummaryDialogOrder(order)}
+                            title="View Order Summary"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
                               <MoreHorizontal className="h-4 w-4" />
@@ -465,8 +484,19 @@ export default function AdminOrdersPage() {
                             >
                               Mark as Delivered
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleStatusChange(order.id, "CANCELLED")
+                              }
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Mark as Canceled
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -558,6 +588,254 @@ export default function AdminOrdersPage() {
               )}
               Verify Payment
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Order Summary Dialog */}
+      <Dialog open={!!summaryDialogOrder} onOpenChange={() => setSummaryDialogOrder(null)}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Order Summary</DialogTitle>
+            <DialogDescription>
+              Complete overview of order and customer information
+            </DialogDescription>
+          </DialogHeader>
+          
+          {summaryDialogOrder && (
+            <div className="space-y-4">
+              {/* Order Header - Highlighted */}
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="pt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                        Order Number
+                      </p>
+                      <p className="text-lg font-bold text-primary">{summaryDialogOrder.orderNumber}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                        Total Amount
+                      </p>
+                      <p className="text-2xl font-bold">{formatPrice(summaryDialogOrder.total)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                        Order Date
+                      </p>
+                      <p className="text-sm font-medium">{formatDateWithRelativeTime(new Date(summaryDialogOrder.createdAt))}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                        Status
+                      </p>
+                      <Badge className={statusColors[summaryDialogOrder.status]} variant="outline">
+                        {ORDER_STATUS[summaryDialogOrder.status as keyof typeof ORDER_STATUS]?.label ?? summaryDialogOrder.status}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Customer Information */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <User className="h-4 w-4 text-primary" />
+                      Customer Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground">Name</p>
+                          <p className="font-medium truncate">{summaryDialogOrder.customerName}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground">Phone</p>
+                          <p className="font-medium">{summaryDialogOrder.customerPhone}</p>
+                        </div>
+                      </div>
+                    </div>
+                    {summaryDialogOrder.customerEmail && (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-muted-foreground">Email</p>
+                            <p className="font-medium truncate">{summaryDialogOrder.customerEmail}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground">City</p>
+                          <p className="font-medium">{summaryDialogOrder.city}</p>
+                        </div>
+                      </div>
+                    </div>
+                    {summaryDialogOrder.timesPurchased !== undefined && summaryDialogOrder.timesPurchased > 0 && (
+                      <div className="pt-2 border-t">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Package className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-xs text-muted-foreground">Previous Orders</p>
+                            <p className="font-medium">{summaryDialogOrder.timesPurchased} order{summaryDialogOrder.timesPurchased !== 1 ? "s" : ""}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Payment Information */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-primary" />
+                      Payment Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Method</p>
+                        <Badge className={paymentMethodColors[summaryDialogOrder.paymentMethod]} variant="outline">
+                          {summaryDialogOrder.paymentMethod}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Status</p>
+                        <Badge className={paymentStatusColors[summaryDialogOrder.paymentStatus]} variant="outline">
+                          {PAYMENT_STATUS[summaryDialogOrder.paymentStatus as keyof typeof PAYMENT_STATUS]?.label ?? summaryDialogOrder.paymentStatus}
+                        </Badge>
+                      </div>
+                    </div>
+                    {summaryDialogOrder.paymentMethod !== "COD" && (
+                      <div className="pt-2 border-t space-y-2">
+                        {summaryDialogOrder.senderNumber && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground">Sender Number</p>
+                              <p className="font-mono font-medium text-xs break-all">{summaryDialogOrder.senderNumber}</p>
+                            </div>
+                          </div>
+                        )}
+                        {summaryDialogOrder.transactionId && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <CreditCard className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground">Transaction ID</p>
+                              <p className="font-mono font-medium text-xs break-all">{summaryDialogOrder.transactionId}</p>
+                            </div>
+                          </div>
+                        )}
+                        {summaryDialogOrder.paidAt && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-xs text-muted-foreground">Paid At</p>
+                              <p className="font-medium text-xs">{formatDate(new Date(summaryDialogOrder.paidAt))}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Order Items */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Package className="h-4 w-4 text-primary" />
+                    Order Items
+                    <Badge variant="secondary" className="ml-auto">
+                      {summaryDialogOrder.items?.length || 0} item{summaryDialogOrder.items?.length !== 1 ? "s" : ""}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {summaryDialogOrder.items && summaryDialogOrder.items.length > 0 ? (
+                      summaryDialogOrder.items.map((item, index) => {
+                        const productTitle = item.product?.title || "Product";
+                        const hasVariants = item.color || item.size;
+                        
+                        return (
+                          <div 
+                            key={item.id} 
+                            className={`flex items-start justify-between p-3 rounded-lg border bg-card ${
+                              index !== summaryDialogOrder.items!.length - 1 ? "mb-2" : ""
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start gap-2">
+                                <div className="flex-shrink-0 w-8 h-8 rounded bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                                  {index + 1}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm leading-tight">{productTitle}</p>
+                                  {hasVariants && (
+                                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                      {item.color && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                                          {item.color}
+                                        </span>
+                                      )}
+                                      {item.size && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                          {item.size}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {item.quantity} × {formatPrice(item.price)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right ml-4 shrink-0">
+                              <p className="font-semibold text-sm">{formatPrice(item.price * item.quantity)}</p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">No items found</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setSummaryDialogOrder(null)}>
+              Close
+            </Button>
+            {summaryDialogOrder && (
+              <Button asChild>
+                <Link href={`/admin/orders/${summaryDialogOrder.id}`}>
+                  View Full Details
+                </Link>
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

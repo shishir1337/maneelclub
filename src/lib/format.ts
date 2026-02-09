@@ -55,6 +55,41 @@ export function formatDate(date: Date | string): string {
 }
 
 /**
+ * Format date with relative time (e.g., "1 hour ago") if less than 24 hours
+ * @param date - Date to format
+ * @returns Formatted date string with relative time if applicable
+ */
+export function formatDateWithRelativeTime(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  
+  // If less than 24 hours, show relative time
+  if (diffHours < 24 && diffHours >= 0) {
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHoursRounded = Math.floor(diffHours);
+    const remainingMinutes = diffMinutes % 60;
+    
+    let relativeTime = "";
+    if (diffHoursRounded > 0) {
+      relativeTime = `${diffHoursRounded} hour${diffHoursRounded > 1 ? "s" : ""}`;
+      if (remainingMinutes > 0) {
+        relativeTime += ` ${remainingMinutes} minute${remainingMinutes > 1 ? "s" : ""}`;
+      }
+    } else {
+      relativeTime = `${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""}`;
+    }
+    
+    const formattedDate = formatDate(d);
+    return `${formattedDate} (${relativeTime} ago)`;
+  }
+  
+  // Otherwise, just show the date
+  return formatDate(d);
+}
+
+/**
  * Format date with time
  * @param date - Date to format
  * @returns Formatted date and time string

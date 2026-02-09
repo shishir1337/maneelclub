@@ -20,6 +20,8 @@ export function ImageUploader({
 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   async function handleFileSelect(files: FileList | null) {
     if (!files?.length) return;
@@ -58,12 +60,43 @@ export function ImageUploader({
     onChange(images.filter((_, i) => i !== index));
   }
 
-  function handleDrop(e: React.DragEvent) {
+  function handleDragStart(e: React.DragEvent, index: number) {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverIndex(index);
+  }
+
+  function handleDragLeave() {
+    setDragOverIndex(null);
+  }
+
+  function handleDrop(e: React.DragEvent, dropIndex: number) {
+    e.preventDefault();
+    setDragOverIndex(null);
+
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      return;
+    }
+
+    const newImages = [...images];
+    const [draggedItem] = newImages.splice(draggedIndex, 1);
+    newImages.splice(dropIndex, 0, draggedItem);
+    onChange(newImages);
+    setDraggedIndex(null);
+  }
+
+  function handleFileDrop(e: React.DragEvent) {
     e.preventDefault();
     handleFileSelect(e.dataTransfer.files);
   }
 
-  function handleDragOver(e: React.DragEvent) {
+  function handleFileDragOver(e: React.DragEvent) {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
   }
@@ -85,6 +118,11 @@ export function ImageUploader({
                 unoptimized
               />
             </div>
+            {i === 0 && (
+              <div className="absolute -top-1 -left-1 bg-primary text-primary-foreground text-[8px] font-semibold px-1 py-0.5 rounded">
+                Thumbnail
+              </div>
+            )}
             <button
               type="button"
               onClick={() => handleRemove(i)}
@@ -124,7 +162,19 @@ export function ImageUploader({
     <div>
       <div className="flex flex-wrap gap-3 mb-3">
         {images.map((url, i) => (
-          <div key={url} className="relative group">
+          <div
+            key={url}
+            draggable
+            onDragStart={(e) => handleDragStart(e, i)}
+            onDragOver={(e) => handleDragOver(e, i)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, i)}
+            className={cn(
+              "relative group cursor-move",
+              draggedIndex === i && "opacity-50",
+              dragOverIndex === i && "ring-2 ring-primary ring-offset-2"
+            )}
+          >
             <div className="w-24 h-24 rounded-lg overflow-hidden border bg-muted">
               <Image
                 src={url}
@@ -135,10 +185,15 @@ export function ImageUploader({
                 unoptimized
               />
             </div>
+            {i === 0 && (
+              <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 rounded shadow-sm">
+                Thumbnail
+              </div>
+            )}
             <button
               type="button"
               onClick={() => handleRemove(i)}
-              className="absolute top-1 right-1 rounded-full bg-destructive text-destructive-foreground p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-1 right-1 rounded-full bg-destructive text-destructive-foreground p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
               aria-label="Remove image"
             >
               <X className="h-3 w-3" />
@@ -148,8 +203,8 @@ export function ImageUploader({
       </div>
       {canAdd && (
         <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
+          onDrop={handleFileDrop}
+          onDragOver={handleFileDragOver}
           onClick={() => inputRef.current?.click()}
           className={cn(
             "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
@@ -177,7 +232,7 @@ export function ImageUploader({
                 Drag and drop or click to upload images
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                JPEG, PNG, WebP, GIF up to 5MB. Max {maxImages} images.
+                JPEG, PNG, WebP, GIF up to 10MB. Max {maxImages} images. The first image will be used as the product thumbnail.
               </p>
             </>
           )}

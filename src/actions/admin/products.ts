@@ -24,7 +24,8 @@ const productSchema = z.object({
   description: z.string().optional(),
   regularPrice: z.number().min(0, "Price must be positive"),
   salePrice: z.number().min(0).optional().nullable(),
-  categoryId: z.string().optional().nullable(),
+  categoryId: z.string().optional().nullable(), // Legacy field, kept for backward compatibility
+  categoryIds: z.array(z.string()).optional(), // New field for multiple categories
   images: z.array(z.string()).default([]),
   colors: z.array(z.string()).default([]),
   sizes: z.array(z.string()).default([]),
@@ -116,6 +117,11 @@ export async function getProductById(id: string) {
       where: { id },
       include: {
         category: true,
+        categories: {
+          include: {
+            category: true,
+          },
+        },
         variants: {
           include: {
             attributes: {
@@ -223,6 +229,17 @@ export async function createProduct(input: ProductInput, variants?: VariantRecor
         } as Parameters<typeof tx.product.create>[0]["data"],
       });
 
+      // Handle multiple categories
+      if (validated.categoryIds && validated.categoryIds.length > 0) {
+        await tx.productCategory.createMany({
+          data: validated.categoryIds.map((categoryId) => ({
+            productId: created.id,
+            categoryId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
       if (productType === "VARIABLE" && variants && variants.length > 0) {
         const allValueIds = [...new Set(variants.flatMap((v) => v.attributeValueIds))];
         const attributeValues = await tx.attributeValue.findMany({
@@ -289,7 +306,15 @@ export async function createProduct(input: ProductInput, variants?: VariantRecor
 
       return tx.product.findUnique({
         where: { id: created.id },
-        include: { category: true, variants: true },
+        include: { 
+          category: true,
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+          variants: true 
+        },
       });
     }, { timeout: 30000 });
 
@@ -369,6 +394,22 @@ export async function updateProduct(id: string, input: Partial<ProductInput>, va
         } as Parameters<typeof tx.product.update>[0]["data"],
       });
 
+      // Handle multiple categories
+      if (input.categoryIds !== undefined) {
+        // Delete existing category associations
+        await tx.productCategory.deleteMany({ where: { productId: id } });
+        // Create new associations
+        if (input.categoryIds.length > 0) {
+          await tx.productCategory.createMany({
+            data: input.categoryIds.map((categoryId) => ({
+              productId: id,
+              categoryId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
       await tx.productVariant.deleteMany({ where: { productId: id } });
 
       if (productType === "VARIABLE" && variants && variants.length > 0) {
@@ -436,7 +477,15 @@ export async function updateProduct(id: string, input: Partial<ProductInput>, va
 
       return tx.product.findUnique({
         where: { id },
-        include: { category: true, variants: true },
+        include: { 
+          category: true,
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+          variants: true 
+        },
       });
     }, { timeout: 30000 });
 

@@ -144,7 +144,14 @@ export async function getProductsByCategory(categorySlug: string) {
     if (categorySlug === "all") {
       const products = await db.product.findMany({
         where: { isActive: true },
-        include: { category: true },
+        include: { 
+          category: true,
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+        },
         orderBy: { createdAt: "desc" },
       });
       return { success: true, data: products.map(transformProduct) };
@@ -167,12 +174,23 @@ export async function getProductsByCategory(categorySlug: string) {
       return { success: true, data: [] };
     }
 
+    // Get products that match via legacy categoryId OR via ProductCategory relationship
     const products = await db.product.findMany({
       where: {
-        categoryId: { in: categoryIds },
         isActive: true,
+        OR: [
+          { categoryId: { in: categoryIds } },
+          { categories: { some: { categoryId: { in: categoryIds } } } },
+        ],
       },
-      include: { category: true },
+      include: { 
+        category: true,
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 
@@ -278,7 +296,14 @@ export async function getAllProducts() {
   try {
     const products = await db.product.findMany({
       where: { isActive: true },
-      include: { category: true },
+      include: { 
+        category: true,
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
     
@@ -345,11 +370,21 @@ export async function getRelatedProducts(categoryId: string, excludeProductId: s
   try {
     const products = await db.product.findMany({
       where: {
-        categoryId,
         isActive: true,
         id: { not: excludeProductId },
+        OR: [
+          { categoryId },
+          { categories: { some: { categoryId } } },
+        ],
       },
-      include: { category: true },
+      include: { 
+        category: true,
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+      },
       take: limit,
       orderBy: { createdAt: "desc" },
     });

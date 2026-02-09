@@ -145,7 +145,8 @@ model Product {
   updatedAt      DateTime    @updatedAt
 
   categoryId String?
-  category   Category?          @relation(fields: [categoryId], references: [id])
+  category   Category?          @relation("ProductCategoryLegacy", fields: [categoryId], references: [id])
+  categories ProductCategory[]
   attributes ProductAttribute[]
   variants   ProductVariant[]
   orderItems OrderItem[]
@@ -230,11 +231,27 @@ model Category {
 
   parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children Category[] @relation("CategoryHierarchy")
-  products Product[]
+  products Product[]  @relation("ProductCategoryLegacy")
+  productCategories ProductCategory[]
 
   @@index([slug])
   @@index([isActive])
   @@index([parentId])
+}
+
+// Many-to-many relationship between Product and Category
+model ProductCategory {
+  id         String   @id @default(cuid())
+  productId  String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, categoryId])
+  @@index([productId])
+  @@index([categoryId])
 }
 
 // ==================== ORDERS ====================

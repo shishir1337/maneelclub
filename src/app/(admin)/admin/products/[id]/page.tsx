@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Form,
@@ -86,6 +88,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   
   // Attribute and variant state
   const [selectedAttributes, setSelectedAttributes] = useState<SelectedAttribute[]>([]);
@@ -153,6 +156,10 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         });
         
         setImages(product.images?.length ? product.images : []);
+
+        // Load selected categories from ProductCategory relationship
+        const productCategories = (product as { categories?: Array<{ categoryId: string }> }).categories || [];
+        setSelectedCategoryIds(productCategories.map((pc) => pc.categoryId));
 
         const existingSizeChart = (product as { sizeChart?: SizeChartValue | null }).sizeChart;
         setSizeChart(
@@ -311,6 +318,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             ? Object.values(variantStocks).reduce((sum, v) => sum + (v?.stock ?? 0), 0)
             : 999,
           sizeChart: sizeChart?.headers?.length && sizeChart?.rows?.length ? sizeChart : null,
+          categoryIds: selectedCategoryIds,
         },
         variantsData
       );
@@ -605,7 +613,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                 <CardHeader>
                   <CardTitle>Images</CardTitle>
                   <CardDescription>
-                    Upload product images or use the default placeholder
+                    Upload product images or use the default placeholder. Drag images to reorder them. The first image will be used as the product thumbnail on product cards and listings.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -670,38 +678,45 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               <Card>
                 <CardHeader>
                   <CardTitle>Organization</CardTitle>
+                  <CardDescription>
+                    Select one or more categories/subcategories for this product
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="categoryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select
-                          value={field.value ?? "__none__"}
-                          onValueChange={(v) => field.onChange(v === "__none__" ? null : v)}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="__none__">No category</SelectItem>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.parent
-                                  ? `${category.parent.name} › ${category.name}`
-                                  : category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {categories.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No categories available</p>
+                    ) : (
+                      categories.map((category) => (
+                        <div key={category.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`cat-${category.id}`}
+                            checked={selectedCategoryIds.includes(category.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedCategoryIds([...selectedCategoryIds, category.id]);
+                              } else {
+                                setSelectedCategoryIds(selectedCategoryIds.filter((id) => id !== category.id));
+                              }
+                            }}
+                          />
+                          <Label
+                            htmlFor={`cat-${category.id}`}
+                            className="text-sm font-normal cursor-pointer flex-1"
+                          >
+                            {category.parent
+                              ? `${category.parent.name} › ${category.name}`
+                              : category.name}
+                          </Label>
+                        </div>
+                      ))
                     )}
-                  />
+                  </div>
+                  {selectedCategoryIds.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {selectedCategoryIds.length} categor{selectedCategoryIds.length === 1 ? "y" : "ies"} selected
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 

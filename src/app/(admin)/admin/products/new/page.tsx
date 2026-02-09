@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Form,
@@ -84,6 +86,7 @@ export default function NewProductPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   
   // Attribute and variant state
   const [selectedAttributes, setSelectedAttributes] = useState<SelectedAttribute[]>([]);
@@ -172,6 +175,7 @@ export default function NewProductPage() {
             ? Object.values(variantStocks).reduce((sum, v) => sum + (v?.stock ?? 0), 0)
             : 999,
           sizeChart: sizeChart && sizeChart.headers.length > 0 && sizeChart.rows.length > 0 ? sizeChart : null,
+          categoryIds: selectedCategoryIds,
         },
         variantsData
       );
@@ -493,38 +497,45 @@ export default function NewProductPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Organization</CardTitle>
+                  <CardDescription>
+                    Select one or more categories/subcategories for this product
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="categoryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select
-                          value={field.value ?? "__none__"}
-                          onValueChange={(v) => field.onChange(v === "__none__" ? null : v)}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="__none__">No category</SelectItem>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.parent
-                                  ? `${category.parent.name} › ${category.name}`
-                                  : category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {categories.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No categories available</p>
+                    ) : (
+                      categories.map((category) => (
+                        <div key={category.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`cat-${category.id}`}
+                            checked={selectedCategoryIds.includes(category.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedCategoryIds([...selectedCategoryIds, category.id]);
+                              } else {
+                                setSelectedCategoryIds(selectedCategoryIds.filter((id) => id !== category.id));
+                              }
+                            }}
+                          />
+                          <Label
+                            htmlFor={`cat-${category.id}`}
+                            className="text-sm font-normal cursor-pointer flex-1"
+                          >
+                            {category.parent
+                              ? `${category.parent.name} › ${category.name}`
+                              : category.name}
+                          </Label>
+                        </div>
+                      ))
                     )}
-                  />
+                  </div>
+                  {selectedCategoryIds.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {selectedCategoryIds.length} categor{selectedCategoryIds.length === 1 ? "y" : "ies"} selected
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
