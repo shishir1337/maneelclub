@@ -175,9 +175,10 @@ Proprietary. All rights reserved.
 
 ---
 
-## Contact
+## Developer Contact
 
-- **Brand:** Maneel Club
-- **Support:** support@maneelclub.com
-- **WhatsApp:** +8801997193518
-- **Facebook:** https://www.facebook.com/maneelclub
+- **Name:** Md. Shishir Ahmed
+- **Email:** mdshishirahmed811@gmail.com
+- **GitHub:** https://github.com/shishir1337
+- **Facebook:** https://www.facebook.com/mdshishirahmed1337/
+- **WhatsApp:** +8801843596038
