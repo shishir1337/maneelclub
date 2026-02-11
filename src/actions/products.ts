@@ -3,6 +3,41 @@
 import { db } from "@/lib/db";
 import type { Product, Category, ProductVariant } from "@/types";
 
+// Helper to format category name with parent hierarchy (e.g., "Collections > Winter Collection")
+function formatCategoryName(category: any): string {
+  if (!category) return "";
+  if (category.parent) {
+    return `${category.parent.name} > ${category.name}`;
+  }
+  return category.name;
+}
+
+// Helper to get primary category from product (prioritizes many-to-many categories, falls back to legacy)
+function getPrimaryCategory(dbProduct: any): { category: any; categoryName: string; categorySlug: string } | null {
+  // Priority 1: Use first category from many-to-many relationship (if exists)
+  if (dbProduct.categories?.length > 0) {
+    const firstCategory = dbProduct.categories[0].category;
+    if (firstCategory) {
+      return {
+        category: firstCategory,
+        categoryName: formatCategoryName(firstCategory),
+        categorySlug: firstCategory.slug || "",
+      };
+    }
+  }
+  
+  // Priority 2: Fall back to legacy single category (for backward compatibility)
+  if (dbProduct.category) {
+    return {
+      category: dbProduct.category,
+      categoryName: formatCategoryName(dbProduct.category),
+      categorySlug: dbProduct.category.slug || "",
+    };
+  }
+  
+  return null;
+}
+
 // Helper to transform DB product to frontend format (including variants with price)
 function transformProduct(dbProduct: any): Product {
   let variants: ProductVariant[] | undefined;
@@ -47,6 +82,9 @@ function transformProduct(dbProduct: any): Product {
     }
   }
 
+  // Intelligently get primary category (handles both legacy and many-to-many relationships)
+  const primaryCategory = getPrimaryCategory(dbProduct);
+
   return {
     id: dbProduct.id,
     title: dbProduct.title,
@@ -59,9 +97,9 @@ function transformProduct(dbProduct: any): Product {
     colors: dbProduct.colors || [],
     sizes: dbProduct.sizes || [],
     categoryId: dbProduct.categoryId || "",
-    categorySlug: dbProduct.category?.slug || "",
-    categoryName: dbProduct.category?.name || "",
-    category: dbProduct.category ? transformCategory(dbProduct.category, true) : null,
+    categorySlug: primaryCategory?.categorySlug || "",
+    categoryName: primaryCategory?.categoryName || "",
+    category: primaryCategory?.category ? transformCategory(primaryCategory.category, true) : null,
     stock: dbProduct.stock ?? 0,
     trackInventory: dbProduct.trackInventory ?? false,
     productType: dbProduct.productType ?? (dbProduct.trackInventory ? "VARIABLE" : "SIMPLE"),
@@ -105,7 +143,18 @@ export async function getFeaturedProducts(limit = 4) {
   try {
     const products = await db.product.findMany({
       where: { isFeatured: true, isActive: true },
-      include: { category: true },
+      include: { 
+        category: {
+          include: { parent: true },
+        },
+        categories: {
+          include: {
+            category: {
+              include: { parent: true },
+            },
+          },
+        },
+      },
       take: limit,
       orderBy: { createdAt: "desc" },
     });
@@ -124,7 +173,18 @@ export async function getNewArrivals(limit = 4) {
   try {
     const products = await db.product.findMany({
       where: { isActive: true },
-      include: { category: true },
+      include: { 
+        category: {
+          include: { parent: true },
+        },
+        categories: {
+          include: {
+            category: {
+              include: { parent: true },
+            },
+          },
+        },
+      },
       take: limit,
       orderBy: { createdAt: "desc" },
     });
@@ -145,10 +205,14 @@ export async function getProductsByCategory(categorySlug: string) {
       const products = await db.product.findMany({
         where: { isActive: true },
         include: { 
-          category: true,
+          category: {
+            include: { parent: true },
+          },
           categories: {
             include: {
-              category: true,
+              category: {
+                include: { parent: true },
+              },
             },
           },
         },
@@ -257,7 +321,16 @@ export async function getProductBySlug(slug: string) {
     const product = await db.product.findUnique({
       where: { slug },
       include: {
-        category: true,
+        category: {
+          include: { parent: true },
+        },
+        categories: {
+          include: {
+            category: {
+              include: { parent: true },
+            },
+          },
+        },
         variants: {
           include: {
             attributes: {
@@ -411,7 +484,18 @@ export async function searchProducts(query: string) {
           { description: { contains: query, mode: "insensitive" } },
         ],
       },
-      include: { category: true },
+      include: { 
+        category: {
+          include: { parent: true },
+        },
+        categories: {
+          include: {
+            category: {
+              include: { parent: true },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
     
