@@ -62,9 +62,9 @@
 
 ## Screenshots
 
-| Homepage | Admin dashboard |
+| Homepage | Shop Page |
 |:--------:|:---------------:|
-| ![Homepage](https://github.com/user-attachments/assets/4a63b884-58a2-4234-82ca-084824a40ba2) | ![Admin dashboard](https://github.com/user-attachments/assets/97c9552b-9d62-472f-b9c4-6884b368cd90) |
+| ![Homepage](https://github.com/user-attachments/assets/4a63b884-58a2-4234-82ca-084824a40ba2) | ![Shop Page](https://github.com/user-attachments/assets/71e57e2d-ceb3-47bb-8367-435fe37a9759) |
 
 ---
 
