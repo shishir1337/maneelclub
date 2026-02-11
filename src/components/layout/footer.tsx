@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Facebook, Mail, Phone, MapPin } from "lucide-react";
+import { Facebook, Mail, Phone, MapPin, Code, ExternalLink } from "lucide-react";
 import { siteConfig } from "@/lib/constants";
 
 const footerLinks = {
@@ -148,17 +148,41 @@ export function Footer() {
       {/* Bottom Bar */}
       <div className="border-t">
         <div className="container">
-          <div className="py-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-sm text-muted-foreground">
-              &copy; {currentYear} {siteConfig.name}. All rights reserved.
-            </p>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <Link href="/privacy" className="hover:text-primary transition-colors">
-                Privacy Policy
-              </Link>
-              <Link href="/terms" className="hover:text-primary transition-colors">
-                Terms of Service
-              </Link>
+          <div className="py-6 space-y-4">
+            {/* Copyright and Links */}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <p className="text-sm text-muted-foreground">
+                &copy; {currentYear} {siteConfig.name}. All rights reserved.
+              </p>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <Link href="/privacy" className="hover:text-primary transition-colors">
+                  Privacy Policy
+                </Link>
+                <Link href="/terms" className="hover:text-primary transition-colors">
+                  Terms of Service
+                </Link>
+              </div>
+            </div>
+            
+            {/* Developer Credit */}
+            <div className="pt-4 border-t border-border/50">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <Code className="h-3.5 w-3.5" />
+                  <span>Developed by</span>
+                  <span className="font-medium text-foreground">Md. Shishir Ahmed</span>
+                </div>
+                <span className="hidden sm:inline">•</span>
+                <a
+                  href="https://outnet.it.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 font-medium text-primary hover:underline transition-colors group"
+                >
+                  <span>Visit Portfolio</span>
+                  <ExternalLink className="h-3 w-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </a>
+              </div>
             </div>
           </div>
         </div>
