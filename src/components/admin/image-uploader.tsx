@@ -2,8 +2,10 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { X, Upload, Loader2 } from "lucide-react";
+import { X, Upload, Loader2, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MediaLibraryModal } from "./media-library-modal";
+import { Button } from "@/components/ui/button";
 
 interface ImageUploaderProps {
   images: string[];
@@ -22,6 +24,7 @@ export function ImageUploader({
   const [uploading, setUploading] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
   async function handleFileSelect(files: FileList | null) {
     if (!files?.length) return;
@@ -101,6 +104,14 @@ export function ImageUploader({
     e.dataTransfer.dropEffect = "copy";
   }
 
+  function handleMediaLibrarySelect(selectedUrls: string[]) {
+    const remaining = maxImages - images.length;
+    const toAdd = selectedUrls.slice(0, remaining);
+    if (toAdd.length > 0) {
+      onChange([...images, ...toAdd]);
+    }
+  }
+
   const canAdd = images.length < maxImages;
 
   if (compact) {
@@ -160,6 +171,13 @@ export function ImageUploader({
 
   return (
     <div>
+      <MediaLibraryModal
+        open={mediaLibraryOpen}
+        onOpenChange={setMediaLibraryOpen}
+        onSelect={handleMediaLibrarySelect}
+        maxSelection={maxImages}
+        currentImages={images}
+      />
       <div className="flex flex-wrap gap-3 mb-3">
         {images.map((url, i) => (
           <div
@@ -202,40 +220,54 @@ export function ImageUploader({
         ))}
       </div>
       {canAdd && (
-        <div
-          onDrop={handleFileDrop}
-          onDragOver={handleFileDragOver}
-          onClick={() => inputRef.current?.click()}
-          className={cn(
-            "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
-            "hover:border-primary hover:bg-muted/50",
-            uploading && "opacity-60 pointer-events-none"
-          )}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              handleFileSelect(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          {uploading ? (
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-          ) : (
-            <>
-              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Drag and drop or click to upload images
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                JPEG, PNG, WebP, GIF up to 10MB. Max {maxImages} images. The first image will be used as the product thumbnail.
-              </p>
-            </>
-          )}
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <div
+              onDrop={handleFileDrop}
+              onDragOver={handleFileDragOver}
+              onClick={() => inputRef.current?.click()}
+              className={cn(
+                "flex-1 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
+                "hover:border-primary hover:bg-muted/50",
+                uploading && "opacity-60 pointer-events-none"
+              )}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  handleFileSelect(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              {uploading ? (
+                <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+              ) : (
+                <>
+                  <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Drag and drop or click to upload images
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    JPEG, PNG, WebP, GIF up to 10MB. Max {maxImages} images. The first image will be used as the product thumbnail.
+                  </p>
+                </>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setMediaLibraryOpen(true)}
+              disabled={uploading}
+              className="shrink-0"
+            >
+              <ImageIcon className="h-4 w-4 mr-2" />
+              Media Library
+            </Button>
+          </div>
         </div>
       )}
     </div>

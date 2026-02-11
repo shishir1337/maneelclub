@@ -1,10 +1,21 @@
 import * as Minio from "minio";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import ImageKit from "@imagekit/nodejs";
 
 export interface StorageService {
   upload(file: Buffer, key: string, contentType: string): Promise<string>;
   getPublicUrl(key: string): string;
+}
+
+function isImageKitConfigured(): boolean {
+  return !!process.env.IMAGEKIT_PRIVATE_KEY;
+}
+
+function createImageKitClient(): ImageKit {
+  return new ImageKit({
+    privateKey: process.env.IMAGEKIT_PRIVATE_KEY!,
+  });
 }
 
 function isMinIOConfigured(): boolean {
@@ -61,6 +72,76 @@ class MinIOStorage implements StorageService {
   }
 }
 
+class ImageKitStorage implements StorageService {
+  private client: ImageKit;
+  private baseFolder: string;
+
+  constructor() {
+    this.client = createImageKitClient();
+    this.baseFolder = process.env.IMAGEKIT_UPLOAD_FOLDER || "maneelclub";
+  }
+
+  async upload(file: Buffer, key: string, contentType: string): Promise<string> {
+    // Determine folder based on key pattern or default to 'general'
+    // Key format: {timestamp}-{random}.{ext}
+    // We can infer folder from context, but for now use a general approach
+    // The upload API route can pass folder context if needed
+    const folder = this.baseFolder;
+
+    try {
+      // Convert buffer to base64 string for ImageKit SDK
+      // ImageKit accepts base64 string or file stream
+      const fileBase64 = file.toString("base64");
+      
+      // Optional: Apply pre-transformation during upload to compress images
+      // This compresses images at upload time instead of on-the-fly
+      // Quality: 80 is a good balance between file size and visual quality
+      // You can adjust this via environment variable IMAGEKIT_UPLOAD_QUALITY (default: 80)
+      const uploadQuality = process.env.IMAGEKIT_UPLOAD_QUALITY 
+        ? parseInt(process.env.IMAGEKIT_UPLOAD_QUALITY, 10) 
+        : 80;
+      
+      const uploadParams: any = {
+        file: fileBase64,
+        fileName: key,
+        folder: folder,
+        useUniqueFileName: true,
+      };
+
+      // Only apply pre-transformation for images (not other file types)
+      if (contentType.startsWith("image/")) {
+        // Pre-transformation: compress image during upload
+        // This reduces storage size but the original is still accessible via URL transformations
+        uploadParams.transformation = JSON.stringify({
+          pre: `q-${uploadQuality}`, // Quality compression (1-100, lower = smaller file)
+        });
+      }
+      
+      const result = await this.client.files.upload(uploadParams);
+
+      // Type assertion needed as TypeScript may not infer the response type correctly
+      const uploadResult = result as { url?: string };
+      if (!uploadResult.url) {
+        throw new Error("ImageKit upload succeeded but no URL returned");
+      }
+
+      return uploadResult.url;
+    } catch (error) {
+      console.error("ImageKit upload error:", error);
+      throw new Error(`ImageKit upload failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+  }
+
+  getPublicUrl(key: string): string {
+    // For ImageKit, we typically return transformation URLs
+    // But for now, return the base URL endpoint + key
+    // In practice, uploaded files will have full URLs from upload response
+    const urlEndpoint = process.env.IMAGEKIT_URL_ENDPOINT!;
+    const baseFolder = this.baseFolder;
+    return `${urlEndpoint}/${baseFolder}/${key}`;
+  }
+}
+
 class LocalStorage implements StorageService {
   private uploadDir: string;
 
@@ -87,6 +168,15 @@ export function createStorageClient(): StorageService {
   if (cachedStorage) {
     return cachedStorage;
   }
-  cachedStorage = isMinIOConfigured() ? new MinIOStorage() : new LocalStorage();
+  
+  // Priority: ImageKit > MinIO > Local
+  if (isImageKitConfigured()) {
+    cachedStorage = new ImageKitStorage();
+  } else if (isMinIOConfigured()) {
+    cachedStorage = new MinIOStorage();
+  } else {
+    cachedStorage = new LocalStorage();
+  }
+  
   return cachedStorage;
 }
