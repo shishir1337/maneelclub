@@ -64,7 +64,9 @@
 
 | Homepage | Admin dashboard |
 |:--------:|:----------------:|
-| ![Homepage](YOUR_HOMEPAGE_IMAGE_URL) | ![Admin dashboard](YOUR_ADMIN_IMAGE_URL) |
+| ![Homepage](<img width="1920" height="3864" alt="screencapture-maneelclub-2026-02-11-18_16_28" src="https://github.com/user-attachments/assets/4a63b884-58a2-4234-82ca-084824a40ba2" />
+) | ![Admin dashboard](<img width="1907" height="955" alt="Screenshot_219" src="https://github.com/user-attachments/assets/97c9552b-9d62-472f-b9c4-6884b368cd90" />
+) |
 
 > Replace `YOUR_HOMEPAGE_IMAGE_URL` and `YOUR_ADMIN_IMAGE_URL` above with your screenshot URLs (e.g. from the repo, GitHub issue, or an image host) when ready.
 
