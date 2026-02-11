@@ -63,10 +63,11 @@
 ## Screenshots
 
 | Homepage | Shop Page |
-|:--------:|:---------------:|
-| ![Homepage](https://github.com/user-attachments/assets/4a63b884-58a2-4234-82ca-084824a40ba2) | ![Shop Page](https://github.com/user-attachments/assets/71e57e2d-ceb3-47bb-8367-435fe37a9759) |
+|:--------:|:---------:|
+| ![Homepage](https://github.com/user-attachments/assets/4a63b884-58a2-4234-82ca-084824a40ba2?raw=true) | ![Shop Page](https://github.com/user-attachments/assets/71e57e2d-ceb3-47bb-8367-435fe37a9759?raw=true) |
 
 ---
+
 
 
 ## Tech stack
