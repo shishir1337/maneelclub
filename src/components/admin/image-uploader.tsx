@@ -137,7 +137,7 @@ export function ImageUploader({
             <button
               type="button"
               onClick={() => handleRemove(i)}
-              className="absolute -top-1 -right-1 rounded-full bg-destructive text-destructive-foreground p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute -top-1 -right-1 rounded-full bg-destructive text-destructive-foreground p-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
               aria-label="Remove image"
             >
               <X className="h-3 w-3" />
@@ -211,7 +211,7 @@ export function ImageUploader({
             <button
               type="button"
               onClick={() => handleRemove(i)}
-              className="absolute top-1 right-1 rounded-full bg-destructive text-destructive-foreground p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+              className="absolute top-1 right-1 rounded-full bg-destructive text-destructive-foreground p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10"
               aria-label="Remove image"
             >
               <X className="h-3 w-3" />

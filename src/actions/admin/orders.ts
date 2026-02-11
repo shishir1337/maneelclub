@@ -22,6 +22,7 @@ async function checkAdmin() {
 // Get all orders (admin)
 export async function getAdminOrders(options?: {
   status?: OrderStatus;
+  paymentStatus?: PaymentStatus;
   search?: string;
   userId?: string;
   limit?: number;
@@ -36,6 +37,10 @@ export async function getAdminOrders(options?: {
       where.status = options.status;
     }
 
+    if (options?.paymentStatus) {
+      where.paymentStatus = options.paymentStatus;
+    }
+
     if (options?.userId) {
       where.userId = options.userId;
     }
@@ -46,6 +51,8 @@ export async function getAdminOrders(options?: {
         { customerName: { contains: options.search, mode: "insensitive" } },
         { customerEmail: { contains: options.search, mode: "insensitive" } },
         { customerPhone: { contains: options.search } },
+        { senderNumber: { contains: options.search } },
+        { transactionId: { contains: options.search, mode: "insensitive" } },
       ];
     }
 

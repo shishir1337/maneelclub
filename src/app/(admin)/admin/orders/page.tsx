@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Pagination } from "@/components/ui/pagination";
 import { formatPrice, formatDate, formatDateWithRelativeTime } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUS, PAYMENT_STATUSES, PAYMENT_METHODS } from "@/lib/constants";
 import { getAdminOrders, updateOrderStatus, verifyPayment, rejectPayment } from "@/actions/admin/orders";
@@ -46,6 +47,8 @@ import { toast } from "sonner";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const ORDERS_PER_PAGE = 30;
 
 interface OrderItem {
   id: string;
@@ -116,6 +119,8 @@ export default function AdminOrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [paymentDialogOrder, setPaymentDialogOrder] = useState<Order | null>(null);
   const [summaryDialogOrder, setSummaryDialogOrder] = useState<Order | null>(null);
@@ -123,16 +128,29 @@ export default function AdminOrdersPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   useEffect(() => {
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [customerId, searchQuery, statusFilter, paymentFilter]);
+
+  useEffect(() => {
     loadOrders();
-  }, [customerId]);
+  }, [customerId, currentPage, searchQuery, statusFilter, paymentFilter]);
 
   async function loadOrders() {
     setLoading(true);
     try {
-      const result = await getAdminOrders({ userId: customerId });
+      const offset = (currentPage - 1) * ORDERS_PER_PAGE;
+      const result = await getAdminOrders({
+        userId: customerId,
+        limit: ORDERS_PER_PAGE,
+        offset,
+        search: searchQuery || undefined,
+        status: statusFilter !== "all" ? (statusFilter as OrderStatus) : undefined,
+        paymentStatus: paymentFilter !== "all" ? (paymentFilter as PaymentStatus) : undefined,
+      });
 
       if (result.success && result.data) {
         setOrders(result.data.orders as unknown as Order[]);
+        setTotalCount(result.data.total);
       } else {
         toast.error(result.error || "Failed to load orders");
       }
@@ -224,20 +242,15 @@ export default function AdminOrdersPage() {
     }
   }
 
-  // Filter orders
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customerPhone.includes(searchQuery) ||
-      (order.senderNumber && order.senderNumber.includes(searchQuery)) ||
-      (order.transactionId && order.transactionId.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesStatus =
-      statusFilter === "all" || order.status === statusFilter;
-    const matchesPayment =
-      paymentFilter === "all" || order.paymentStatus === paymentFilter;
-    return matchesSearch && matchesStatus && matchesPayment;
-  });
+  // Calculate total pages
+  const totalPages = Math.ceil(totalCount / ORDERS_PER_PAGE);
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   if (loading) {
     return (
@@ -340,18 +353,20 @@ export default function AdminOrdersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.length === 0 ? (
+                {orders.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8">
                       <p className="text-muted-foreground">
-                        {orders.length === 0
+                        {loading
+                          ? "Loading orders..."
+                          : totalCount === 0
                           ? "No orders yet"
                           : "No orders match your search"}
                       </p>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredOrders.map((order) => (
+                  orders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell>
                         <div>
@@ -518,6 +533,21 @@ export default function AdminOrdersPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalCount > 0 && (
+        <Card>
+          <CardContent className="py-4">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              totalItems={totalCount}
+              itemsPerPage={ORDERS_PER_PAGE}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Payment Verification Dialog */}
       <Dialog open={!!paymentDialogOrder} onOpenChange={() => setPaymentDialogOrder(null)}>
