@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard, User, Mail, MapPin, Package, Calendar, Copy, Check, Truck, RefreshCw } from "lucide-react";
+import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard, User, Mail, MapPin, Package, Calendar, Copy, Check, Truck, RefreshCw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,12 +37,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Pagination } from "@/components/ui/pagination";
 import { formatPrice, formatDate, formatDateWithRelativeTime } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUS, PAYMENT_STATUSES, PAYMENT_METHODS } from "@/lib/constants";
-import { getAdminOrders, updateOrderStatus, verifyPayment, rejectPayment, refreshCourierCheck } from "@/actions/admin/orders";
+import { getAdminOrders, updateOrderStatus, verifyPayment, rejectPayment, refreshCourierCheck, bulkUpdateOrderStatus, bulkVerifyPayment, bulkRejectPayment, deleteOrder, bulkDeleteOrders } from "@/actions/admin/orders";
 import { toast } from "sonner";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
@@ -152,6 +163,11 @@ export default function AdminOrdersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkRejectDialogOpen, setBulkRejectDialogOpen] = useState(false);
+  const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [paymentDialogOrder, setPaymentDialogOrder] = useState<Order | null>(null);
   const [summaryDialogOrder, setSummaryDialogOrder] = useState<Order | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -161,6 +177,11 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filters change
   }, [customerId, searchQuery, statusFilter, paymentFilter]);
+
+  // Clear selection when filters, page, or search change
+  useEffect(() => {
+    setSelectedOrderIds(new Set());
+  }, [currentPage, statusFilter, paymentFilter, searchQuery, customerId]);
 
   useEffect(() => {
     loadOrders();
@@ -259,6 +280,143 @@ export default function AdminOrdersPage() {
       toast.error("Failed to reject payment");
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  async function handleBulkUpdateStatus(status: OrderStatus) {
+    const ids = Array.from(selectedOrderIds);
+    if (ids.length === 0) return;
+    setBulkActionLoading(true);
+    try {
+      const result = await bulkUpdateOrderStatus(ids, status);
+      if (result.success) {
+        setOrders((prev) =>
+          prev.map((order) =>
+            ids.includes(order.id) ? { ...order, status } : order
+          )
+        );
+        setSelectedOrderIds(new Set());
+        toast.success(`${result.updated} order(s) updated${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}`);
+      } else {
+        toast.error(result.error || "Failed to update orders");
+      }
+    } catch (error) {
+      toast.error("Failed to update orders");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  }
+
+  async function handleBulkVerifyPayment() {
+    const ids = Array.from(selectedOrderIds);
+    if (ids.length === 0) return;
+    setBulkActionLoading(true);
+    try {
+      const result = await bulkVerifyPayment(ids);
+      if (result.success) {
+        setOrders((prev) =>
+          prev.map((order) =>
+            ids.includes(order.id)
+              ? {
+                  ...order,
+                  paymentStatus: "PAID" as PaymentStatus,
+                  status: order.status === "PENDING" ? ("PROCESSING" as OrderStatus) : order.status,
+                }
+              : order
+          )
+        );
+        setSelectedOrderIds(new Set());
+        const msg =
+          result.skipped > 0
+            ? `${result.verified} verified, ${result.skipped} skipped (already paid or COD)`
+            : `${result.verified} payment(s) verified`;
+        toast.success(msg);
+      } else {
+        toast.error(result.error || "Failed to verify payments");
+      }
+    } catch (error) {
+      toast.error("Failed to verify payments");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  }
+
+  async function handleBulkRejectPayment(reason?: string) {
+    const ids = Array.from(selectedOrderIds);
+    if (ids.length === 0) return;
+    setBulkActionLoading(true);
+    setBulkRejectDialogOpen(false);
+    try {
+      const result = await bulkRejectPayment(ids, reason);
+      if (result.success) {
+        setOrders((prev) =>
+          prev.map((order) =>
+            ids.includes(order.id)
+              ? { ...order, paymentStatus: "FAILED" as PaymentStatus, status: "CANCELLED" as OrderStatus }
+              : order
+          )
+        );
+        setSelectedOrderIds(new Set());
+        const msg =
+          result.skipped > 0
+            ? `${result.rejected} rejected, ${result.skipped} skipped`
+            : `${result.rejected} payment(s) rejected`;
+        toast.success(msg);
+        setRejectReason("");
+      } else {
+        toast.error(result.error || "Failed to reject payments");
+      }
+    } catch (error) {
+      toast.error("Failed to reject payments");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  }
+
+  async function handleDeleteOrder(orderId: string) {
+    if (!orderId) return;
+    setActionLoading(orderId);
+    setDeleteOrderId(null);
+    try {
+      const result = await deleteOrder(orderId);
+      if (result.success) {
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+        setTotalCount((prev) => Math.max(0, prev - 1));
+        setSelectedOrderIds((prev) => {
+          const next = new Set(prev);
+          next.delete(orderId);
+          return next;
+        });
+        toast.success("Order deleted");
+      } else {
+        toast.error(result.error || "Failed to delete order");
+      }
+    } catch (error) {
+      toast.error("Failed to delete order");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedOrderIds);
+    if (ids.length === 0) return;
+    setBulkActionLoading(true);
+    setBulkDeleteDialogOpen(false);
+    try {
+      const result = await bulkDeleteOrders(ids);
+      if (result.success) {
+        setOrders((prev) => prev.filter((o) => !ids.includes(o.id)));
+        setTotalCount((prev) => Math.max(0, prev - result.deleted));
+        setSelectedOrderIds(new Set());
+        toast.success(`${result.deleted} order(s) deleted${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}`);
+      } else {
+        toast.error(result.error || "Failed to delete orders");
+      }
+    } catch (error) {
+      toast.error("Failed to delete orders");
+    } finally {
+      setBulkActionLoading(false);
     }
   }
 
@@ -366,6 +524,199 @@ export default function AdminOrdersPage() {
         </CardContent>
       </Card>
 
+      {/* Bulk Actions Bar */}
+      {selectedOrderIds.size > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium">
+                {selectedOrderIds.size} order(s) selected
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={bulkActionLoading}
+                    >
+                      {bulkActionLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : null}
+                      Update status
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {ORDER_STATUSES.map((status) => (
+                      <DropdownMenuItem
+                        key={status.value}
+                        onClick={() =>
+                          handleBulkUpdateStatus(status.value as OrderStatus)
+                        }
+                        className={
+                          status.value === "CANCELLED"
+                            ? "text-red-600 focus:text-red-600"
+                            : ""
+                        }
+                      >
+                        {status.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkActionLoading}
+                  onClick={handleBulkVerifyPayment}
+                >
+                  {bulkActionLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                  )}
+                  Verify payment
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkActionLoading}
+                  onClick={() => setBulkRejectDialogOpen(true)}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                >
+                  {bulkActionLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-1" />
+                  )}
+                  Reject payment
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkActionLoading}
+                  onClick={() => setBulkDeleteDialogOpen(true)}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50"
+                >
+                  {bulkActionLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-1" />
+                  )}
+                  Delete
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={bulkActionLoading}
+                  onClick={() => setSelectedOrderIds(new Set())}
+                >
+                  Clear selection
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Single delete confirmation */}
+      <AlertDialog open={!!deleteOrderId} onOpenChange={(open) => !open && setDeleteOrderId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the order and its items. Stock will be
+              restored for unfilled orders. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteOrderId && handleDeleteOrder(deleteOrderId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {actionLoading === deleteOrderId ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk delete confirmation */}
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedOrderIds.size} order(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected orders and their items.
+              Stock will be restored for unfilled orders. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkActionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Reject Payment Dialog */}
+      <Dialog open={bulkRejectDialogOpen} onOpenChange={setBulkRejectDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject Payment</DialogTitle>
+            <DialogDescription>
+              Reject payment for {selectedOrderIds.size} selected order(s). COD
+              and already-paid orders will be skipped.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <label className="text-sm text-muted-foreground">
+              Reason (optional)
+            </label>
+            <Input
+              placeholder="e.g., Invalid transaction ID"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBulkRejectDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => handleBulkRejectPayment(rejectReason)}
+              disabled={bulkActionLoading}
+            >
+              {bulkActionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <XCircle className="h-4 w-4 mr-2" />
+              )}
+              Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Orders Table */}
       <Card>
         <CardContent className="p-0">
@@ -373,6 +724,28 @@ export default function AdminOrdersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      aria-label="Select all on page"
+                      checked={
+                        orders.length === 0
+                          ? false
+                          : selectedOrderIds.size === orders.length
+                            ? true
+                            : selectedOrderIds.size > 0
+                              ? "indeterminate"
+                              : false
+                      }
+                      onCheckedChange={() => {
+                        if (orders.length === 0) return;
+                        if (selectedOrderIds.size === orders.length) {
+                          setSelectedOrderIds(new Set());
+                        } else {
+                          setSelectedOrderIds(new Set(orders.map((o) => o.id)));
+                        }
+                      }}
+                    />
+                  </TableHead>
                   <TableHead>Order</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Courier</TableHead>
@@ -387,7 +760,7 @@ export default function AdminOrdersPage() {
               <TableBody>
                 {orders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       <p className="text-muted-foreground">
                         {loading
                           ? "Loading orders..."
@@ -400,6 +773,19 @@ export default function AdminOrdersPage() {
                 ) : (
                   orders.map((order) => (
                     <TableRow key={order.id}>
+                      <TableCell className="w-10">
+                        <Checkbox
+                          checked={selectedOrderIds.has(order.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedOrderIds((prev) => {
+                              const next = new Set(prev);
+                              if (checked) next.add(order.id);
+                              else next.delete(order.id);
+                              return next;
+                            });
+                          }}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div>
                           <Link 
@@ -705,6 +1091,15 @@ export default function AdminOrdersPage() {
                             >
                               <XCircle className="h-4 w-4 mr-2" />
                               Mark as Canceled
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setDeleteOrderId(order.id)}
+                              className="text-red-600 focus:text-red-600"
+                              disabled={actionLoading === order.id}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete order
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

@@ -488,7 +488,7 @@ export async function getRecentOrders(limit: number = 5) {
   }
 }
 
-// Delete order (use with caution)
+// Delete order (use with caution - e.g. test orders)
 export async function deleteOrder(id: string) {
   try {
     await checkAdmin();
@@ -499,11 +499,17 @@ export async function deleteOrder(id: string) {
       return { success: false, error: "Order not found" };
     }
 
+    // Restore stock if order wasn't cancelled or delivered
+    if (order.status !== "CANCELLED" && order.status !== "DELIVERED") {
+      await restoreStockForOrder(id);
+    }
+
     // Delete order items first, then order
     await db.orderItem.deleteMany({ where: { orderId: id } });
     await db.order.delete({ where: { id } });
 
     revalidatePath("/admin/orders");
+    revalidatePath("/admin/products");
 
     return { success: true };
   } catch (error) {
@@ -511,6 +517,48 @@ export async function deleteOrder(id: string) {
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Failed to delete order" 
+    };
+  }
+}
+
+// Bulk delete orders
+export async function bulkDeleteOrders(
+  orderIds: string[]
+): Promise<
+  | { success: true; deleted: number; skipped: number }
+  | { success: false; error: string }
+> {
+  try {
+    await checkAdmin();
+
+    let deleted = 0;
+    let skipped = 0;
+
+    for (const id of orderIds) {
+      const order = await db.order.findUnique({ where: { id } });
+      if (!order) {
+        skipped++;
+        continue;
+      }
+
+      if (order.status !== "CANCELLED" && order.status !== "DELIVERED") {
+        await restoreStockForOrder(id);
+      }
+
+      await db.orderItem.deleteMany({ where: { orderId: id } });
+      await db.order.delete({ where: { id } });
+      deleted++;
+    }
+
+    revalidatePath("/admin/orders");
+    revalidatePath("/admin/products");
+
+    return { success: true, deleted, skipped };
+  } catch (error) {
+    console.error("Error bulk deleting orders:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to delete orders",
     };
   }
 }
@@ -613,6 +661,164 @@ export async function rejectPayment(orderId: string, reason?: string) {
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Failed to reject payment" 
+    };
+  }
+}
+
+// Bulk update order status
+export async function bulkUpdateOrderStatus(
+  orderIds: string[],
+  status: OrderStatus
+): Promise<
+  | { success: true; updated: number; skipped: number }
+  | { success: false; error: string }
+> {
+  try {
+    await checkAdmin();
+
+    let updated = 0;
+    let skipped = 0;
+
+    for (const id of orderIds) {
+      const order = await db.order.findUnique({ where: { id } });
+      if (!order) {
+        skipped++;
+        continue;
+      }
+
+      const wasNotCancelled = order.status !== "CANCELLED";
+      const isBeingCancelled = status === "CANCELLED";
+      if (wasNotCancelled && isBeingCancelled) {
+        await restoreStockForOrder(id);
+      }
+
+      await db.order.update({ where: { id }, data: { status } });
+      updated++;
+    }
+
+    revalidatePath("/admin/orders");
+    revalidatePath("/admin/products");
+    revalidatePath("/dashboard/orders");
+
+    return { success: true, updated, skipped };
+  } catch (error) {
+    console.error("Error bulk updating order status:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to bulk update order status",
+    };
+  }
+}
+
+// Bulk verify payment
+export async function bulkVerifyPayment(
+  orderIds: string[]
+): Promise<
+  | { success: true; verified: number; skipped: number }
+  | { success: false; error: string }
+> {
+  try {
+    await checkAdmin();
+
+    let verified = 0;
+    let skipped = 0;
+
+    for (const id of orderIds) {
+      const order = await db.order.findUnique({ where: { id } });
+      if (!order) {
+        skipped++;
+        continue;
+      }
+      if (order.paymentStatus === "PAID") {
+        skipped++;
+        continue;
+      }
+      if (order.paymentMethod === "COD") {
+        skipped++;
+        continue;
+      }
+      if (!order.transactionId || !order.senderNumber) {
+        skipped++;
+        continue;
+      }
+
+      await db.order.update({
+        where: { id },
+        data: {
+          paymentStatus: "PAID",
+          paidAt: new Date(),
+          status: order.status === "PENDING" ? "PROCESSING" : order.status,
+        },
+      });
+      verified++;
+    }
+
+    revalidatePath("/admin/orders");
+    revalidatePath("/dashboard/orders");
+
+    return { success: true, verified, skipped };
+  } catch (error) {
+    console.error("Error bulk verifying payment:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to bulk verify payment",
+    };
+  }
+}
+
+// Bulk reject payment
+export async function bulkRejectPayment(
+  orderIds: string[],
+  reason?: string
+): Promise<
+  | { success: true; rejected: number; skipped: number }
+  | { success: false; error: string }
+> {
+  try {
+    await checkAdmin();
+
+    let rejected = 0;
+    let skipped = 0;
+
+    for (const id of orderIds) {
+      const order = await db.order.findUnique({ where: { id } });
+      if (!order) {
+        skipped++;
+        continue;
+      }
+      if (order.paymentStatus === "PAID") {
+        skipped++;
+        continue;
+      }
+      if (order.paymentMethod === "COD") {
+        skipped++;
+        continue;
+      }
+
+      await restoreStockForOrder(id);
+
+      await db.order.update({
+        where: { id },
+        data: {
+          paymentStatus: "FAILED",
+          status: "CANCELLED",
+          deliveryNote: reason
+            ? `${order.deliveryNote || ""}\n[Payment Rejected: ${reason}]`.trim()
+            : order.deliveryNote,
+        },
+      });
+      rejected++;
+    }
+
+    revalidatePath("/admin/orders");
+    revalidatePath("/dashboard/orders");
+
+    return { success: true, rejected, skipped };
+  } catch (error) {
+    console.error("Error bulk rejecting payment:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to bulk reject payment",
     };
   }
 }

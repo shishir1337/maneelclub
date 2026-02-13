@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { 
   ArrowLeft, 
@@ -18,7 +19,8 @@ import {
   Truck,
   Calendar,
   Printer,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +50,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { formatPrice, formatDate, formatDateWithRelativeTime } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUS } from "@/lib/constants";
 import { 
@@ -56,6 +68,7 @@ import {
   verifyPayment, 
   rejectPayment,
   refreshCourierCheck,
+  deleteOrder,
 } from "@/actions/admin/orders";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -147,10 +160,12 @@ export default function AdminOrderDetailPage({
   params: Promise<{ id: string }> 
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [courierRefreshLoading, setCourierRefreshLoading] = useState(false);
@@ -224,6 +239,25 @@ export default function AdminOrderDetailPage({
       }
     } catch (error) {
       toast.error("Failed to verify payment");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!order) return;
+    setActionLoading(true);
+    setDeleteDialogOpen(false);
+    try {
+      const result = await deleteOrder(order.id);
+      if (result.success) {
+        toast.success("Order deleted");
+        router.push("/admin/orders");
+      } else {
+        toast.error(result.error || "Failed to delete order");
+      }
+    } catch (error) {
+      toast.error("Failed to delete order");
     } finally {
       setActionLoading(false);
     }
@@ -377,6 +411,16 @@ export default function AdminOrderDetailPage({
           <Button variant="outline" size="sm" onClick={handlePrintInvoice}>
             <Printer className="h-4 w-4 mr-2" />
             Print Invoice
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDeleteDialogOpen(true)}
+            disabled={actionLoading}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete order
           </Button>
           <Badge className={statusColors[order.status]}>{ORDER_STATUS[order.status as keyof typeof ORDER_STATUS]?.label ?? order.status}</Badge>
           <Badge className={paymentMethodColors[order.paymentMethod]}>
@@ -821,6 +865,33 @@ export default function AdminOrderDetailPage({
           </Card>
         </div>
       </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete order {order?.orderNumber}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the order and its items. Stock will be
+              restored for unfilled orders. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {actionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Payment Verification Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
