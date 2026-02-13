@@ -44,6 +44,9 @@ export async function getAdminCustomers(options?: {
           email: true,
           createdAt: true,
           role: true,
+          banned: true,
+          banReason: true,
+          banExpires: true,
           _count: {
             select: { orders: true },
           },
@@ -67,6 +70,9 @@ export async function getAdminCustomers(options?: {
       email: customer.email,
       createdAt: customer.createdAt,
       role: customer.role,
+      banned: customer.banned ?? false,
+      banReason: customer.banReason ?? null,
+      banExpires: customer.banExpires ?? null,
       orderCount: customer._count.orders,
       totalSpent: customer.orders.reduce((sum, order) => sum + Number(order.total), 0),
     }));
@@ -109,6 +115,53 @@ export async function getCustomerById(id: string) {
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Failed to fetch customer" 
+    };
+  }
+}
+
+// Ban user (Better Auth admin plugin)
+export async function banUser(
+  userId: string,
+  options?: { banReason?: string; banExpiresIn?: number }
+) {
+  try {
+    await checkAdmin();
+
+    await auth.api.banUser({
+      body: {
+        userId,
+        banReason: options?.banReason,
+        banExpiresIn: options?.banExpiresIn,
+      },
+      headers: await headers(),
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error banning user:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to ban user",
+    };
+  }
+}
+
+// Unban user (Better Auth admin plugin)
+export async function unbanUser(userId: string) {
+  try {
+    await checkAdmin();
+
+    await auth.api.unbanUser({
+      body: { userId },
+      headers: await headers(),
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error unbanning user:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to unban user",
     };
   }
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, MoreHorizontal, Mail, ShoppingBag, Users, UserCheck } from "lucide-react";
+import { Search, MoreHorizontal, Mail, ShoppingBag, Users, UserCheck, Ban, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatPrice, formatDate } from "@/lib/format";
-import { getAdminCustomers, getCustomerStats } from "@/actions/admin/customers";
+import { getAdminCustomers, getCustomerStats, banUser, unbanUser } from "@/actions/admin/customers";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
@@ -25,6 +34,9 @@ interface Customer {
   email: string;
   createdAt: Date;
   role: string;
+  banned: boolean;
+  banReason: string | null;
+  banExpires: Date | null;
   orderCount: number;
   totalSpent: number;
 }
@@ -48,6 +60,9 @@ export default function AdminCustomersPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [total, setTotal] = useState(0);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [banDialogUser, setBanDialogUser] = useState<Customer | null>(null);
+  const [banReason, setBanReason] = useState("");
 
   useEffect(() => {
     loadData();
@@ -75,6 +90,54 @@ export default function AdminCustomersPage() {
       toast.error("Failed to load customer data");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleBan(userId: string, reason?: string) {
+    setActionLoading(userId);
+    setBanDialogUser(null);
+    setBanReason("");
+    try {
+      const result = await banUser(userId, { banReason: reason || undefined });
+      if (result.success) {
+        setCustomers((prev) =>
+          prev.map((c) =>
+            c.id === userId
+              ? { ...c, banned: true, banReason: reason || null, banExpires: null }
+              : c
+          )
+        );
+        toast.success("User banned");
+      } else {
+        toast.error(result.error || "Failed to ban user");
+      }
+    } catch (error) {
+      toast.error("Failed to ban user");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleUnban(userId: string) {
+    setActionLoading(userId);
+    try {
+      const result = await unbanUser(userId);
+      if (result.success) {
+        setCustomers((prev) =>
+          prev.map((c) =>
+            c.id === userId
+              ? { ...c, banned: false, banReason: null, banExpires: null }
+              : c
+          )
+        );
+        toast.success("User unbanned");
+      } else {
+        toast.error(result.error || "Failed to unban user");
+      }
+    } catch (error) {
+      toast.error("Failed to unban user");
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -222,6 +285,7 @@ export default function AdminCustomersPage() {
                 <tr className="border-b text-left text-sm text-muted-foreground">
                   <th className="pb-3 font-medium">Customer</th>
                   <th className="pb-3 font-medium hidden md:table-cell">Email</th>
+                  <th className="pb-3 font-medium">Status</th>
                   <th className="pb-3 font-medium">Orders</th>
                   <th className="pb-3 font-medium hidden sm:table-cell">Total Spent</th>
                   <th className="pb-3 font-medium hidden lg:table-cell">Joined</th>
@@ -253,6 +317,21 @@ export default function AdminCustomersPage() {
                       </div>
                     </td>
                     <td className="py-4">
+                      {customer.banned ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 dark:bg-red-950/60 dark:text-red-400"
+                          title={customer.banReason || "Banned"}
+                        >
+                          <Ban className="h-3 w-3" />
+                          Banned
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-950/60 dark:text-green-400">
+                          Active
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-4">
                       <div className="flex items-center gap-1">
                         <ShoppingBag className="h-4 w-4 text-muted-foreground" />
                         {customer.orderCount}
@@ -282,6 +361,32 @@ export default function AdminCustomersPage() {
                               Send Email
                             </a>
                           </DropdownMenuItem>
+                          {customer.role !== "ADMIN" && (
+                            <>
+                              <DropdownMenuSeparator />
+                              {customer.banned ? (
+                                <DropdownMenuItem
+                                  onClick={() => handleUnban(customer.id)}
+                                  disabled={actionLoading === customer.id}
+                                  className="text-green-600 focus:text-green-600"
+                                >
+                                  {actionLoading === customer.id ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : null}
+                                  Unban user
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() => setBanDialogUser(customer)}
+                                  disabled={actionLoading === customer.id}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Ban className="h-4 w-4 mr-2" />
+                                  Ban user
+                                </DropdownMenuItem>
+                              )}
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -298,6 +403,49 @@ export default function AdminCustomersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Ban user dialog */}
+      <Dialog open={!!banDialogUser} onOpenChange={(open) => !open && setBanDialogUser(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ban user</DialogTitle>
+            <DialogDescription>
+              Ban {banDialogUser?.name || banDialogUser?.email}? They will not be
+              able to sign in, and all their sessions will be revoked.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <label className="text-sm text-muted-foreground">
+              Reason (optional)
+            </label>
+            <Input
+              placeholder="e.g., Spamming, Terms violation"
+              value={banReason}
+              onChange={(e) => setBanReason(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBanDialogUser(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={actionLoading !== null}
+              onClick={() =>
+                banDialogUser && handleBan(banDialogUser.id, banReason || undefined)
+              }
+            >
+              {actionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Ban className="h-4 w-4 mr-2" />
+              )}
+              Ban
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
