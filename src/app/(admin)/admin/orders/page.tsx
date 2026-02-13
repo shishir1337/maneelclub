@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard, User, Mail, MapPin, Package, Calendar, Copy, Check } from "lucide-react";
+import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard, User, Mail, MapPin, Package, Calendar, Copy, Check, Truck, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,13 +42,41 @@ import { Separator } from "@/components/ui/separator";
 import { Pagination } from "@/components/ui/pagination";
 import { formatPrice, formatDate, formatDateWithRelativeTime } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUS, PAYMENT_STATUSES, PAYMENT_METHODS } from "@/lib/constants";
-import { getAdminOrders, updateOrderStatus, verifyPayment, rejectPayment } from "@/actions/admin/orders";
+import { getAdminOrders, updateOrderStatus, verifyPayment, rejectPayment, refreshCourierCheck } from "@/actions/admin/orders";
 import { toast } from "sonner";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { CourierCheckData } from "@/lib/bdcourier";
+import { getCourierItemsFromData, getSummaryFromData } from "@/lib/bdcourier";
 
 const ORDERS_PER_PAGE = 30;
+
+function getCourierStatusLabel(data: CourierCheckData | null | undefined): string {
+  if (!data) return "—";
+  if (data.status === "error") return data.error ?? "Not found";
+  const summary = getSummaryFromData(data.data);
+  const items = getCourierItemsFromData(data.data);
+  if (summary && summary.total_parcel >= 0) {
+    return `${Math.round(summary.success_ratio)}% · ${summary.success_parcel}/${summary.total_parcel} · ${summary.cancelled_parcel} cancel`;
+  }
+  if (items.length) return items.map((c) => `${c.name} ${Math.round(c.success_ratio)}%`).join(", ");
+  return "—";
+}
+
+/** For table: "good" (green) ≥80%, "warn" (amber) 50–79%, "risk" (red) <50% or high cancel */
+function getCourierRatioVariant(
+  data: CourierCheckData | null | undefined
+): { ratio: number; variant: "good" | "warn" | "risk" | "none" } | null {
+  if (!data || data.status !== "success") return null;
+  const summary = getSummaryFromData(data.data);
+  if (!summary || summary.total_parcel === 0) return null;
+  const ratio = Math.round(summary.success_ratio);
+  const cancelRate = summary.cancelled_parcel / summary.total_parcel;
+  if (ratio >= 80 && cancelRate <= 0.2) return { ratio, variant: "good" };
+  if (ratio >= 50 && cancelRate <= 0.5) return { ratio, variant: "warn" };
+  return { ratio, variant: "risk" };
+}
 
 interface OrderItem {
   id: string;
@@ -86,6 +114,8 @@ interface Order {
   createdAt: Date;
   /** Number of orders from this customer (matched by phone or email). 0 if none. */
   timesPurchased?: number;
+  courierCheckData?: CourierCheckData | null;
+  courierCheckCheckedAt?: Date | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -126,6 +156,7 @@ export default function AdminOrdersPage() {
   const [summaryDialogOrder, setSummaryDialogOrder] = useState<Order | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [courierRefreshLoading, setCourierRefreshLoading] = useState<string | null>(null);
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filters change
@@ -344,6 +375,7 @@ export default function AdminOrdersPage() {
                 <TableRow>
                   <TableHead>Order</TableHead>
                   <TableHead>Customer</TableHead>
+                  <TableHead>Courier</TableHead>
                   <TableHead>Purchases</TableHead>
                   <TableHead>Payment</TableHead>
                   <TableHead>Total</TableHead>
@@ -355,7 +387,7 @@ export default function AdminOrdersPage() {
               <TableBody>
                 {orders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <p className="text-muted-foreground">
                         {loading
                           ? "Loading orders..."
@@ -391,6 +423,159 @@ export default function AdminOrdersPage() {
                             {order.city}
                           </p>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const info = getCourierRatioVariant(order.courierCheckData);
+                          const summary = order.courierCheckData?.status === "success" ? getSummaryFromData(order.courierCheckData.data) : null;
+                          const label = getCourierStatusLabel(order.courierCheckData);
+                          const isRefreshing = courierRefreshLoading === order.id;
+                          
+                          const handleRefresh = async () => {
+                            setCourierRefreshLoading(order.id);
+                            const result = await refreshCourierCheck(order.id);
+                            setCourierRefreshLoading(null);
+                            if (result.success) {
+                              setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, courierCheckData: result.data, courierCheckCheckedAt: new Date() } : o)));
+                              toast.success("Courier data refreshed");
+                            } else {
+                              toast.error(result.error ?? "Failed to refresh");
+                            }
+                          };
+                          
+                          if (info) {
+                            // Calculate gradient: 0% = red, 100% = green
+                            const ratio = Math.max(0, Math.min(100, info.ratio));
+                            const redPercent = 100 - ratio;
+                            const greenPercent = ratio;
+                            
+                            return (
+                              <div className="flex items-start gap-2">
+                                <div className="flex flex-col gap-1 w-full max-w-[120px]" title={label}>
+                                  {/* Progress bar */}
+                                  <div className="relative h-5 w-full rounded-md overflow-hidden border border-border/50 bg-muted">
+                                    {/* Background gradient from red to green */}
+                                    <div 
+                                      className="absolute inset-0"
+                                      style={{
+                                        background: `linear-gradient(to right, rgb(239 68 68) 0%, rgb(239 68 68) ${redPercent}%, rgb(34 197 94) ${redPercent}%, rgb(34 197 94) 100%)`,
+                                      }}
+                                    />
+                                    {/* Percentage text overlay */}
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <span className="text-[10px] font-bold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] tabular-nums">
+                                        {info.ratio}%
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {summary && summary.total_parcel > 0 && (
+                                    <div className="text-xs text-muted-foreground tabular-nums space-y-0.5">
+                                      <div>All: {summary.total_parcel}</div>
+                                      <div className="text-green-700 dark:text-green-400">Success: {summary.success_parcel}</div>
+                                      <div className="text-amber-700 dark:text-amber-400">Cancel: {summary.cancelled_parcel}</div>
+                                    </div>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 shrink-0"
+                                  disabled={isRefreshing}
+                                  onClick={handleRefresh}
+                                  title="Refresh courier data"
+                                >
+                                  {isRefreshing ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            );
+                          }
+                          // Checked but no parcel history (new customer) - show 0% progress bar
+                          if (summary && summary.total_parcel === 0) {
+                            return (
+                              <div className="flex items-start gap-2">
+                                <div className="flex flex-col gap-1 w-full max-w-[120px]" title="No previous courier history - new customer">
+                                  {/* Progress bar - 0% = full red */}
+                                  <div className="relative h-5 w-full rounded-md overflow-hidden border border-border/50 bg-muted">
+                                    <div className="absolute inset-0 bg-red-500" />
+                                    {/* Percentage text overlay */}
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <span className="text-[10px] font-bold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] tabular-nums">
+                                        0%
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground tabular-nums space-y-0.5">
+                                    <div>All: {summary.total_parcel}</div>
+                                    <div className="text-green-700 dark:text-green-400">Success: {summary.success_parcel}</div>
+                                    <div className="text-amber-700 dark:text-amber-400">Cancel: {summary.cancelled_parcel}</div>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 shrink-0"
+                                  disabled={isRefreshing}
+                                  onClick={handleRefresh}
+                                  title="Refresh courier data"
+                                >
+                                  {isRefreshing ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            );
+                          }
+                          if (order.courierCheckData?.status === "error") {
+                            return (
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex w-fit rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/60 dark:text-amber-400" title={label}>
+                                  Not found
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 shrink-0"
+                                  disabled={isRefreshing}
+                                  onClick={handleRefresh}
+                                  title="Refresh courier data"
+                                >
+                                  {isRefreshing ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground" title={label}>
+                                {label}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 shrink-0"
+                                disabled={isRefreshing}
+                                onClick={handleRefresh}
+                                title="Refresh courier data"
+                              >
+                                {isRefreshing ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <span className="font-medium tabular-nums">
@@ -877,6 +1062,93 @@ export default function AdminOrdersPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Courier check */}
+                    <div className="pt-2 border-t space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                          <Truck className="h-3.5 w-3.5" />
+                          Courier check
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={courierRefreshLoading === summaryDialogOrder.id}
+                          onClick={async () => {
+                            setCourierRefreshLoading(summaryDialogOrder.id);
+                            const result = await refreshCourierCheck(summaryDialogOrder.id);
+                            setCourierRefreshLoading(null);
+                            if (result.success) {
+                              setSummaryDialogOrder((prev) => prev ? { ...prev, courierCheckData: result.data, courierCheckCheckedAt: new Date() } : null);
+                              setOrders((prev) => prev.map((o) => (o.id === summaryDialogOrder.id ? { ...o, courierCheckData: result.data, courierCheckCheckedAt: new Date() } : o)));
+                              toast.success("Courier data refreshed");
+                            } else {
+                              toast.error(result.error ?? "Failed to refresh");
+                            }
+                          }}
+                        >
+                          {courierRefreshLoading === summaryDialogOrder.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                          )}
+                          Refresh data
+                        </Button>
+                      </div>
+                      {summaryDialogOrder.courierCheckData ? (
+                        summaryDialogOrder.courierCheckData.status === "success" ? (
+                          (() => {
+                            const summary = getSummaryFromData(summaryDialogOrder.courierCheckData!.data);
+                            const items = getCourierItemsFromData(summaryDialogOrder.courierCheckData!.data);
+                            if (!items.length && !summary) return <p className="text-xs text-muted-foreground">—</p>;
+                            return (
+                              <div className="rounded-md border overflow-hidden">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                      <TableHead className="h-8 text-xs font-semibold">Courier</TableHead>
+                                      <TableHead className="h-8 text-xs font-semibold text-right">Total</TableHead>
+                                      <TableHead className="h-8 text-xs font-semibold text-right">Success</TableHead>
+                                      <TableHead className="h-8 text-xs font-semibold text-right">Cancel</TableHead>
+                                      <TableHead className="h-8 text-xs font-semibold text-right">Ratio</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {items.map((c) => (
+                                      <TableRow key={c.name} className="text-xs">
+                                        <TableCell className="py-1.5 font-medium">{c.name}</TableCell>
+                                        <TableCell className="py-1.5 text-right tabular-nums">{c.total_parcel}</TableCell>
+                                        <TableCell className="py-1.5 text-right tabular-nums text-green-700">{c.success_parcel}</TableCell>
+                                        <TableCell className="py-1.5 text-right tabular-nums text-amber-700">{c.cancelled_parcel}</TableCell>
+                                        <TableCell className="py-1.5 text-right tabular-nums">{Math.round(c.success_ratio)}%</TableCell>
+                                      </TableRow>
+                                    ))}
+                                    {summary && (
+                                      <TableRow className="bg-primary/10 font-semibold text-xs border-t-2 border-primary/20">
+                                        <TableCell className="py-1.5">Summary</TableCell>
+                                        <TableCell className="py-1.5 text-right tabular-nums">{summary.total_parcel}</TableCell>
+                                        <TableCell className="py-1.5 text-right tabular-nums text-green-700">{summary.success_parcel}</TableCell>
+                                        <TableCell className="py-1.5 text-right tabular-nums text-amber-700">{summary.cancelled_parcel}</TableCell>
+                                        <TableCell className="py-1.5 text-right tabular-nums">{Math.round(summary.success_ratio)}%</TableCell>
+                                      </TableRow>
+                                    )}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <p className="text-xs text-amber-700">{summaryDialogOrder.courierCheckData.error ?? "Not found"}</p>
+                        )
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Not checked</p>
+                      )}
+                      {summaryDialogOrder.courierCheckCheckedAt && (
+                        <p className="text-xs text-muted-foreground">
+                          Checked at {formatDateWithRelativeTime(new Date(summaryDialogOrder.courierCheckCheckedAt))}
+                        </p>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
 

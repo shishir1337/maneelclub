@@ -17,11 +17,20 @@ import {
   Clock,
   Truck,
   Calendar,
-  Printer
+  Printer,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,19 +48,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatPrice, formatDate } from "@/lib/format";
+import { formatPrice, formatDate, formatDateWithRelativeTime } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUS } from "@/lib/constants";
 import { 
   getOrderById, 
   updateOrderStatus, 
   verifyPayment, 
   rejectPayment,
+  refreshCourierCheck,
 } from "@/actions/admin/orders";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
 import { OrderInvoice } from "@/components/admin/order-invoice";
+import type { CourierCheckData } from "@/lib/bdcourier";
+import { getCourierItemsFromData, getSummaryFromData } from "@/lib/bdcourier";
 
 interface OrderItem {
   id: string;
@@ -95,6 +107,8 @@ interface Order {
     name: string | null;
     email: string;
   } | null;
+  courierCheckData?: CourierCheckData | null;
+  courierCheckCheckedAt?: Date | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -139,6 +153,7 @@ export default function AdminOrderDetailPage({
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [courierRefreshLoading, setCourierRefreshLoading] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -643,6 +658,106 @@ export default function AdminOrderDetailPage({
             <CardContent>
               <p className="text-sm whitespace-pre-wrap">{order.shippingAddress}</p>
               <p className="text-sm font-medium mt-2">{order.city}</p>
+            </CardContent>
+          </Card>
+
+          {/* Courier check */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Truck className="h-4 w-4" />
+                Courier check
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {order.courierCheckData ? (
+                <>
+                  {order.courierCheckData.status === "success" ? (
+                    (() => {
+                      const summary = getSummaryFromData(order.courierCheckData.data);
+                      const items = getCourierItemsFromData(order.courierCheckData.data);
+                      if (!items.length && !summary) return <p className="text-sm text-muted-foreground">—</p>;
+                      return (
+                        <div className="rounded-md border overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/60 hover:bg-muted/60">
+                                <TableHead className="text-xs font-semibold">Courier</TableHead>
+                                <TableHead className="text-xs font-semibold text-right">Total</TableHead>
+                                <TableHead className="text-xs font-semibold text-right">Success</TableHead>
+                                <TableHead className="text-xs font-semibold text-right">Cancel</TableHead>
+                                <TableHead className="text-xs font-semibold text-right">Ratio</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {items.map((c) => (
+                                <TableRow key={c.name} className="text-sm">
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center gap-2">
+                                      {c.logo ? (
+                                        <img src={c.logo} alt="" className="h-5 w-5 object-contain shrink-0" />
+                                      ) : null}
+                                      {c.name}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right tabular-nums">{c.total_parcel}</TableCell>
+                                  <TableCell className="text-right tabular-nums text-green-700 dark:text-green-400">{c.success_parcel}</TableCell>
+                                  <TableCell className="text-right tabular-nums text-amber-700 dark:text-amber-400">{c.cancelled_parcel}</TableCell>
+                                  <TableCell className="text-right tabular-nums">{Math.round(c.success_ratio)}%</TableCell>
+                                </TableRow>
+                              ))}
+                              {summary && (
+                                <TableRow className="bg-primary/15 font-semibold text-sm border-t-2 border-primary/30 hover:bg-primary/20">
+                                  <TableCell className="py-2.5">Summary</TableCell>
+                                  <TableCell className="py-2.5 text-right tabular-nums">{summary.total_parcel}</TableCell>
+                                  <TableCell className="py-2.5 text-right tabular-nums text-green-700 dark:text-green-400">{summary.success_parcel}</TableCell>
+                                  <TableCell className="py-2.5 text-right tabular-nums text-amber-700 dark:text-amber-400">{summary.cancelled_parcel}</TableCell>
+                                  <TableCell className="py-2.5 text-right tabular-nums">{Math.round(summary.success_ratio)}%</TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      );
+                    })()
+                  ) : order.courierCheckData.status === "error" ? (
+                    <p className="text-sm text-amber-700 dark:text-amber-400">{order.courierCheckData.error ?? "Phone number not found"}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">—</p>
+                  )}
+                  {order.courierCheckCheckedAt && (
+                    <p className="text-xs text-muted-foreground">
+                      Checked at {formatDateWithRelativeTime(new Date(order.courierCheckCheckedAt))}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Not checked yet. Use Refresh data to verify customer courier status.</p>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={courierRefreshLoading}
+                onClick={async () => {
+                  setCourierRefreshLoading(true);
+                  const result = await refreshCourierCheck(order.id);
+                  setCourierRefreshLoading(false);
+                  if (result.success) {
+                    setOrder((prev) => prev ? { ...prev, courierCheckData: result.data, courierCheckCheckedAt: new Date() } : null);
+                    toast.success("Courier data refreshed");
+                  } else {
+                    toast.error(result.error ?? "Failed to refresh");
+                  }
+                }}
+              >
+                {courierRefreshLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Refresh data
+              </Button>
             </CardContent>
           </Card>
 

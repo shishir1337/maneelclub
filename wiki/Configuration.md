@@ -75,6 +75,16 @@ MINIO_BUCKET="uploads"
 NEXT_PUBLIC_WHATSAPP_NUMBER="+8801997193518"
 ```
 
+#### Courier fraud check (BDCourier API)
+
+Optional. When set, admins can check a customer’s courier status by phone from the order page (to help spot fake or spam orders). Results are cached per order and refreshed manually.
+
+```env
+BDCOURIER_API_KEY="your-bdcourier-api-key"
+```
+
+Get your key from [BDCourier](https://api.bdcourier.com). If unset, the “Refresh data” courier check is disabled and the UI shows “Courier check not configured”.
+
 #### Analytics (Meta Pixel)
 
 ```env

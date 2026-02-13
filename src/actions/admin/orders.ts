@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { OrderStatus, PaymentStatus } from "@prisma/client";
+import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { courierCheckByPhone, type CourierCheckData } from "@/lib/bdcourier";
 
 // Helper to check admin role
 async function checkAdmin() {
@@ -163,6 +164,8 @@ export async function getOrderById(id: string) {
       senderNumber: order.senderNumber,
       transactionId: order.transactionId,
       paidAt: order.paidAt,
+      courierCheckData: (order as { courierCheckData?: CourierCheckData | null }).courierCheckData ?? null,
+      courierCheckCheckedAt: (order as { courierCheckCheckedAt?: Date | null }).courierCheckCheckedAt ?? null,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       items: order.items.map((item) => ({
@@ -199,6 +202,56 @@ export async function getOrderById(id: string) {
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Failed to fetch order" 
+    };
+  }
+}
+
+// Refresh courier check for an order (admin-only). Fetches from BDCourier API and saves to order.
+export async function refreshCourierCheck(orderId: string): Promise<
+  | { success: true; data: CourierCheckData }
+  | { success: false; error: string }
+> {
+  try {
+    await checkAdmin();
+
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, customerPhone: true },
+    });
+
+    if (!order) {
+      return { success: false, error: "Order not found" };
+    }
+
+    const phone = order.customerPhone?.trim();
+    if (!phone) {
+      return { success: false, error: "Order has no customer phone number" };
+    }
+
+    const result = await courierCheckByPhone(phone);
+    if (!result.success) {
+      // Error is already sanitized by courierCheckByPhone
+      return { success: false, error: result.error };
+    }
+
+    const payload = result.data;
+    await db.order.update({
+      where: { id: orderId },
+      data: {
+        courierCheckData: payload as unknown as Prisma.InputJsonValue,
+        courierCheckCheckedAt: new Date(),
+      } as Prisma.OrderUpdateInput,
+    });
+
+    revalidatePath("/admin/orders");
+    revalidatePath(`/admin/orders/${orderId}`);
+
+    return { success: true, data: payload };
+  } catch (error) {
+    console.error("Error refreshing courier check:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to refresh courier check",
     };
   }
 }
