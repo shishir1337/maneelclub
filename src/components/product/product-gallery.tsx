@@ -23,6 +23,9 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
   const galleryImages = images.length > 0 ? images : ["/logo.png"];
   const isUpload = (src: string) => src.startsWith("/uploads/");
 
+  // Clamp index so we never show out-of-bounds when images array changes (e.g. after color change before effect runs)
+  const displayIndex = Math.min(selectedIndex, Math.max(0, galleryImages.length - 1));
+
   const goPrev = useCallback(() => {
     setSelectedIndex((i) => (i <= 0 ? galleryImages.length - 1 : i - 1));
   }, [galleryImages.length]);
@@ -30,6 +33,11 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
   const goNext = useCallback(() => {
     setSelectedIndex((i) => (i >= galleryImages.length - 1 ? 0 : i + 1));
   }, [galleryImages.length]);
+
+  // When images change (e.g. user selected a different color), reset to first image
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [images]);
 
   // Reset zoom when changing image or opening lightbox
   useEffect(() => {
@@ -69,13 +77,13 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
         aria-label="View image full screen"
       >
         <Image
-          src={galleryImages[selectedIndex]}
-          alt={`${title} - Image ${selectedIndex + 1}`}
+          src={galleryImages[displayIndex]}
+          alt={`${title} - Image ${displayIndex + 1}`}
           fill
           className="object-cover object-top"
           priority
           sizes="(max-width: 768px) 100vw, 50vw"
-          unoptimized={isUpload(galleryImages[selectedIndex])}
+          unoptimized={isUpload(galleryImages[displayIndex])}
         />
       </div>
 
@@ -96,7 +104,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
                 onClick={() => setSelectedIndex(index)}
                 className={cn(
                   "relative aspect-square w-14 sm:w-16 md:w-20 flex-shrink-0 rounded-md overflow-hidden border-2 transition-colors",
-                  selectedIndex === index
+                  displayIndex === index
                     ? "border-primary"
                     : "border-transparent hover:border-muted-foreground/50"
                 )}
@@ -175,13 +183,13 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
               }}
             >
               <Image
-                src={galleryImages[selectedIndex]}
-                alt={`${title} - Image ${selectedIndex + 1}`}
+                src={galleryImages[displayIndex]}
+                alt={`${title} - Image ${displayIndex + 1}`}
                 fill
                 className="object-contain"
                 sizes="100vw"
                 priority
-                unoptimized={isUpload(galleryImages[selectedIndex])}
+                unoptimized={isUpload(galleryImages[displayIndex])}
               />
             </div>
           </div>
@@ -219,7 +227,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
 
           {/* Counter */}
           <div className="absolute bottom-4 right-4 z-10 text-white/80 text-sm">
-            {selectedIndex + 1} / {galleryImages.length}
+            {displayIndex + 1} / {galleryImages.length}
           </div>
         </div>
       )}

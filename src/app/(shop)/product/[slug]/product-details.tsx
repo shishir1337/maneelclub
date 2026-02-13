@@ -184,15 +184,24 @@ export function ProductDetails({ product }: ProductDetailsProps) {
 
     if (allImages.length === 0) return ["/productImage.jpeg"];
 
-    // When color selected: put color-specific images first, rest after
+    // When color selected: put all images from ALL variants of this color first (deduped), then rest
     if (selectedColor) {
-      const variantWithImages = product.variants?.find(
+      const colorVariants = product.variants?.filter(
         (v) => v.color === selectedColor && v.images?.length
-      );
-      if (variantWithImages?.images?.length) {
-        const colorUrls = variantWithImages.images;
-        const rest = allImages.filter((url) => !colorUrls.includes(url));
-        return [...colorUrls, ...rest];
+      ) ?? [];
+      const colorUrlsDeduped: string[] = [];
+      const seenColor = new Set<string>();
+      for (const v of colorVariants) {
+        for (const url of v.images ?? []) {
+          if (!seenColor.has(url)) {
+            seenColor.add(url);
+            colorUrlsDeduped.push(url);
+          }
+        }
+      }
+      if (colorUrlsDeduped.length > 0) {
+        const rest = allImages.filter((url) => !seenColor.has(url));
+        return [...colorUrlsDeduped, ...rest];
       }
     }
 
@@ -257,7 +266,11 @@ export function ProductDetails({ product }: ProductDetailsProps) {
         {/* Product Grid */}
         <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
           {/* Gallery */}
-          <ProductGallery images={displayImages} title={product.title} />
+          <ProductGallery
+            key={selectedColor || "_no_color"}
+            images={displayImages}
+            title={product.title}
+          />
 
           {/* Product Info */}
           <div className="space-y-6">
