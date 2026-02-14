@@ -7,18 +7,18 @@ import {
   Package,
   Users,
   Settings,
-  Menu,
   Home,
   ChevronRight,
   BarChart3,
   FolderTree,
   Palette,
   ImageIcon,
-  MapPin
+  MapPin,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { AdminMobileMenu } from "./admin-mobile-menu";
 import { Badge } from "@/components/ui/badge";
 import { siteConfig } from "@/lib/constants";
 import { auth } from "@/lib/auth";
@@ -38,6 +38,7 @@ const sidebarLinks: SidebarLinkItem[] = [
   { name: "Categories", href: "/admin/categories", icon: FolderTree },
   { name: "Attributes", href: "/admin/attributes", icon: Palette },
   { name: "Customers", href: "/admin/customers", icon: Users },
+  { name: "IP Bans", href: "/admin/ip-bans", icon: ShieldAlert },
   { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { name: "Hero Slider", href: "/admin/hero", icon: ImageIcon },
   { name: "Cities", href: "/admin/cities", icon: MapPin },
@@ -99,30 +100,20 @@ export default async function AdminLayout({
       <header className="sticky top-0 z-50 border-b bg-background">
         <div className="flex h-16 items-center px-4 md:px-6">
           <div className="flex items-center gap-4">
-            {/* Mobile Menu */}
-            <Sheet>
-              <SheetTrigger asChild className="lg:hidden">
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-64">
-                <SheetTitle className="sr-only">Admin Navigation</SheetTitle>
-                <div className="py-4">
-                  <Link href="/admin" className="flex items-center gap-2 mb-6">
-                    <Image
-                      src="/logo.png"
-                      alt=""
-                      width={32}
-                      height={32}
-                      className="h-8 w-auto"
-                    />
-                    <span className="font-bold">Admin Panel</span>
-                  </Link>
-                  <AdminSidebar />
-                </div>
-              </SheetContent>
-            </Sheet>
+            {/* Mobile Menu - client-only Sheet to avoid Radix hydration mismatch */}
+            <AdminMobileMenu>
+              <Link href="/admin" className="flex items-center gap-2 mb-6">
+                <Image
+                  src="/logo.png"
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="h-8 w-auto"
+                />
+                <span className="font-bold">Admin Panel</span>
+              </Link>
+              <AdminSidebar />
+            </AdminMobileMenu>
 
             {/* Logo */}
             <Link href="/admin" className="flex items-center gap-2">

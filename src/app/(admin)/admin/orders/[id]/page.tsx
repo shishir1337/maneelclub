@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useRef } from "react";
+import { useState, useEffect, useCallback, use, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -20,11 +20,12 @@ import {
   Calendar,
   Printer,
   RefreshCw,
-  Trash2
+  Trash2,
+  Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -62,14 +63,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { formatPrice, formatDate, formatDateWithRelativeTime } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUS } from "@/lib/constants";
-import { 
-  getOrderById, 
-  updateOrderStatus, 
-  verifyPayment, 
+import {
+  getOrderById,
+  updateOrderStatus,
+  verifyPayment,
   rejectPayment,
   refreshCourierCheck,
   deleteOrder,
 } from "@/actions/admin/orders";
+import { banIp } from "@/actions/admin/ip-bans";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
@@ -112,6 +114,7 @@ interface Order {
   senderNumber: string | null;
   transactionId: string | null;
   paidAt: Date | null;
+  clientIp: string | null;
   items: OrderItem[];
   createdAt: Date;
   updatedAt: Date;
@@ -169,38 +172,47 @@ export default function AdminOrderDetailPage({
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [courierRefreshLoading, setCourierRefreshLoading] = useState(false);
+  const [banIpDialogOpen, setBanIpDialogOpen] = useState(false);
+  const [banIpReason, setBanIpReason] = useState("");
+  const [banIpLoading, setBanIpLoading] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    loadOrder();
-  }, [id]);
-
-  async function loadOrder() {
+  const loadOrder = useCallback(async () => {
     setLoading(true);
     try {
       const result = await getOrderById(id);
       if (result.success && result.data) {
-        // Convert Decimal fields to numbers
-        const orderData = result.data as any;
+        const data = result.data;
         setOrder({
-          ...orderData,
-          shippingCost: Number(orderData.shippingCost),
-          subtotal: Number(orderData.subtotal),
-          total: Number(orderData.total),
-          items: orderData.items.map((item: any) => ({
-            ...item,
+          ...data,
+          shippingCost: Number(data.shippingCost),
+          subtotal: Number(data.subtotal),
+          total: Number(data.total),
+          items: data.items.map((item): OrderItem => ({
+            id: item.id,
+            productId: item.productId,
+            color: item.color,
+            size: item.size,
+            quantity: item.quantity,
             price: Number(item.price),
+            product: item.product
+              ? { id: item.product.id, title: item.product.title, slug: item.product.slug, images: item.product.images }
+              : { id: item.productId, title: "Unknown", slug: "", images: [] },
           })),
         });
-      } else {
+      } else if (!result.success) {
         toast.error(result.error || "Failed to load order");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to load order");
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
+
+  useEffect(() => {
+    loadOrder();
+  }, [loadOrder]);
 
   async function handleStatusChange(newStatus: OrderStatus) {
     if (!order) return;
@@ -213,7 +225,7 @@ export default function AdminOrderDetailPage({
       } else {
         toast.error(result.error || "Failed to update order");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update order");
     } finally {
       setActionLoading(false);
@@ -237,7 +249,7 @@ export default function AdminOrderDetailPage({
       } else {
         toast.error(result.error || "Failed to verify payment");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to verify payment");
     } finally {
       setActionLoading(false);
@@ -256,7 +268,7 @@ export default function AdminOrderDetailPage({
       } else {
         toast.error(result.error || "Failed to delete order");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete order");
     } finally {
       setActionLoading(false);
@@ -280,10 +292,30 @@ export default function AdminOrderDetailPage({
       } else {
         toast.error(result.error || "Failed to reject payment");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to reject payment");
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function handleBanIp() {
+    if (!order?.clientIp) return;
+    setBanIpLoading(true);
+    try {
+      const result = await banIp(order.clientIp, banIpReason.trim() || undefined);
+      if (result.success) {
+        toast.success("IP banned. They can no longer place orders.");
+        setBanIpDialogOpen(false);
+        setBanIpReason("");
+        router.push("/admin/ip-bans");
+      } else {
+        toast.error(result.error || "Failed to ban IP");
+      }
+    } catch {
+      toast.error("Failed to ban IP");
+    } finally {
+      setBanIpLoading(false);
     }
   }
 
@@ -691,6 +723,32 @@ export default function AdminOrderDetailPage({
             </CardContent>
           </Card>
 
+          {/* Client IP / Ban */}
+          {order.clientIp && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Ban className="h-4 w-4" />
+                  Client IP
+                </CardTitle>
+                <CardDescription>
+                  IP used when this order was placed. You can ban it to block future orders from this address.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <span className="font-mono text-sm">{order.clientIp}</span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setBanIpDialogOpen(true)}
+                >
+                  <Ban className="h-4 w-4 mr-1" />
+                  Ban this IP
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Shipping Address */}
           <Card>
             <CardHeader>
@@ -739,7 +797,7 @@ export default function AdminOrderDetailPage({
                                   <TableCell className="font-medium">
                                     <div className="flex items-center gap-2">
                                       {c.logo ? (
-                                        <img src={c.logo} alt="" className="h-5 w-5 object-contain shrink-0" />
+                                        <Image src={c.logo} alt="" className="h-5 w-5 object-contain shrink-0" />
                                       ) : null}
                                       {c.name}
                                     </div>
@@ -892,6 +950,47 @@ export default function AdminOrderDetailPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Ban IP dialog */}
+      <Dialog open={banIpDialogOpen} onOpenChange={setBanIpDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ban this IP?</DialogTitle>
+            <DialogDescription>
+              {order?.clientIp && (
+                <>
+                  <span className="font-mono">{order.clientIp}</span> will be blocked from placing any future orders. You can unban from IP Bans later.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Reason (optional)</label>
+            <Input
+              placeholder="e.g. Spam orders"
+              value={banIpReason}
+              onChange={(e) => setBanIpReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBanIpDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBanIp}
+              disabled={banIpLoading}
+            >
+              {banIpLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Ban className="h-4 w-4 mr-2" />
+              )}
+              Ban IP
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Verification Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>

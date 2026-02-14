@@ -30,6 +30,10 @@ export const DEFAULT_SETTINGS = {
   lowStockThreshold: "5",
   freeShippingMinimum: "2000",
 
+  // Order cooldown (anti-spam: same IP cannot order again within X minutes)
+  orderCooldownEnabled: "false",
+  orderCooldownMinutes: "10",
+
   // Meta Pixel / Facebook Tracking (configure in Admin → Settings → Tracking)
   metaPixelEnabled: "false",
   metaPixelId: "",

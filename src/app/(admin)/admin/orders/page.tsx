@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard, User, Mail, MapPin, Package, Calendar, Copy, Check, Truck, RefreshCw, Trash2 } from "lucide-react";
+import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard, User, Mail, MapPin, Package, Calendar, Copy, Check, Truck, RefreshCw, Trash2, Ban } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,8 +52,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Pagination } from "@/components/ui/pagination";
 import { formatPrice, formatDate, formatDateWithRelativeTime } from "@/lib/format";
-import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUS, PAYMENT_STATUSES, PAYMENT_METHODS } from "@/lib/constants";
+import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUSES } from "@/lib/constants";
 import { getAdminOrders, updateOrderStatus, verifyPayment, rejectPayment, refreshCourierCheck, bulkUpdateOrderStatus, bulkVerifyPayment, bulkRejectPayment, deleteOrder, bulkDeleteOrders } from "@/actions/admin/orders";
+import { banIp } from "@/actions/admin/ip-bans";
 import { toast } from "sonner";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
@@ -127,6 +128,7 @@ interface Order {
   timesPurchased?: number;
   courierCheckData?: CourierCheckData | null;
   courierCheckCheckedAt?: Date | null;
+  clientIp?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -136,12 +138,6 @@ const statusColors: Record<string, string> = {
   SHIPPED: "bg-indigo-100 text-indigo-800",
   DELIVERED: "bg-green-100 text-green-800",
   CANCELLED: "bg-red-100 text-red-800",
-};
-
-const paymentStatusColors: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  PAID: "bg-green-100 text-green-800",
-  FAILED: "bg-red-100 text-red-800",
 };
 
 const paymentMethodColors: Record<string, string> = {
@@ -173,6 +169,8 @@ export default function AdminOrdersPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [courierRefreshLoading, setCourierRefreshLoading] = useState<string | null>(null);
+  const [banIpOrder, setBanIpOrder] = useState<Order | null>(null);
+  const [banIpLoading, setBanIpLoading] = useState(false);
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filters change
@@ -183,11 +181,7 @@ export default function AdminOrdersPage() {
     setSelectedOrderIds(new Set());
   }, [currentPage, statusFilter, paymentFilter, searchQuery, customerId]);
 
-  useEffect(() => {
-    loadOrders();
-  }, [customerId, currentPage, searchQuery, statusFilter, paymentFilter]);
-
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
     setLoading(true);
     try {
       const offset = (currentPage - 1) * ORDERS_PER_PAGE;
@@ -206,12 +200,16 @@ export default function AdminOrdersPage() {
       } else {
         toast.error(result.error || "Failed to load orders");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to load orders");
     } finally {
       setLoading(false);
     }
-  }
+  }, [customerId, currentPage, searchQuery, statusFilter, paymentFilter]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   async function handleStatusChange(orderId: string, newStatus: OrderStatus) {
     setActionLoading(orderId);
@@ -227,7 +225,7 @@ export default function AdminOrdersPage() {
       } else {
         toast.error(result.error || "Failed to update order");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update order");
     } finally {
       setActionLoading(null);
@@ -251,7 +249,7 @@ export default function AdminOrdersPage() {
       } else {
         toast.error(result.error || "Failed to verify payment");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to verify payment");
     } finally {
       setActionLoading(null);
@@ -276,7 +274,7 @@ export default function AdminOrdersPage() {
       } else {
         toast.error(result.error || "Failed to reject payment");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to reject payment");
     } finally {
       setActionLoading(null);
@@ -300,7 +298,7 @@ export default function AdminOrdersPage() {
       } else {
         toast.error(result.error || "Failed to update orders");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update orders");
     } finally {
       setBulkActionLoading(false);
@@ -334,7 +332,7 @@ export default function AdminOrdersPage() {
       } else {
         toast.error(result.error || "Failed to verify payments");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to verify payments");
     } finally {
       setBulkActionLoading(false);
@@ -366,7 +364,7 @@ export default function AdminOrdersPage() {
       } else {
         toast.error(result.error || "Failed to reject payments");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to reject payments");
     } finally {
       setBulkActionLoading(false);
@@ -391,10 +389,29 @@ export default function AdminOrdersPage() {
       } else {
         toast.error(result.error || "Failed to delete order");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete order");
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  async function handleBanIpConfirm() {
+    const order = banIpOrder;
+    if (!order?.clientIp) return;
+    setBanIpLoading(true);
+    try {
+      const result = await banIp(order.clientIp);
+      if (result.success) {
+        toast.success("IP banned. This address can no longer place orders.");
+        setBanIpOrder(null);
+      } else {
+        toast.error(result.error || "Failed to ban IP");
+      }
+    } catch {
+      toast.error("Failed to ban IP");
+    } finally {
+      setBanIpLoading(false);
     }
   }
 
@@ -413,7 +430,7 @@ export default function AdminOrdersPage() {
       } else {
         toast.error(result.error || "Failed to delete orders");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete orders");
     } finally {
       setBulkActionLoading(false);
@@ -426,7 +443,7 @@ export default function AdminOrdersPage() {
       setCopiedField(fieldId);
       setTimeout(() => setCopiedField(null), 2000);
       toast.success("Copied to clipboard");
-    } catch (error) {
+    } catch {
       toast.error("Failed to copy");
     }
   }
@@ -646,6 +663,40 @@ export default function AdminOrdersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Ban IP confirmation */}
+      <AlertDialog open={!!banIpOrder} onOpenChange={(open) => !open && setBanIpOrder(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ban this IP?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {banIpOrder?.clientIp ? (
+                <>
+                  Are you sure you want to ban <span className="font-mono font-medium">{banIpOrder.clientIp}</span>?
+                  This address will no longer be able to place orders. You can unban from IP Bans later.
+                </>
+              ) : (
+                "This address will no longer be able to place orders."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={banIpLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBanIpConfirm}
+              disabled={banIpLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {banIpLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Ban className="h-4 w-4 mr-2" />
+              )}
+              Ban IP
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Bulk delete confirmation */}
       <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
         <AlertDialogContent>
@@ -833,8 +884,7 @@ export default function AdminOrdersPage() {
                             // Calculate gradient: 0% = red, 100% = green
                             const ratio = Math.max(0, Math.min(100, info.ratio));
                             const redPercent = 100 - ratio;
-                            const greenPercent = ratio;
-                            
+
                             return (
                               <div className="flex items-start gap-2">
                                 <div className="flex flex-col gap-1 w-full max-w-[120px]" title={label}>
@@ -1028,6 +1078,17 @@ export default function AdminOrdersPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
+                          {order.clientIp && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setBanIpOrder(order)}
+                              title="Ban this IP address"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                          )}
                           <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
@@ -1092,6 +1153,19 @@ export default function AdminOrdersPage() {
                               <XCircle className="h-4 w-4 mr-2" />
                               Mark as Canceled
                             </DropdownMenuItem>
+                            {order.clientIp && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setBanIpOrder(order)}
+                                  className="text-red-600 focus:text-red-600"
+                                  disabled={actionLoading === order.id}
+                                >
+                                  <Ban className="h-4 w-4 mr-2" />
+                                  Ban IP
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => setDeleteOrderId(order.id)}

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { getShippingRates, getFreeShippingMinimum } from "@/lib/settings";
+import { getShippingRates, getFreeShippingMinimum, getOrderCooldownSettings } from "@/lib/settings";
 import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
@@ -9,6 +9,8 @@ import { headers } from "next/headers";
 import { PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { sendPurchaseEvent } from "@/lib/conversions-api";
 import { getMetaCapiSettings } from "@/lib/settings";
+import { getClientIp } from "@/lib/client-ip";
+import { isIpBanned } from "@/lib/ip-ban";
 
 interface CartItem {
   productId: string;
@@ -37,6 +39,17 @@ interface CreateOrderInput {
   formData: CheckoutFormData;
   items: CartItem[];
 }
+
+/** Result of createOrder: success with order ids, or failure with error and optional code/cooldown. */
+export type CreateOrderResult =
+  | { success: true; data: { orderId: string; orderNumber: string } }
+  | {
+      success: false;
+      error: string;
+      code?: "COOLDOWN" | "IP_BANNED";
+      cooldownRemainingSeconds?: number;
+      cooldownMinutes?: number;
+    };
 
 /**
  * Resolve cart items against the database: validate product exists and is active,
@@ -167,7 +180,7 @@ async function deductStockInTransaction(
 /**
  * Create a new order (saves to database)
  */
-export async function createOrder(input: CreateOrderInput) {
+export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
   try {
     // Validate form data
     const validatedData = checkoutSchema.safeParse(input.formData);
@@ -223,7 +236,43 @@ export async function createOrder(input: CreateOrderInput) {
     // COD orders will be marked PAID on delivery
     // Mobile payments will be verified by admin
     const paymentStatus: PaymentStatus = "PENDING";
-    
+
+    const h = await headers();
+    const clientIp = getClientIp(h);
+
+    // IP ban: blocked IPs cannot place orders
+    if (clientIp && (await isIpBanned(clientIp))) {
+      return {
+        success: false,
+        error: "Unable to place an order. Please contact support.",
+        code: "IP_BANNED",
+      };
+    }
+
+    // Order cooldown: same IP cannot order again within X minutes (when enabled)
+    const cooldown = await getOrderCooldownSettings();
+    if (cooldown.enabled && clientIp) {
+      const lastOrder = await db.order.findFirst({
+        where: { clientIp },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      });
+      if (lastOrder) {
+        const windowMs = cooldown.minutes * 60 * 1000;
+        const elapsed = Date.now() - lastOrder.createdAt.getTime();
+        if (elapsed < windowMs) {
+          const cooldownRemainingSeconds = Math.ceil((windowMs - elapsed) / 1000);
+          return {
+            success: false,
+            error: "You already placed an order. Please wait before placing another.",
+            code: "COOLDOWN",
+            cooldownRemainingSeconds,
+            cooldownMinutes: cooldown.minutes,
+          };
+        }
+      }
+    }
+
     // Create order in database using a transaction to ensure stock deduction is atomic
     const order = await db.$transaction(async (tx) => {
       // Next serial order number (numeric only, starting from 2000)
@@ -238,6 +287,7 @@ export async function createOrder(input: CreateOrderInput) {
         data: {
           orderNumber,
           userId,
+          clientIp,
           customerName: formData.fullName,
           customerEmail: formData.email || null,
           customerPhone: formData.phone,
@@ -283,11 +333,6 @@ export async function createOrder(input: CreateOrderInput) {
     // Meta Conversions API: send Purchase for deduplication with Pixel (use orderNumber as event_id)
     // Credentials from env or admin settings (configure after deployment)
     try {
-      const h = await headers();
-      const clientIp =
-        h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-        h.get("x-real-ip")?.trim() ||
-        undefined;
       const clientUserAgent = h.get("user-agent") ?? undefined;
       const capiSettings = await getMetaCapiSettings();
       const credentials =
@@ -323,6 +368,61 @@ export async function createOrder(input: CreateOrderInput) {
       success: false,
       error: "Failed to create order. Please try again.",
     };
+  }
+}
+
+/**
+ * Check if the current request (by IP) is allowed to place an order.
+ * Used by checkout page to show cooldown countdown or block without submitting.
+ * Does not return raw IP to client.
+ */
+export async function getCheckoutEligibility(): Promise<{
+  allowed: boolean;
+  error?: string;
+  code?: "COOLDOWN" | "IP_BANNED";
+  cooldownRemainingSeconds?: number;
+  cooldownMinutes?: number;
+}> {
+  try {
+    const h = await headers();
+    const clientIp = getClientIp(h);
+
+    if (clientIp && (await isIpBanned(clientIp))) {
+      return {
+        allowed: false,
+        error: "Unable to place an order. Please contact us for assistance.",
+        code: "IP_BANNED",
+      };
+    }
+
+    const cooldown = await getOrderCooldownSettings();
+
+    if (cooldown.enabled && clientIp) {
+      const lastOrder = await db.order.findFirst({
+        where: { clientIp },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      });
+      if (lastOrder) {
+        const windowMs = cooldown.minutes * 60 * 1000;
+        const elapsed = Date.now() - lastOrder.createdAt.getTime();
+        if (elapsed < windowMs) {
+          const cooldownRemainingSeconds = Math.ceil((windowMs - elapsed) / 1000);
+          return {
+            allowed: false,
+            error: "You already placed an order. Please wait before placing another.",
+            code: "COOLDOWN",
+            cooldownRemainingSeconds,
+            cooldownMinutes: cooldown.minutes,
+          };
+        }
+      }
+    }
+
+    return { allowed: true };
+  } catch (error) {
+    console.error("Error checking checkout eligibility:", error);
+    return { allowed: true }; // Fail open so checkout is not broken
   }
 }
 

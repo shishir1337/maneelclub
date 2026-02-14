@@ -63,6 +63,12 @@ export async function getMerchantNumbers(): Promise<{
   };
 }
 
+// Get WhatsApp number for contact links (e.g. cooldown message)
+export async function getWhatsappNumber(): Promise<string> {
+  const settings = await getSettings();
+  return settings.whatsappNumber || settings.storePhone || "";
+}
+
 // Get announcement settings
 export async function getAnnouncementSettings(): Promise<{
   enabled: boolean;
@@ -89,6 +95,22 @@ export async function getLowStockThreshold(): Promise<number> {
 export async function getFreeShippingMinimum(): Promise<number> {
   const settings = await getSettings();
   return parseInt(settings.freeShippingMinimum || "2000", 10);
+}
+
+// Get order cooldown settings (anti-spam: same IP cannot order again within X minutes)
+export async function getOrderCooldownSettings(): Promise<{
+  enabled: boolean;
+  minutes: number;
+}> {
+  const settings = await getSettings();
+  const minutes = Math.min(
+    1440,
+    Math.max(1, parseInt(settings.orderCooldownMinutes || "10", 10) || 10)
+  );
+  return {
+    enabled: settings.orderCooldownEnabled === "true",
+    minutes,
+  };
 }
 
 // Get Meta Pixel settings (public: pixel ID + enabled - safe to expose to client)

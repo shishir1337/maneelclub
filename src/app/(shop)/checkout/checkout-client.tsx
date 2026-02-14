@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { ChevronRight, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,18 +48,41 @@ interface CityWithZone {
   shippingZone: "inside_dhaka" | "outside_dhaka";
 }
 
+export type CheckoutEligibility = {
+  allowed: boolean;
+  error?: string;
+  code?: "COOLDOWN" | "IP_BANNED";
+  cooldownRemainingSeconds?: number;
+  cooldownMinutes?: number;
+};
+
 interface CheckoutClientProps {
   merchantNumbers: MerchantNumbers;
   shippingRates: ShippingRates;
   cities: CityWithZone[];
   freeShippingMinimum: number;
+  eligibility: CheckoutEligibility;
+  whatsappNumber: string;
 }
 
-export default function CheckoutClient({ merchantNumbers, shippingRates, cities, freeShippingMinimum }: CheckoutClientProps) {
+export default function CheckoutClient({
+  merchantNumbers,
+  shippingRates,
+  cities,
+  freeShippingMinimum,
+  eligibility,
+  whatsappNumber,
+}: CheckoutClientProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const { items, getSubtotal } = useCartStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Cooldown: when set, show "wait X seconds" and disable submit (from initial eligibility or after createOrder returns COOLDOWN)
+  const [cooldownRemaining, setCooldownRemaining] = useState<number | null>(
+    !eligibility.allowed && eligibility.code === "COOLDOWN" && eligibility.cooldownRemainingSeconds != null
+      ? eligibility.cooldownRemainingSeconds
+      : null
+  );
   
   // Wait for hydration
   useEffect(() => {
@@ -75,6 +98,15 @@ export default function CheckoutClient({ merchantNumbers, shippingRates, cities,
       content_ids: items.map((i) => i.productId),
     });
   }, [mounted, items]);
+
+  // Countdown tick when in cooldown
+  useEffect(() => {
+    if (cooldownRemaining == null || cooldownRemaining <= 0) return;
+    const t = setInterval(() => {
+      setCooldownRemaining((prev) => (prev == null || prev <= 1 ? null : prev - 1));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [cooldownRemaining]);
   
   const form = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -99,7 +131,18 @@ export default function CheckoutClient({ merchantNumbers, shippingRates, cities,
   const shippingCost =
     freeShippingMinimum > 0 && subtotal >= freeShippingMinimum ? 0 : zoneRate;
   const total = subtotal + shippingCost;
-  
+
+  const isBlockedByCooldown =
+    cooldownRemaining != null ||
+    (!eligibility.allowed && eligibility.code === "COOLDOWN");
+  const isBlockedByBan = !eligibility.allowed && eligibility.code === "IP_BANNED";
+  const isBlocked = isBlockedByCooldown || isBlockedByBan;
+  const displayCooldownSeconds =
+    cooldownRemaining ?? eligibility.cooldownRemainingSeconds ?? 0;
+  const whatsappLink =
+    whatsappNumber.trim() &&
+    `https://wa.me/${whatsappNumber.replace(/\D/g, "")}`;
+
   // Show loading during hydration
   if (!mounted) {
     return (
@@ -179,8 +222,12 @@ export default function CheckoutClient({ merchantNumbers, shippingRates, cities,
       if (result.success && result.data) {
         // Redirect first; cart is cleared on order-confirmation page to avoid flashing empty cart
         router.push(`/order-confirmation?order=${result.data.orderNumber}`);
-      } else {
-        toast.error(result.error || "Failed to place order");
+      } else if (!result.success) {
+        if (result.code === "COOLDOWN" && result.cooldownRemainingSeconds != null) {
+          setCooldownRemaining(result.cooldownRemainingSeconds);
+        } else {
+          toast.error(result.error || "Failed to place order");
+        }
       }
     } catch (error) {
       toast.error("Something went wrong. Please try again.");
@@ -222,6 +269,47 @@ export default function CheckoutClient({ merchantNumbers, shippingRates, cities,
           onSubmit={form.handleSubmit(onSubmit)}
           className="grid lg:grid-cols-3 gap-8 lg:gap-10"
         >
+          {/* Cooldown or IP ban notice */}
+          {isBlocked && (
+            <div className="lg:col-span-3">
+              <Card className="rounded-2xl border-2 border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
+                <CardContent className="pt-6">
+                  {isBlockedByCooldown ? (
+                    <>
+                      <p className="text-base font-medium text-amber-900 dark:text-amber-100">
+                        You already placed an order. Next order can be placed after the cooldown.
+                      </p>
+                      <p className="mt-2 text-lg font-semibold tabular-nums">
+                        {Math.floor(displayCooldownSeconds / 60)}:
+                        {String(displayCooldownSeconds % 60).padStart(2, "0")}
+                      </p>
+                      <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
+                        minutes remaining
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-base font-medium text-amber-900 dark:text-amber-100">
+                      Unable to place an order from this device. Please contact us for assistance.
+                    </p>
+                  )}
+                  {whatsappLink && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4 border-amber-300 dark:border-amber-700"
+                      asChild
+                    >
+                      <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Contact us on WhatsApp
+                      </a>
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Checkout Form */}
           <div className="lg:col-span-2 space-y-6 md:space-y-8">
             {/* Contact Information */}
@@ -419,7 +507,7 @@ export default function CheckoutClient({ merchantNumbers, shippingRates, cities,
                 type="submit"
                 size="lg"
                 className="w-full h-14 text-lg font-semibold rounded-xl"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isBlocked}
               >
                 {isSubmitting ? (
                   <>
@@ -528,7 +616,7 @@ export default function CheckoutClient({ merchantNumbers, shippingRates, cities,
                   type="submit"
                   size="lg"
                   className="w-full hidden lg:flex h-14 text-lg font-semibold rounded-xl"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isBlocked}
                   onClick={form.handleSubmit(onSubmit)}
                 >
                   {isSubmitting ? (

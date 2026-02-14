@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { courierCheckByPhone, type CourierCheckData } from "@/lib/bdcourier";
 
 // Helper to check admin role
@@ -19,6 +19,52 @@ async function checkAdmin() {
 
   return session.user;
 }
+
+/** Serialized order shape returned by getOrderById (Decimals as numbers for client). */
+export type OrderDetailData = {
+  id: string;
+  orderNumber: string;
+  userId: string | null;
+  customerName: string;
+  customerEmail: string | null;
+  customerPhone: string;
+  shippingAddress: string;
+  city: string;
+  altPhone: string | null;
+  deliveryNote: string | null;
+  shippingCost: number;
+  subtotal: number;
+  total: number;
+  status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  senderNumber: string | null;
+  transactionId: string | null;
+  paidAt: Date | null;
+  clientIp: string | null;
+  courierCheckData: CourierCheckData | null;
+  courierCheckCheckedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  items: Array<{
+    id: string;
+    productId: string;
+    orderId: string;
+    color: string;
+    size: string;
+    quantity: number;
+    price: number;
+    product: {
+      id: string;
+      title: string;
+      slug: string;
+      images: string[];
+      regularPrice: number;
+      salePrice: number | null;
+    } | null;
+  }>;
+  user: { id: string; name: string | null; email: string } | null;
+};
 
 // Get all orders (admin)
 export async function getAdminOrders(options?: {
@@ -93,6 +139,7 @@ export async function getAdminOrders(options?: {
 
     const orders = ordersRaw.map((o, i) => ({
       ...o,
+      clientIp: (o as { clientIp?: string | null }).clientIp ?? null,
       shippingCost: Number(o.shippingCost),
       subtotal: Number(o.subtotal),
       total: Number(o.total),
@@ -123,7 +170,9 @@ export async function getAdminOrders(options?: {
 }
 
 // Get single order by ID
-export async function getOrderById(id: string) {
+export async function getOrderById(
+  id: string
+): Promise<{ success: true; data: OrderDetailData } | { success: false; error: string }> {
   try {
     await checkAdmin();
 
@@ -164,6 +213,7 @@ export async function getOrderById(id: string) {
       senderNumber: order.senderNumber,
       transactionId: order.transactionId,
       paidAt: order.paidAt,
+      clientIp: order.clientIp ?? null,
       courierCheckData: (order as { courierCheckData?: CourierCheckData | null }).courierCheckData ?? null,
       courierCheckCheckedAt: (order as { courierCheckCheckedAt?: Date | null }).courierCheckCheckedAt ?? null,
       createdAt: order.createdAt,
@@ -196,12 +246,12 @@ export async function getOrderById(id: string) {
         : null,
     };
 
-    return { success: true, data: serializedOrder };
-  } catch (error) {
-    console.error("Error fetching order:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Failed to fetch order" 
+    return { success: true, data: serializedOrder as OrderDetailData };
+  } catch (err) {
+    console.error("Error fetching order:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to fetch order",
     };
   }
 }

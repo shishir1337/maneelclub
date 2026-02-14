@@ -198,12 +198,13 @@ export default function AdminSettingsPage() {
       )}
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-7">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="navigation">Navigation</TabsTrigger>
           <TabsTrigger value="shipping">Shipping</TabsTrigger>
           <TabsTrigger value="payment">Payment</TabsTrigger>
           <TabsTrigger value="announcement">Announcement</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="tracking">Tracking</TabsTrigger>
         </TabsList>
 
@@ -309,6 +310,47 @@ export default function AdminSettingsPage() {
                 />
                 <p className="text-sm text-muted-foreground">
                   Products with stock at or below this number will show a low stock warning
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Security / Order limits */}
+        <TabsContent value="security" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Order cooldown</CardTitle>
+              <CardDescription>
+                Limit how often the same IP can place an order (helps reduce spam). When enabled, a customer must wait before placing another order.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="orderCooldownEnabled">Enable order cooldown</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Same IP cannot place another order within the cooldown window
+                  </p>
+                </div>
+                <Switch
+                  id="orderCooldownEnabled"
+                  checked={settings.orderCooldownEnabled === "true"}
+                  onCheckedChange={(checked) => handleSwitchChange("orderCooldownEnabled", checked)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="orderCooldownMinutes">Cooldown (minutes)</Label>
+                <Input
+                  id="orderCooldownMinutes"
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={settings.orderCooldownMinutes || "10"}
+                  onChange={(e) => handleChange("orderCooldownMinutes", e.target.value)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Minimum minutes between orders from the same IP (1–1440)
                 </p>
               </div>
             </CardContent>

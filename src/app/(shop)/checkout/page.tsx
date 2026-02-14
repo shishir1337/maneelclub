@@ -1,14 +1,18 @@
-import { getMerchantNumbers, getShippingRates, getFreeShippingMinimum } from "@/lib/settings";
+import { getMerchantNumbers, getShippingRates, getFreeShippingMinimum, getWhatsappNumber } from "@/lib/settings";
 import { getCities } from "@/actions/cities";
+import { getCheckoutEligibility } from "@/actions/orders";
 import CheckoutClient from "./checkout-client";
 
 export default async function CheckoutPage() {
-  const [merchantNumbers, shippingRates, cities, freeShippingMinimum] = await Promise.all([
-    getMerchantNumbers(),
-    getShippingRates(),
-    getCities(),
-    getFreeShippingMinimum(),
-  ]);
+  const [merchantNumbers, shippingRates, cities, freeShippingMinimum, eligibility, whatsappNumber] =
+    await Promise.all([
+      getMerchantNumbers(),
+      getShippingRates(),
+      getCities(),
+      getFreeShippingMinimum(),
+      getCheckoutEligibility(),
+      getWhatsappNumber(),
+    ]);
 
   return (
     <CheckoutClient
@@ -16,6 +20,8 @@ export default async function CheckoutPage() {
       shippingRates={shippingRates}
       cities={cities}
       freeShippingMinimum={freeShippingMinimum}
+      eligibility={eligibility}
+      whatsappNumber={whatsappNumber}
     />
   );
 }

@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import type { Prisma } from "@prisma/client";
 
 // Helper to check admin role
 async function checkAdmin() {
@@ -26,7 +27,7 @@ export async function getAdminCustomers(options?: {
   try {
     await checkAdmin();
 
-    const where: any = {};
+    const where: Prisma.UserWhereInput = {};
 
     if (options?.search) {
       where.OR = [

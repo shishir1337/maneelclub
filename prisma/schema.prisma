@@ -293,6 +293,9 @@ model Order {
   courierCheckData     Json?      // { status, data?: { phone, couriers }, error?: string }
   courierCheckCheckedAt DateTime? // When the check was last run
 
+  // Client IP for cooldown and IP ban (best-effort; x-forwarded-for can be spoofed)
+  clientIp     String?
+
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -372,6 +375,17 @@ model City {
   updatedAt    DateTime     @updatedAt
 
   @@index([shippingZone])
+}
+
+// ==================== IP BANS (anti-spam) ====================
+
+model BannedIp {
+  id        String   @id @default(cuid())
+  ipAddress String   @unique
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([ipAddress])
 }
 
 // ==================== SETTINGS ====================
