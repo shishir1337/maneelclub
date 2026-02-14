@@ -1194,6 +1194,101 @@ export default function AdminOrdersPage() {
         </CardContent>
       </Card>
 
+      {/* Bulk Actions Bar (bottom) - same as top for easy access */}
+      {selectedOrderIds.size > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium">
+                {selectedOrderIds.size} order(s) selected
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={bulkActionLoading}
+                    >
+                      {bulkActionLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : null}
+                      Update status
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {ORDER_STATUSES.map((status) => (
+                      <DropdownMenuItem
+                        key={status.value}
+                        onClick={() =>
+                          handleBulkUpdateStatus(status.value as OrderStatus)
+                        }
+                        className={
+                          status.value === "CANCELLED"
+                            ? "text-red-600 focus:text-red-600"
+                            : ""
+                        }
+                      >
+                        {status.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkActionLoading}
+                  onClick={handleBulkVerifyPayment}
+                >
+                  {bulkActionLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                  )}
+                  Verify payment
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkActionLoading}
+                  onClick={() => setBulkRejectDialogOpen(true)}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                >
+                  {bulkActionLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-1" />
+                  )}
+                  Reject payment
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkActionLoading}
+                  onClick={() => setBulkDeleteDialogOpen(true)}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50"
+                >
+                  {bulkActionLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-1" />
+                  )}
+                  Delete
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={bulkActionLoading}
+                  onClick={() => setSelectedOrderIds(new Set())}
+                >
+                  Clear selection
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Pagination */}
       {totalCount > 0 && (
         <Card>
