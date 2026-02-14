@@ -169,6 +169,62 @@ export async function getAdminOrders(options?: {
   }
 }
 
+/** Order counts by status for the same filters as getAdminOrders (no status filter). Used for status tabs. */
+export async function getAdminOrderCountsByStatus(options?: {
+  paymentStatus?: PaymentStatus;
+  search?: string;
+  userId?: string;
+}): Promise<{ success: true; data: Record<OrderStatus | "all", number> } | { success: false; error: string }> {
+  try {
+    await checkAdmin();
+
+    const where: Record<string, unknown> = {};
+
+    if (options?.paymentStatus) {
+      where.paymentStatus = options.paymentStatus;
+    }
+
+    if (options?.userId) {
+      where.userId = options.userId;
+    }
+
+    if (options?.search) {
+      where.OR = [
+        { orderNumber: { contains: options.search, mode: "insensitive" } },
+        { customerName: { contains: options.search, mode: "insensitive" } },
+        { customerEmail: { contains: options.search, mode: "insensitive" } },
+        { customerPhone: { contains: options.search } },
+        { senderNumber: { contains: options.search } },
+        { transactionId: { contains: options.search, mode: "insensitive" } },
+      ];
+    }
+
+    const statuses: OrderStatus[] = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
+    const [allCount, ...statusCounts] = await Promise.all([
+      db.order.count({ where }),
+      ...statuses.map((status) => db.order.count({ where: { ...where, status } })),
+    ]);
+
+    const data: Record<OrderStatus | "all", number> = {
+      all: allCount,
+      PENDING: statusCounts[0] ?? 0,
+      CONFIRMED: statusCounts[1] ?? 0,
+      PROCESSING: statusCounts[2] ?? 0,
+      SHIPPED: statusCounts[3] ?? 0,
+      DELIVERED: statusCounts[4] ?? 0,
+      CANCELLED: statusCounts[5] ?? 0,
+    };
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("Error fetching order counts:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch counts",
+    };
+  }
+}
+
 // Get single order by ID
 export async function getOrderById(
   id: string

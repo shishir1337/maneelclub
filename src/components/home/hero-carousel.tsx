@@ -36,7 +36,8 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
       return;
     }
 
-    setCurrent(api.selectedScrollSnap());
+    // Defer initial sync to avoid "setState synchronously within an effect" warning
+    queueMicrotask(() => setCurrent(api.selectedScrollSnap()));
 
     api.on("select", () => {
       setCurrent(api.selectedScrollSnap());
@@ -155,8 +156,9 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
                         src={slide.image}
                         alt={slide.alt}
                         fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1280px"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1920px"
                         className="object-cover"
+                        quality={95}
                         priority={isLcp}
                         fetchPriority={isLcp ? "high" : undefined}
                         loading={isLcp ? undefined : "lazy"}
@@ -169,8 +171,9 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
                       src={slide.image}
                       alt={slide.alt}
                       fill
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1280px"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1920px"
                       className="object-cover"
+                      quality={95}
                       priority={isLcp}
                       fetchPriority={isLcp ? "high" : undefined}
                       loading={isLcp ? undefined : "lazy"}

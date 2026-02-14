@@ -48,11 +48,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Pagination } from "@/components/ui/pagination";
 import { formatPrice, formatDateWithRelativeTime } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUSES } from "@/lib/constants";
-import { getAdminOrders, updateOrderStatus, verifyPayment, rejectPayment, refreshCourierCheck, bulkUpdateOrderStatus, bulkVerifyPayment, bulkRejectPayment, deleteOrder, bulkDeleteOrders } from "@/actions/admin/orders";
+import { getAdminOrders, getAdminOrderCountsByStatus, updateOrderStatus, verifyPayment, rejectPayment, refreshCourierCheck, bulkUpdateOrderStatus, bulkVerifyPayment, bulkRejectPayment, deleteOrder, bulkDeleteOrders } from "@/actions/admin/orders";
 import { banIp } from "@/actions/admin/ip-bans";
 import { toast } from "sonner";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
@@ -171,6 +171,7 @@ export default function AdminOrdersPage() {
   const [courierRefreshLoading, setCourierRefreshLoading] = useState<string | null>(null);
   const [banIpOrder, setBanIpOrder] = useState<Order | null>(null);
   const [banIpLoading, setBanIpLoading] = useState(false);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number> | null>(null);
 
   // Debounce search so we don't refetch on every keystroke
   useEffect(() => {
@@ -216,6 +217,23 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  // Load status counts for tabs (same filters as list, minus status)
+  const loadStatusCounts = useCallback(() => {
+    getAdminOrderCountsByStatus({
+      userId: customerId,
+      search: debouncedSearchQuery || undefined,
+      paymentStatus: paymentFilter !== "all" ? (paymentFilter as PaymentStatus) : undefined,
+    }).then((result) => {
+      if (result.success && result.data) {
+        setStatusCounts(result.data);
+      }
+    });
+  }, [customerId, debouncedSearchQuery, paymentFilter]);
+
+  useEffect(() => {
+    loadStatusCounts();
+  }, [loadStatusCounts]);
 
   async function handleStatusChange(orderId: string, newStatus: OrderStatus) {
     setActionLoading(orderId);
@@ -301,6 +319,7 @@ export default function AdminOrdersPage() {
         );
         setSelectedOrderIds(new Set());
         toast.success(`${result.updated} order(s) updated${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}`);
+        loadStatusCounts();
       } else {
         toast.error(result.error || "Failed to update orders");
       }
@@ -335,6 +354,7 @@ export default function AdminOrdersPage() {
             ? `${result.verified} verified, ${result.skipped} skipped (already paid or COD)`
             : `${result.verified} payment(s) verified`;
         toast.success(msg);
+        loadStatusCounts();
       } else {
         toast.error(result.error || "Failed to verify payments");
       }
@@ -367,6 +387,7 @@ export default function AdminOrdersPage() {
             : `${result.rejected} payment(s) rejected`;
         toast.success(msg);
         setRejectReason("");
+        loadStatusCounts();
       } else {
         toast.error(result.error || "Failed to reject payments");
       }
@@ -433,6 +454,7 @@ export default function AdminOrdersPage() {
         setTotalCount((prev) => Math.max(0, prev - result.deleted));
         setSelectedOrderIds(new Set());
         toast.success(`${result.deleted} order(s) deleted${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}`);
+        loadStatusCounts();
       } else {
         toast.error(result.error || "Failed to delete orders");
       }
@@ -466,23 +488,25 @@ export default function AdminOrdersPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div>
-          <Skeleton className="h-8 w-24 mb-2" />
-          <Skeleton className="h-4 w-48" />
+      <div className="space-y-4">
+        {/* Compact header + filters skeleton */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-baseline gap-2">
+            <Skeleton className="h-6 w-20" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+            <Skeleton className="h-9 flex-1 sm:min-w-[200px] sm:max-w-[280px]" />
+            <Skeleton className="h-9 w-full sm:w-[130px]" />
+            <Skeleton className="h-9 w-full sm:w-[120px]" />
+          </div>
         </div>
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-5 w-20" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Skeleton className="h-10 flex-1" />
-              <Skeleton className="h-10 w-[180px]" />
-              <Skeleton className="h-10 w-[180px]" />
-            </div>
-          </CardContent>
-        </Card>
+        {/* Status pills row skeleton */}
+        <div className="flex flex-wrap gap-2">
+          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+            <Skeleton key={i} className="h-8 w-16 rounded-full" />
+          ))}
+        </div>
         <Card>
           <CardContent className="p-0">
             <TableSkeleton columns={7} rows={8} />
@@ -493,59 +517,97 @@ export default function AdminOrdersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Orders</h1>
-        <p className="text-muted-foreground">
-          Manage customer orders
-        </p>
+    <div className="space-y-4">
+      {/* Compact header + filters in one bar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-xl font-semibold tracking-tight">Orders</h1>
+          <span className="text-sm text-muted-foreground">Manage customer orders</span>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+          <div className="relative flex-1 sm:min-w-[200px] sm:max-w-[280px]">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search order #, name, phone, TxID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-9 pl-8 text-sm"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 w-full text-sm sm:w-[130px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {ORDER_STATUSES.map((status) => (
+                <SelectItem key={status.value} value={status.value}>
+                  {status.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+            <SelectTrigger className="h-9 w-full text-sm sm:w-[120px]">
+              <SelectValue placeholder="Payment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All payments</SelectItem>
+              {PAYMENT_STATUSES.map((status) => (
+                <SelectItem key={status.value} value={status.value}>
+                  {status.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by order #, name, phone, or TxID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Order Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {ORDER_STATUSES.map((status) => (
-                  <SelectItem key={status.value} value={status.value}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Payment Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Payments</SelectItem>
-                {PAYMENT_STATUSES.map((status) => (
-                  <SelectItem key={status.value} value={status.value}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Order status filter: pill buttons with color accents */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("all")}
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+            statusFilter === "all"
+              ? "bg-slate-200 text-slate-900 shadow-sm dark:bg-slate-600 dark:text-slate-100"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+          }`}
+        >
+          All
+          {statusCounts != null ? (
+            <span className="min-w-[1.25rem] rounded-full bg-white/80 px-1.5 py-0.5 text-xs tabular-nums dark:bg-black/20">
+              {statusCounts.all}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+        </button>
+        {ORDER_STATUSES.map((status) => {
+          const isActive = statusFilter === status.value;
+          return (
+            <button
+              key={status.value}
+              type="button"
+              onClick={() => setStatusFilter(status.value)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                status.value === "CANCELLED"
+                  ? "focus-visible:ring-red-400"
+                  : "focus-visible:ring-primary"
+              } ${status.color} ${isActive ? "shadow-sm ring-1 ring-black/10 dark:ring-white/10" : "opacity-75 hover:opacity-100"}`}
+            >
+              {status.label}
+              {statusCounts != null ? (
+                <span className="min-w-[1.25rem] rounded-full bg-white/70 px-1.5 py-0.5 text-xs font-semibold tabular-nums dark:bg-black/15">
+                  {statusCounts[status.value] ?? 0}
+                </span>
+              ) : (
+                <span className="text-xs opacity-70">—</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Bulk Actions Bar */}
       {selectedOrderIds.size > 0 && (
@@ -1540,22 +1602,30 @@ export default function AdminOrdersPage() {
                     <TableHeader>
                       <TableRow className="bg-muted/20 hover:bg-muted/20 border-b">
                         <TableHead className="h-9 text-xs font-semibold">Product</TableHead>
-                        <TableHead className="h-9 text-xs font-semibold w-20">Color</TableHead>
-                        <TableHead className="h-9 text-xs font-semibold w-16">Size</TableHead>
                         <TableHead className="h-9 text-xs font-semibold w-14 text-right">Qty</TableHead>
                         <TableHead className="h-9 text-xs font-semibold text-right">Total</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {summaryDialogOrder.items?.map((item) => (
-                        <TableRow key={item.id} className="text-xs">
-                          <TableCell className="py-2.5 font-medium">{item.product?.title ?? "—"}</TableCell>
-                          <TableCell className="py-2.5 text-muted-foreground">{item.color || "—"}</TableCell>
-                          <TableCell className="py-2.5 text-muted-foreground">{item.size || "—"}</TableCell>
-                          <TableCell className="py-2.5 text-right tabular-nums">{item.quantity}</TableCell>
-                          <TableCell className="py-2.5 text-right font-medium tabular-nums">{formatPrice(item.price * item.quantity)}</TableCell>
-                        </TableRow>
-                      ))}
+                      {summaryDialogOrder.items?.map((item) => {
+                        const name = item.product?.title ?? "—";
+                        const color = item.color?.trim();
+                        const size = item.size?.trim();
+                        const productLabel = color && size
+                          ? `${name} (${color})- ${size}`
+                          : color
+                            ? `${name} (${color})`
+                            : size
+                              ? `${name}- ${size}`
+                              : name;
+                        return (
+                          <TableRow key={item.id} className="text-xs">
+                            <TableCell className="py-2.5 font-medium">{productLabel}</TableCell>
+                            <TableCell className="py-2.5 text-right tabular-nums">{item.quantity}</TableCell>
+                            <TableCell className="py-2.5 text-right font-medium tabular-nums">{formatPrice(item.price * item.quantity)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
