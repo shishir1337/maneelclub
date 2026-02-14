@@ -131,8 +131,8 @@ export const ORDER_STATUS = {
   PENDING: { label: "Hold", color: "bg-yellow-100 text-yellow-800" },
   CONFIRMED: { label: "Confirmed", color: "bg-blue-100 text-blue-800" }, // Legacy - kept for existing orders
   PROCESSING: { label: "Processing", color: "bg-purple-100 text-purple-800" },
-  SHIPPED: { label: "Shipped", color: "bg-indigo-100 text-indigo-800" },
-  DELIVERED: { label: "Delivered", color: "bg-green-100 text-green-800" },
+  SHIPPED: { label: "Shipped", color: "bg-green-100 text-green-700" },
+  DELIVERED: { label: "Delivered", color: "bg-green-200 text-green-900" },
   CANCELLED: { label: "Cancelled", color: "bg-red-100 text-red-800" },
 } as const;
 
@@ -141,8 +141,8 @@ export const ORDER_STATUSES = [
   { value: "PENDING", label: "Hold", color: "bg-yellow-100 text-yellow-800" },
   { value: "CONFIRMED", label: "Confirmed", color: "bg-blue-100 text-blue-800" },
   { value: "PROCESSING", label: "Processing", color: "bg-purple-100 text-purple-800" },
-  { value: "SHIPPED", label: "Shipped", color: "bg-indigo-100 text-indigo-800" },
-  { value: "DELIVERED", label: "Delivered", color: "bg-green-100 text-green-800" },
+  { value: "SHIPPED", label: "Shipped", color: "bg-green-100 text-green-700" },
+  { value: "DELIVERED", label: "Delivered", color: "bg-green-200 text-green-900" },
   { value: "CANCELLED", label: "Cancelled", color: "bg-red-100 text-red-800" },
 ] as const;
 
