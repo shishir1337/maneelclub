@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard, User, Mail, MapPin, Package, Calendar, Copy, Check, Truck, RefreshCw, Trash2, Ban } from "lucide-react";
+import { Search, MoreHorizontal, Eye, Loader2, CheckCircle, XCircle, Phone, CreditCard, Copy, Check, RefreshCw, Trash2, Ban } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,9 +49,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Pagination } from "@/components/ui/pagination";
-import { formatPrice, formatDate, formatDateWithRelativeTime } from "@/lib/format";
+import { formatPrice, formatDateWithRelativeTime } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUSES } from "@/lib/constants";
 import { getAdminOrders, updateOrderStatus, verifyPayment, rejectPayment, refreshCourierCheck, bulkUpdateOrderStatus, bulkVerifyPayment, bulkRejectPayment, deleteOrder, bulkDeleteOrders } from "@/actions/admin/orders";
 import { banIp } from "@/actions/admin/ip-bans";
@@ -154,6 +153,7 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -172,14 +172,20 @@ export default function AdminOrdersPage() {
   const [banIpOrder, setBanIpOrder] = useState<Order | null>(null);
   const [banIpLoading, setBanIpLoading] = useState(false);
 
+  // Debounce search so we don't refetch on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchQuery(searchQuery), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filters change
-  }, [customerId, searchQuery, statusFilter, paymentFilter]);
+  }, [customerId, debouncedSearchQuery, statusFilter, paymentFilter]);
 
   // Clear selection when filters, page, or search change
   useEffect(() => {
     setSelectedOrderIds(new Set());
-  }, [currentPage, statusFilter, paymentFilter, searchQuery, customerId]);
+  }, [currentPage, statusFilter, paymentFilter, debouncedSearchQuery, customerId]);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -189,7 +195,7 @@ export default function AdminOrdersPage() {
         userId: customerId,
         limit: ORDERS_PER_PAGE,
         offset,
-        search: searchQuery || undefined,
+        search: debouncedSearchQuery || undefined,
         status: statusFilter !== "all" ? (statusFilter as OrderStatus) : undefined,
         paymentStatus: paymentFilter !== "all" ? (paymentFilter as PaymentStatus) : undefined,
       });
@@ -205,7 +211,7 @@ export default function AdminOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [customerId, currentPage, searchQuery, statusFilter, paymentFilter]);
+  }, [customerId, currentPage, debouncedSearchQuery, statusFilter, paymentFilter]);
 
   useEffect(() => {
     loadOrders();
@@ -1288,468 +1294,211 @@ export default function AdminOrdersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Order Summary Dialog */}
+      {/* Order Summary Dialog - compact, admin-optimized layout */}
       <Dialog open={!!summaryDialogOrder} onOpenChange={() => setSummaryDialogOrder(null)}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Order Summary</DialogTitle>
-            <DialogDescription>
-              Complete overview of order and customer information
-            </DialogDescription>
-          </DialogHeader>
-          
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0" showCloseButton={false}>
           {summaryDialogOrder && (
-            <div className="space-y-4">
-              {/* Order Header - Highlighted */}
-              <Card className="bg-primary/5 border-primary/20">
-                <CardContent className="pt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                        Order Number
-                      </p>
-                      <p className="text-lg font-bold text-primary">{summaryDialogOrder.orderNumber}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                        Total Amount
-                      </p>
-                      <p className="text-2xl font-bold">{formatPrice(summaryDialogOrder.total)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                        Order Date
-                      </p>
-                      <p className="text-sm font-medium">{formatDateWithRelativeTime(new Date(summaryDialogOrder.createdAt))}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                        Status
-                      </p>
-                      <Badge className={statusColors[summaryDialogOrder.status]} variant="outline">
-                        {ORDER_STATUS[summaryDialogOrder.status as keyof typeof ORDER_STATUS]?.label ?? summaryDialogOrder.status}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Customer Information */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <User className="h-4 w-4 text-primary" />
-                      Customer Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {/* Name */}
-                    <div className="space-y-1">
-                      <div className="flex items-start gap-2 text-sm">
-                        <User className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-muted-foreground">Name</p>
-                          <p className="font-medium truncate">{summaryDialogOrder.customerName}</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 shrink-0"
-                          onClick={() => copyToClipboard(summaryDialogOrder.customerName, `name-${summaryDialogOrder.id}`)}
-                        >
-                          {copiedField === `name-${summaryDialogOrder.id}` ? (
-                            <Check className="h-3 w-3 text-green-600" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Phone */}
-                    <div className="space-y-1">
-                      <div className="flex items-start gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-muted-foreground">Phone</p>
-                          <p className="font-medium">{summaryDialogOrder.customerPhone}</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 shrink-0"
-                          onClick={() => copyToClipboard(summaryDialogOrder.customerPhone, `phone-${summaryDialogOrder.id}`)}
-                        >
-                          {copiedField === `phone-${summaryDialogOrder.id}` ? (
-                            <Check className="h-3 w-3 text-green-600" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Alt Phone */}
-                    {summaryDialogOrder.altPhone && (
-                      <div className="space-y-1">
-                        <div className="flex items-start gap-2 text-sm">
-                          <Phone className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-muted-foreground">Alt. Phone</p>
-                            <p className="font-medium">{summaryDialogOrder.altPhone}</p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0"
-                            onClick={() => copyToClipboard(summaryDialogOrder.altPhone!, `altPhone-${summaryDialogOrder.id}`)}
-                          >
-                            {copiedField === `altPhone-${summaryDialogOrder.id}` ? (
-                              <Check className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Email */}
-                    {summaryDialogOrder.customerEmail && (
-                      <div className="space-y-1">
-                        <div className="flex items-start gap-2 text-sm">
-                          <Mail className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-muted-foreground">Email</p>
-                            <p className="font-medium truncate">{summaryDialogOrder.customerEmail}</p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0"
-                            onClick={() => copyToClipboard(summaryDialogOrder.customerEmail!, `email-${summaryDialogOrder.id}`)}
-                          >
-                            {copiedField === `email-${summaryDialogOrder.id}` ? (
-                              <Check className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    <Separator />
-
-                    {/* Shipping Address */}
-                    <div className="space-y-2">
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Shipping Address</h4>
-                      
-                      {/* Address */}
-                      {summaryDialogOrder.shippingAddress && (
-                        <div className="space-y-1">
-                          <div className="flex items-start gap-2 text-sm">
-                            <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-muted-foreground">Address</p>
-                              <p className="font-medium whitespace-pre-wrap break-words">{summaryDialogOrder.shippingAddress}</p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 shrink-0"
-                              onClick={() => copyToClipboard(summaryDialogOrder.shippingAddress!, `address-${summaryDialogOrder.id}`)}
-                            >
-                              {copiedField === `address-${summaryDialogOrder.id}` ? (
-                                <Check className="h-3 w-3 text-green-600" />
-                              ) : (
-                                <Copy className="h-3 w-3" />
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* City */}
-                      <div className="space-y-1">
-                        <div className="flex items-start gap-2 text-sm">
-                          <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-muted-foreground">City</p>
-                            <p className="font-medium">{summaryDialogOrder.city}</p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0"
-                            onClick={() => copyToClipboard(summaryDialogOrder.city, `city-${summaryDialogOrder.id}`)}
-                          >
-                            {copiedField === `city-${summaryDialogOrder.id}` ? (
-                              <Check className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Delivery Note */}
-                      {summaryDialogOrder.deliveryNote && (
-                        <div className="space-y-1 pt-1">
-                          <div className="flex items-start gap-2 text-sm">
-                            <Package className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-muted-foreground">Delivery Note</p>
-                              <p className="font-medium text-xs whitespace-pre-wrap break-words">{summaryDialogOrder.deliveryNote}</p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 shrink-0"
-                              onClick={() => copyToClipboard(summaryDialogOrder.deliveryNote!, `note-${summaryDialogOrder.id}`)}
-                            >
-                              {copiedField === `note-${summaryDialogOrder.id}` ? (
-                                <Check className="h-3 w-3 text-green-600" />
-                              ) : (
-                                <Copy className="h-3 w-3" />
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {summaryDialogOrder.timesPurchased !== undefined && summaryDialogOrder.timesPurchased > 0 && (
-                      <div className="pt-2 border-t">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Package className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-xs text-muted-foreground">Previous Orders</p>
-                            <p className="font-medium">{summaryDialogOrder.timesPurchased} order{summaryDialogOrder.timesPurchased !== 1 ? "s" : ""}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Courier check */}
-                    <div className="pt-2 border-t space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                          <Truck className="h-3.5 w-3.5" />
-                          Courier check
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={courierRefreshLoading === summaryDialogOrder.id}
-                          onClick={async () => {
-                            setCourierRefreshLoading(summaryDialogOrder.id);
-                            const result = await refreshCourierCheck(summaryDialogOrder.id);
-                            setCourierRefreshLoading(null);
-                            if (result.success) {
-                              setSummaryDialogOrder((prev) => prev ? { ...prev, courierCheckData: result.data, courierCheckCheckedAt: new Date() } : null);
-                              setOrders((prev) => prev.map((o) => (o.id === summaryDialogOrder.id ? { ...o, courierCheckData: result.data, courierCheckCheckedAt: new Date() } : o)));
-                              toast.success("Courier data refreshed");
-                            } else {
-                              toast.error(result.error ?? "Failed to refresh");
-                            }
-                          }}
-                        >
-                          {courierRefreshLoading === summaryDialogOrder.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <RefreshCw className="h-3 w-3 mr-1" />
-                          )}
-                          Refresh data
-                        </Button>
-                      </div>
-                      {summaryDialogOrder.courierCheckData ? (
-                        summaryDialogOrder.courierCheckData.status === "success" ? (
-                          (() => {
-                            const summary = getSummaryFromData(summaryDialogOrder.courierCheckData!.data);
-                            const items = getCourierItemsFromData(summaryDialogOrder.courierCheckData!.data);
-                            if (!items.length && !summary) return <p className="text-xs text-muted-foreground">—</p>;
-                            return (
-                              <div className="rounded-md border overflow-hidden">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                      <TableHead className="h-8 text-xs font-semibold">Courier</TableHead>
-                                      <TableHead className="h-8 text-xs font-semibold text-right">Total</TableHead>
-                                      <TableHead className="h-8 text-xs font-semibold text-right">Success</TableHead>
-                                      <TableHead className="h-8 text-xs font-semibold text-right">Cancel</TableHead>
-                                      <TableHead className="h-8 text-xs font-semibold text-right">Ratio</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {items.map((c) => (
-                                      <TableRow key={c.name} className="text-xs">
-                                        <TableCell className="py-1.5 font-medium">{c.name}</TableCell>
-                                        <TableCell className="py-1.5 text-right tabular-nums">{c.total_parcel}</TableCell>
-                                        <TableCell className="py-1.5 text-right tabular-nums text-green-700">{c.success_parcel}</TableCell>
-                                        <TableCell className="py-1.5 text-right tabular-nums text-amber-700">{c.cancelled_parcel}</TableCell>
-                                        <TableCell className="py-1.5 text-right tabular-nums">{Math.round(c.success_ratio)}%</TableCell>
-                                      </TableRow>
-                                    ))}
-                                    {summary && (
-                                      <TableRow className="bg-primary/10 font-semibold text-xs border-t-2 border-primary/20">
-                                        <TableCell className="py-1.5">Summary</TableCell>
-                                        <TableCell className="py-1.5 text-right tabular-nums">{summary.total_parcel}</TableCell>
-                                        <TableCell className="py-1.5 text-right tabular-nums text-green-700">{summary.success_parcel}</TableCell>
-                                        <TableCell className="py-1.5 text-right tabular-nums text-amber-700">{summary.cancelled_parcel}</TableCell>
-                                        <TableCell className="py-1.5 text-right tabular-nums">{Math.round(summary.success_ratio)}%</TableCell>
-                                      </TableRow>
-                                    )}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            );
-                          })()
-                        ) : (
-                          <p className="text-xs text-amber-700">{summaryDialogOrder.courierCheckData.error ?? "Not found"}</p>
-                        )
-                      ) : (
-                        <p className="text-xs text-muted-foreground">Not checked</p>
-                      )}
-                      {summaryDialogOrder.courierCheckCheckedAt && (
-                        <p className="text-xs text-muted-foreground">
-                          Checked at {formatDateWithRelativeTime(new Date(summaryDialogOrder.courierCheckCheckedAt))}
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Payment Information */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-primary" />
-                      Payment Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Method</p>
-                      <Badge className={paymentMethodColors[summaryDialogOrder.paymentMethod]} variant="outline">
-                        {summaryDialogOrder.paymentMethod}
-                      </Badge>
-                    </div>
-                    {summaryDialogOrder.paymentMethod !== "COD" && (
-                      <div className="pt-2 border-t space-y-2">
-                        {summaryDialogOrder.senderNumber && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-muted-foreground">Sender Number</p>
-                              <p className="font-mono font-medium text-xs break-all">{summaryDialogOrder.senderNumber}</p>
-                            </div>
-                          </div>
-                        )}
-                        {summaryDialogOrder.transactionId && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <CreditCard className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-muted-foreground">Transaction ID</p>
-                              <p className="font-mono font-medium text-xs break-all">{summaryDialogOrder.transactionId}</p>
-                            </div>
-                          </div>
-                        )}
-                        {summaryDialogOrder.paidAt && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <div className="flex-1">
-                              <p className="text-xs text-muted-foreground">Paid At</p>
-                              <p className="font-medium text-xs">{formatDate(new Date(summaryDialogOrder.paidAt))}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+            <>
+              {/* Header: order number, status badge (no X - use footer Close) */}
+              <div className="flex items-center justify-between gap-4 px-5 pt-5 pb-4 border-b bg-muted/20 shrink-0">
+                <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
+                  Order #{summaryDialogOrder.orderNumber}
+                </DialogTitle>
+                <Badge className={`${statusColors[summaryDialogOrder.status]} shrink-0 font-medium`} variant="outline">
+                  {ORDER_STATUS[summaryDialogOrder.status as keyof typeof ORDER_STATUS]?.label ?? summaryDialogOrder.status}
+                </Badge>
               </div>
 
-              {/* Order Items */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Package className="h-4 w-4 text-primary" />
-                    Order Items
-                    <Badge variant="secondary" className="ml-auto">
-                      {summaryDialogOrder.items?.length || 0} item{summaryDialogOrder.items?.length !== 1 ? "s" : ""}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {summaryDialogOrder.items && summaryDialogOrder.items.length > 0 ? (
-                      summaryDialogOrder.items.map((item, index) => {
-                        const productTitle = item.product?.title || "Product";
-                        const hasVariants = item.color || item.size;
-                        
-                        return (
-                          <div 
-                            key={item.id} 
-                            className={`flex items-start justify-between p-3 rounded-lg border bg-card ${
-                              index !== summaryDialogOrder.items!.length - 1 ? "mb-2" : ""
-                            }`}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start gap-2">
-                                <div className="flex-shrink-0 w-8 h-8 rounded bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
-                                  {index + 1}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-sm leading-tight">{productTitle}</p>
-                                  {hasVariants && (
-                                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                      {item.color && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                                          {item.color}
-                                        </span>
-                                      )}
-                                      {item.size && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                                          {item.size}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {item.quantity} × {formatPrice(item.price)}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right ml-4 shrink-0">
-                              <p className="font-semibold text-sm">{formatPrice(item.price * item.quantity)}</p>
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">No items found</p>
+              {/* Scrollable body */}
+              <div className="overflow-y-auto px-5 py-4 space-y-4">
+                {/* Row 1: Customer | Shipping */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="rounded-lg border bg-card p-3.5 shadow-sm">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Customer</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium text-sm truncate flex-1 min-w-0">{summaryDialogOrder.customerName}</p>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => copyToClipboard(summaryDialogOrder.customerName, `name-${summaryDialogOrder.id}`)}>
+                        {copiedField === `name-${summaryDialogOrder.id}` ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-sm tabular-nums flex-1 min-w-0">{summaryDialogOrder.customerPhone}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => copyToClipboard(summaryDialogOrder.customerPhone, `phone-${summaryDialogOrder.id}`)}>
+                        {copiedField === `phone-${summaryDialogOrder.id}` ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                    {summaryDialogOrder.altPhone && (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-sm tabular-nums text-muted-foreground flex-1 min-w-0">Alt: {summaryDialogOrder.altPhone}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => copyToClipboard(summaryDialogOrder.altPhone!, `altPhone-${summaryDialogOrder.id}`)}>
+                          {copiedField === `altPhone-${summaryDialogOrder.id}` ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
+                    )}
+                    {summaryDialogOrder.customerEmail && (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <p className="text-xs text-muted-foreground truncate flex-1 min-w-0">{summaryDialogOrder.customerEmail}</p>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => copyToClipboard(summaryDialogOrder.customerEmail!, `email-${summaryDialogOrder.id}`)}>
+                          {copiedField === `email-${summaryDialogOrder.id}` ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                  <div className="rounded-lg border bg-card p-3.5 shadow-sm">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Shipping address</p>
+                    {summaryDialogOrder.shippingAddress && (
+                      <div className="flex items-start gap-1.5">
+                        <p className="text-sm whitespace-pre-line line-clamp-3 text-foreground flex-1 min-w-0">{summaryDialogOrder.shippingAddress}</p>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground mt-0.5" onClick={() => copyToClipboard(summaryDialogOrder.shippingAddress!, `address-${summaryDialogOrder.id}`)}>
+                          {copiedField === `address-${summaryDialogOrder.id}` ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
+                    )}
+                    <p className="text-sm font-medium mt-0.5">{summaryDialogOrder.city}</p>
+                  </div>
+                </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setSummaryDialogOrder(null)}>
-              Close
-            </Button>
-            {summaryDialogOrder && (
-              <Button asChild>
-                <Link href={`/admin/orders/${summaryDialogOrder.id}`}>
-                  View Full Details
-                </Link>
-              </Button>
-            )}
-          </DialogFooter>
+                {/* Order note - separate section for visibility */}
+                {summaryDialogOrder.deliveryNote && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/80 dark:border-amber-800 dark:bg-amber-950/30 p-3.5">
+                    <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-200 uppercase tracking-wider mb-1.5">Order note</p>
+                    <p className="text-sm whitespace-pre-wrap text-amber-900 dark:text-amber-100">{summaryDialogOrder.deliveryNote}</p>
+                  </div>
+                )}
+
+                {/* Row 2: Payment | Courier */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="rounded-lg border bg-card p-3.5 shadow-sm">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Payment</p>
+                    <Badge className={paymentMethodColors[summaryDialogOrder.paymentMethod]} variant="outline">
+                      {summaryDialogOrder.paymentMethod}
+                    </Badge>
+                    {summaryDialogOrder.paymentMethod !== "COD" && (summaryDialogOrder.senderNumber || summaryDialogOrder.transactionId) && (
+                      <div className="mt-2 space-y-0.5">
+                        {summaryDialogOrder.senderNumber && <p className="text-xs font-mono break-all">{summaryDialogOrder.senderNumber}</p>}
+                        {summaryDialogOrder.transactionId && <p className="text-xs font-mono text-muted-foreground break-all">{summaryDialogOrder.transactionId}</p>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="rounded-lg border bg-card p-3.5 shadow-sm">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Courier check</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs shrink-0"
+                        disabled={courierRefreshLoading === summaryDialogOrder.id}
+                        onClick={async () => {
+                          setCourierRefreshLoading(summaryDialogOrder.id);
+                          const result = await refreshCourierCheck(summaryDialogOrder.id);
+                          setCourierRefreshLoading(null);
+                          if (result.success) {
+                            setSummaryDialogOrder((prev) => prev ? { ...prev, courierCheckData: result.data, courierCheckCheckedAt: new Date() } : null);
+                            setOrders((prev) => prev.map((o) => (o.id === summaryDialogOrder.id ? { ...o, courierCheckData: result.data, courierCheckCheckedAt: new Date() } : o)));
+                            toast.success("Courier data refreshed");
+                          } else {
+                            toast.error(result.error ?? "Failed to refresh");
+                          }
+                        }}
+                      >
+                        {courierRefreshLoading === summaryDialogOrder.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                        <span className="ml-1">Refresh</span>
+                      </Button>
+                    </div>
+                    {summaryDialogOrder.courierCheckData?.status === "success" ? (
+                      (() => {
+                        const summary = getSummaryFromData(summaryDialogOrder.courierCheckData!.data);
+                        if (!summary) return <p className="text-xs text-muted-foreground">—</p>;
+                        const ratio = Math.round(summary.success_ratio);
+                        const ratioColor = ratio >= 80 ? "text-green-700 dark:text-green-400 font-semibold" : ratio >= 50 ? "text-amber-700 dark:text-amber-400 font-medium" : "text-red-700 dark:text-red-400 font-semibold";
+                        return (
+                          <p className="text-sm tabular-nums">
+                            <span className={ratioColor}>{ratio}%</span>
+                            <span className="text-muted-foreground"> success</span>
+                            <span className="text-muted-foreground"> · </span>
+                            <span className="text-green-600 dark:text-green-500 font-medium">{summary.success_parcel}</span>
+                            <span className="text-muted-foreground">/</span>
+                            <span className="font-medium">{summary.total_parcel}</span>
+                            <span className="text-muted-foreground"> parcels</span>
+                          </p>
+                        );
+                      })()
+                    ) : summaryDialogOrder.courierCheckData?.status === "error" ? (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">{summaryDialogOrder.courierCheckData.error ?? "Not found"}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Not checked</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Order items */}
+                <div className="rounded-lg border overflow-hidden bg-card shadow-sm">
+                  <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-muted/40 border-b">
+                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      Order items
+                    </span>
+                    <span className="text-xs font-medium tabular-nums">
+                      {summaryDialogOrder.items?.length || 0} item{(summaryDialogOrder.items?.length ?? 0) !== 1 ? "s" : ""} · {formatPrice(summaryDialogOrder.total)} total
+                    </span>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/20 hover:bg-muted/20 border-b">
+                        <TableHead className="h-9 text-xs font-semibold">Product</TableHead>
+                        <TableHead className="h-9 text-xs font-semibold w-20">Color</TableHead>
+                        <TableHead className="h-9 text-xs font-semibold w-16">Size</TableHead>
+                        <TableHead className="h-9 text-xs font-semibold w-14 text-right">Qty</TableHead>
+                        <TableHead className="h-9 text-xs font-semibold text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {summaryDialogOrder.items?.map((item) => (
+                        <TableRow key={item.id} className="text-xs">
+                          <TableCell className="py-2.5 font-medium">{item.product?.title ?? "—"}</TableCell>
+                          <TableCell className="py-2.5 text-muted-foreground">{item.color || "—"}</TableCell>
+                          <TableCell className="py-2.5 text-muted-foreground">{item.size || "—"}</TableCell>
+                          <TableCell className="py-2.5 text-right tabular-nums">{item.quantity}</TableCell>
+                          <TableCell className="py-2.5 text-right font-medium tabular-nums">{formatPrice(item.price * item.quantity)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Change status: colored status buttons */}
+                <div className="rounded-lg border bg-muted/20 p-3">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Change status</p>
+                  <div className="flex flex-wrap gap-2">
+                    {ORDER_STATUSES.filter((s) => s.value !== "CONFIRMED").map((status) => {
+                      const isActive = summaryDialogOrder.status === status.value;
+                      return (
+                        <Button
+                          key={status.value}
+                          variant="ghost"
+                          size="sm"
+                          className={`h-8 min-w-[4.5rem] text-xs font-medium border ${status.color} hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 ${isActive ? "ring-2 ring-offset-2 ring-foreground/30 ring-offset-background" : ""}`}
+                          disabled={actionLoading === summaryDialogOrder.id}
+                          onClick={() => handleStatusChange(summaryDialogOrder.id, status.value as OrderStatus)}
+                        >
+                          {status.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer: Close + View Full Details */}
+              <div className="flex items-center justify-end gap-2 px-5 py-4 border-t bg-muted/10 shrink-0">
+                <Button variant="outline" onClick={() => setSummaryDialogOrder(null)}>
+                  Close
+                </Button>
+                <Button asChild>
+                  <Link href={`/admin/orders/${summaryDialogOrder.id}`}>View full order</Link>
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
