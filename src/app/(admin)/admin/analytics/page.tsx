@@ -13,6 +13,7 @@ import {
   ArrowDownRight,
   Percent,
   Download,
+  Layers,
 } from "lucide-react";
 import {
   Card,
@@ -105,17 +106,22 @@ interface OverviewData {
   totalProducts: number;
   totalCustomers: number;
   totalRevenue: number;
+  totalQuantitySold: number;
+  totalQuantityOrdered: number;
+  totalQuantityCancelled: number;
   thisMonthOrders: number;
   lastMonthOrders: number;
   thisMonthRevenue: number;
   lastMonthRevenue: number;
   revenueGrowth: number;
   orderGrowth: number;
+  quantityGrowth?: number;
   averageOrderValue: number;
   cancellationRate: number;
   newCustomers: number;
   previousPeriodRevenue?: number;
   previousPeriodOrders?: number;
+  previousPeriodQuantitySold?: number;
   ordersByStatus: {
     pending: number;
     processing: number;
@@ -272,6 +278,9 @@ function buildAnalyticsCsv(params: {
     lines.push("Metric,Value");
     lines.push(`Total Revenue,${escapeCsvCell(overview.totalRevenue)}`);
     lines.push(`Total Orders,${escapeCsvCell(overview.totalOrders)}`);
+    lines.push(`Units Sold (ex. cancelled),${escapeCsvCell(overview.totalQuantitySold)}`);
+    lines.push(`Units Ordered (incl. cancelled),${escapeCsvCell(overview.totalQuantityOrdered)}`);
+    lines.push(`Units Cancelled,${escapeCsvCell(overview.totalQuantityCancelled)}`);
     lines.push(`Products,${escapeCsvCell(overview.totalProducts)}`);
     lines.push(`Customers,${escapeCsvCell(overview.totalCustomers)}`);
     lines.push(`Average Order Value,${escapeCsvCell(overview.averageOrderValue)}`);
@@ -353,6 +362,11 @@ export default function AdminAnalyticsPage() {
 
   async function loadData(r: { dateFrom: string; dateTo: string }) {
     setLoading(true);
+    setOverview(null);
+    setTopProducts([]);
+    setCityData([]);
+    setPaymentData([]);
+    setRecentOrders([]);
     try {
       const [
         overviewResult,
@@ -362,7 +376,7 @@ export default function AdminAnalyticsPage() {
         recentResult,
       ] = await Promise.all([
         getAnalyticsOverview(r.dateFrom, r.dateTo),
-        getTopSellingProducts(5, r.dateFrom, r.dateTo),
+        getTopSellingProducts(5, { dateFrom: r.dateFrom, dateTo: r.dateTo }),
         getSalesByCity(5, r.dateFrom, r.dateTo),
         getPaymentMethodStats(r.dateFrom, r.dateTo),
         getRecentActivity(5, r.dateFrom, r.dateTo),
@@ -590,6 +604,29 @@ export default function AdminAnalyticsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Units Sold</CardTitle>
+              <Layers className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{overview.totalQuantitySold.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">
+                {overview.quantityGrowth !== undefined
+                  ? `vs prev: ${overview.quantityGrowth >= 0 ? "+" : ""}${overview.quantityGrowth}%`
+                  : "Pieces in selected period"}
+              </p>
+              {(overview.totalQuantityOrdered > 0 || overview.totalQuantityCancelled > 0) && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {overview.totalQuantityOrdered.toLocaleString()} ordered
+                  {overview.totalQuantityCancelled > 0 && (
+                    <> · <span className="text-amber-600 dark:text-amber-400">{overview.totalQuantityCancelled.toLocaleString()} cancelled</span></>
+                  )}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Products</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
@@ -702,6 +739,20 @@ export default function AdminAnalyticsPage() {
                     )}
                   </TableCell>
                 </TableRow>
+                {overview.previousPeriodQuantitySold !== undefined && (
+                  <TableRow>
+                    <TableCell className="font-medium">Units sold</TableCell>
+                    <TableCell className="text-right">{overview.totalQuantitySold.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{overview.previousPeriodQuantitySold.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">
+                      {overview.quantityGrowth != null && (overview.quantityGrowth >= 0 ? (
+                        <span className="text-green-600">+{overview.quantityGrowth}%</span>
+                      ) : (
+                        <span className="text-red-600">{overview.quantityGrowth}%</span>
+                      ))}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>

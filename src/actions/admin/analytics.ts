@@ -73,12 +73,16 @@ export async function getAnalyticsOverview(dateFrom?: string | null, dateTo?: st
       thisMonthRevenue,
       lastMonthRevenue,
       totalRevenue,
+      totalQuantityResult,
+      totalQuantityOrderedResult,
+      totalQuantityCancelledResult,
       pendingOrders,
       processingOrders,
       deliveredOrders,
       cancelledOrders,
       previousPeriodOrders,
       previousPeriodRevenue,
+      previousPeriodQuantityResult,
     ] = await Promise.all([
       db.order.count(dateFilter ? { where: dateFilter } : undefined),
       db.product.count({ where: { isActive: true } }),
@@ -116,6 +120,30 @@ export async function getAnalyticsOverview(dateFrom?: string | null, dateTo?: st
           : { status: { not: "CANCELLED" } },
         _sum: { total: true },
       }),
+      db.orderItem.aggregate({
+        where: {
+          order: {
+            ...(dateFilter ? dateFilter : {}),
+            status: { not: "CANCELLED" },
+          },
+        },
+        _sum: { quantity: true },
+      }),
+      dateFilter
+        ? db.orderItem.aggregate({
+            where: { order: dateFilter },
+            _sum: { quantity: true },
+          })
+        : db.orderItem.aggregate({ where: {}, _sum: { quantity: true } }),
+      db.orderItem.aggregate({
+        where: {
+          order: {
+            ...(dateFilter ? dateFilter : {}),
+            status: "CANCELLED",
+          },
+        },
+        _sum: { quantity: true },
+      }),
       db.order.count({
         where: dateFilter ? { ...dateFilter, status: "PENDING" } : { status: "PENDING" },
       }),
@@ -137,6 +165,14 @@ export async function getAnalyticsOverview(dateFrom?: string | null, dateTo?: st
             _sum: { total: true },
           })
         : Promise.resolve({ _sum: { total: null } }),
+      previousFilter
+        ? db.orderItem.aggregate({
+            where: {
+              order: { ...previousFilter, status: { not: "CANCELLED" } },
+            },
+            _sum: { quantity: true },
+          })
+        : Promise.resolve({ _sum: { quantity: null } }),
     ]);
 
     const totalRevenueNum = Number(totalRevenue._sum.total || 0);
@@ -166,6 +202,18 @@ export async function getAnalyticsOverview(dateFrom?: string | null, dateTo?: st
         ? ((thisMonthOrders - lastMonthOrders) / lastMonthOrders) * 100
         : 0;
 
+    const totalQuantitySold = totalQuantityResult._sum.quantity ?? 0;
+    const totalQuantityOrdered = totalQuantityOrderedResult._sum.quantity ?? 0;
+    const totalQuantityCancelled = totalQuantityCancelledResult._sum.quantity ?? 0;
+    const previousQuantityNum =
+      range && previousPeriodQuantityResult?._sum?.quantity != null
+        ? previousPeriodQuantityResult._sum.quantity
+        : 0;
+    const quantityGrowth =
+      range && previousQuantityNum > 0
+        ? Math.round(((totalQuantitySold - previousQuantityNum) / previousQuantityNum) * 10000) / 100
+        : 0;
+
     const averageOrderValue =
       totalOrders > 0 ? Math.round((totalRevenueNum / totalOrders) * 100) / 100 : 0;
     const cancellationRate =
@@ -178,17 +226,22 @@ export async function getAnalyticsOverview(dateFrom?: string | null, dateTo?: st
         totalProducts,
         totalCustomers,
         totalRevenue: totalRevenueNum,
+        totalQuantitySold,
+        totalQuantityOrdered,
+        totalQuantityCancelled,
         thisMonthOrders,
         lastMonthOrders,
         thisMonthRevenue: thisMonthRevenueNum,
         lastMonthRevenue: lastMonthRevenueNum,
         revenueGrowth: Math.round(revenueGrowth * 100) / 100,
         orderGrowth: Math.round(orderGrowth * 100) / 100,
+        quantityGrowth: range ? quantityGrowth : undefined,
         averageOrderValue,
         cancellationRate,
         newCustomers: typeof newCustomers === "number" ? newCustomers : 0,
         previousPeriodRevenue: range ? previousRevenueNum : undefined,
         previousPeriodOrders: range && typeof previousPeriodOrders === "number" ? previousPeriodOrders : undefined,
+        previousPeriodQuantitySold: range ? previousQuantityNum : undefined,
         ordersByStatus: {
           pending: pendingOrders,
           processing: processingOrders,
@@ -442,30 +495,35 @@ export async function getOrdersByStatusOverTime(
   }
 }
 
-// Get top selling products (optionally scoped to dateFrom/dateTo)
+// Get top selling products for a date range only. Excludes CANCELLED orders.
+// dateRange must be { dateFrom, dateTo } so the period is never lost when called from client.
 export async function getTopSellingProducts(
   limit: number = 10,
-  dateFrom?: string | null,
-  dateTo?: string | null
+  dateRange: { dateFrom: string; dateTo: string } | null
 ) {
   try {
     await checkAdmin();
 
-    const range = parseDateRange(dateFrom ?? undefined, dateTo ?? undefined);
-    let orderIds: string[] | undefined;
-    if (range) {
-      const orders = await db.order.findMany({
-        where: { createdAt: { gte: range.start, lte: range.end } },
-        select: { id: true },
-      });
-      orderIds = orders.map((o) => o.id);
-      if (orderIds.length === 0) return { success: true, data: [] };
-    }
+    const dateFrom = dateRange?.dateFrom ?? null;
+    const dateTo = dateRange?.dateTo ?? null;
+    const range = parseDateRange(dateFrom, dateTo);
+    if (!range) return { success: true, data: [] };
+
+    const orders = await db.order.findMany({
+      where: {
+        createdAt: { gte: range.start, lte: range.end },
+        status: { not: "CANCELLED" as const },
+      },
+      select: { id: true },
+    });
+    const orderIds = orders.map((o) => o.id);
+    const orderWhere = orderIds.length > 0 ? { orderId: { in: orderIds } } : undefined;
+    if (orderIds.length === 0) return { success: true, data: [] };
 
     const orderItems = await db.orderItem.groupBy({
       by: ["productId"],
+      where: orderWhere,
       _sum: { quantity: true, price: true },
-      ...(orderIds ? { where: { orderId: { in: orderIds } } } : {}),
       orderBy: { _sum: { quantity: "desc" } },
       take: limit,
     });
