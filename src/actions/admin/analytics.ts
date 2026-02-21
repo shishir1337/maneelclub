@@ -495,8 +495,7 @@ export async function getOrdersByStatusOverTime(
   }
 }
 
-// Get top selling products for a date range only. Excludes CANCELLED orders.
-// dateRange must be { dateFrom, dateTo } so the period is never lost when called from client.
+// Product-wise report: units sold and revenue per product in date range. Excludes CANCELLED orders.
 export async function getTopSellingProducts(
   limit: number = 10,
   dateRange: { dateFrom: string; dateTo: string } | null
@@ -512,38 +511,55 @@ export async function getTopSellingProducts(
     const orders = await db.order.findMany({
       where: {
         createdAt: { gte: range.start, lte: range.end },
-        status: { not: "CANCELLED" as const },
+        status: { not: "CANCELLED" },
       },
       select: { id: true },
     });
     const orderIds = orders.map((o) => o.id);
-    const orderWhere = orderIds.length > 0 ? { orderId: { in: orderIds } } : undefined;
     if (orderIds.length === 0) return { success: true, data: [] };
 
-    const orderItems = await db.orderItem.groupBy({
-      by: ["productId"],
-      where: orderWhere,
-      _sum: { quantity: true, price: true },
-      orderBy: { _sum: { quantity: "desc" } },
-      take: limit,
+    const items = await db.orderItem.findMany({
+      where: { orderId: { in: orderIds } },
+      select: { productId: true, quantity: true, price: true },
     });
 
-    const productIds = orderItems.map((item) => item.productId);
+    const byProduct = new Map<
+      string,
+      { totalQuantity: number; totalRevenue: number }
+    >();
+    for (const row of items) {
+      const q = row.quantity;
+      const p = Number(row.price);
+      const rev = p * q;
+      const cur = byProduct.get(row.productId);
+      if (cur) {
+        cur.totalQuantity += q;
+        cur.totalRevenue += rev;
+      } else {
+        byProduct.set(row.productId, { totalQuantity: q, totalRevenue: rev });
+      }
+    }
+
+    const sorted = [...byProduct.entries()]
+      .sort((a, b) => b[1].totalQuantity - a[1].totalQuantity)
+      .slice(0, limit);
+
+    const productIds = sorted.map(([id]) => id);
     const products = await db.product.findMany({
       where: { id: { in: productIds } },
       select: { id: true, title: true, slug: true, images: true },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
-    const data = orderItems.map((item) => {
-      const product = productMap.get(item.productId);
+    const data = sorted.map(([productId, agg]) => {
+      const product = productMap.get(productId);
       return {
-        id: item.productId,
-        title: product?.title || "Unknown Product",
-        slug: product?.slug || "",
-        image: product?.images[0] || "/logo.png",
-        totalQuantity: item._sum.quantity || 0,
-        totalRevenue: Number(item._sum.price || 0) * (item._sum.quantity || 0),
+        id: productId,
+        title: product?.title ?? "Unknown Product",
+        slug: product?.slug ?? "",
+        image: product?.images?.[0] ?? "/logo.png",
+        totalQuantity: agg.totalQuantity,
+        totalRevenue: Math.round(agg.totalRevenue * 100) / 100,
       };
     });
 

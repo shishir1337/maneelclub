@@ -376,7 +376,7 @@ export default function AdminAnalyticsPage() {
         recentResult,
       ] = await Promise.all([
         getAnalyticsOverview(r.dateFrom, r.dateTo),
-        getTopSellingProducts(5, { dateFrom: r.dateFrom, dateTo: r.dateTo }),
+        getTopSellingProducts(10, { dateFrom: r.dateFrom, dateTo: r.dateTo }),
         getSalesByCity(5, r.dateFrom, r.dateTo),
         getPaymentMethodStats(r.dateFrom, r.dateTo),
         getRecentActivity(5, r.dateFrom, r.dateTo),
@@ -969,16 +969,18 @@ export default function AdminAnalyticsPage() {
           Breakdowns
         </h2>
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Top Selling Products */}
+        {/* Product-wise report: which product, how many units sold, revenue */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Selling Products</CardTitle>
-            <CardDescription>Best performing products by sales</CardDescription>
+            <CardTitle>Product-wise report</CardTitle>
+            <CardDescription>
+              Units sold and revenue per product in the selected period (top 10 by units sold, excludes cancelled orders)
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {topProducts.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
-                No sales data yet
+                No sales in this period
               </p>
             ) : (
               <div className="space-y-4">
@@ -1004,13 +1006,12 @@ export default function AdminAnalyticsPage() {
                         {product.title}
                       </Link>
                       <p className="text-sm text-muted-foreground">
-                        {product.totalQuantity} sold
+                        {product.totalQuantity} units sold
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">
-                        {formatPrice(product.totalRevenue)}
-                      </p>
+                    <div className="text-right shrink-0 tabular-nums">
+                      <p className="font-medium">{formatPrice(product.totalRevenue)}</p>
+                      <p className="text-xs text-muted-foreground">{product.totalQuantity} pcs</p>
                     </div>
                   </div>
                 ))}
