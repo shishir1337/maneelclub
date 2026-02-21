@@ -34,6 +34,8 @@ export type OrderDetailData = {
   deliveryNote: string | null;
   shippingCost: number;
   subtotal: number;
+  discountAmount?: number;
+  couponCode?: string | null;
   total: number;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
@@ -241,6 +243,7 @@ export async function getOrderById(
           },
         },
         user: true,
+        coupon: true,
       },
     });
 
@@ -262,6 +265,8 @@ export async function getOrderById(
       deliveryNote: order.deliveryNote,
       shippingCost: Number(order.shippingCost),
       subtotal: Number(order.subtotal),
+      discountAmount: order.discountAmount != null ? Number(order.discountAmount) : undefined,
+      couponCode: order.coupon?.code ?? null,
       total: Number(order.total),
       status: order.status,
       paymentMethod: order.paymentMethod,

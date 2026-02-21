@@ -25,6 +25,7 @@ import { useCartStore } from "@/store/cart-store";
 import { formatPrice } from "@/lib/format";
 import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { createOrder } from "@/actions/orders";
+import { validateCoupon } from "@/actions/coupons";
 import { PaymentMethodSelector } from "@/components/checkout/payment-method-selector";
 import { CitySelect } from "@/components/checkout/city-select";
 import { toast } from "sonner";
@@ -77,6 +78,13 @@ export default function CheckoutClient({
   const [mounted, setMounted] = useState(false);
   const { items, getSubtotal } = useCartStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    couponId: string;
+    code: string;
+    discount: number;
+  } | null>(null);
   // Cooldown: when set, show "wait X seconds" and disable submit (from initial eligibility or after createOrder returns COOLDOWN)
   const [cooldownRemaining, setCooldownRemaining] = useState<number | null>(
     !eligibility.allowed && eligibility.code === "COOLDOWN" && eligibility.cooldownRemainingSeconds != null
@@ -130,7 +138,40 @@ export default function CheckoutClient({
   const zoneRate = shippingZone === "inside_dhaka" ? shippingRates.dhaka : shippingRates.outside;
   const shippingCost =
     freeShippingMinimum > 0 && subtotal >= freeShippingMinimum ? 0 : zoneRate;
-  const total = subtotal + shippingCost;
+  const discount = appliedCoupon?.discount ?? 0;
+  const total = Math.max(0, subtotal - discount + shippingCost);
+
+  const handleApplyCoupon = async () => {
+    const code = couponCode.trim();
+    if (!code) {
+      toast.error("Enter a discount code");
+      return;
+    }
+    setIsApplyingCoupon(true);
+    setAppliedCoupon(null);
+    try {
+      const result = await validateCoupon(code, subtotal);
+      if (result.success) {
+        setAppliedCoupon({
+          couponId: result.couponId,
+          code: result.code,
+          discount: result.discount,
+        });
+        toast.success(`Discount applied: ${result.code}`);
+      } else {
+        toast.error(result.error ?? "Invalid coupon");
+      }
+    } catch {
+      toast.error("Could not validate coupon");
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+  };
 
   const isBlockedByCooldown =
     cooldownRemaining != null ||
@@ -217,6 +258,7 @@ export default function CheckoutClient({
           size: item.size,
           quantity: item.quantity,
         })),
+        couponId: appliedCoupon?.couponId ?? undefined,
       });
       
       if (result.success && result.data) {
@@ -588,11 +630,61 @@ export default function CheckoutClient({
 
                 <Separator className="my-1" />
 
+                {/* Discount code */}
+                <div className="space-y-2">
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between gap-2 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-3 py-2">
+                      <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                        Discount ({appliedCoupon.code}): −{formatPrice(appliedCoupon.discount)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-green-700 dark:text-green-300 shrink-0"
+                        onClick={removeCoupon}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Discount code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        className="h-10 rounded-lg border-2"
+                        disabled={isApplyingCoupon}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-10 shrink-0 px-4"
+                        onClick={handleApplyCoupon}
+                        disabled={isApplyingCoupon || !couponCode.trim()}
+                      >
+                        {isApplyingCoupon ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Apply"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-2.5 text-base">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Subtotal</span>
                     <span>{formatPrice(subtotal)}</span>
                   </div>
+                  {discount > 0 && (
+                    <div className="flex justify-between text-green-600 dark:text-green-400">
+                      <span>Discount ({appliedCoupon?.code})</span>
+                      <span>−{formatPrice(discount)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Shipping</span>
                     <span>

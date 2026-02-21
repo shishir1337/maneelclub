@@ -15,6 +15,7 @@ import {
   ImageIcon,
   MapPin,
   ShieldAlert,
+  Ticket,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -38,6 +39,7 @@ const sidebarLinks: SidebarLinkItem[] = [
   { name: "Categories", href: "/admin/categories", icon: FolderTree },
   { name: "Attributes", href: "/admin/attributes", icon: Palette },
   { name: "Customers", href: "/admin/customers", icon: Users },
+  { name: "Coupons", href: "/admin/coupons", icon: Ticket },
   { name: "IP Bans", href: "/admin/ip-bans", icon: ShieldAlert },
   { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { name: "Hero Slider", href: "/admin/hero", icon: ImageIcon },

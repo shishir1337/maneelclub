@@ -84,7 +84,12 @@ export default async function OrderConfirmationPage({ searchParams }: OrderConfi
             <span className="text-muted-foreground">Order Number</span>
             <span className="font-mono font-bold text-lg">{orderNumber}</span>
           </div>
-          
+          {order.discountAmount != null && Number(order.discountAmount) > 0 && (
+            <div className="flex items-center justify-between text-sm text-green-600 dark:text-green-400 mb-2">
+              <span>Discount{order.coupon?.code ? ` (${order.coupon.code})` : ""}</span>
+              <span>−{Number(order.discountAmount).toLocaleString()} BDT</span>
+            </div>
+          )}
           <Separator className="my-4" />
           
           <div className="space-y-4">

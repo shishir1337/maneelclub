@@ -277,10 +277,14 @@ model Order {
   deliveryNote    String?
 
   // Order Details
-  shippingCost Decimal     @db.Decimal(10, 2)
-  subtotal     Decimal     @db.Decimal(10, 2)
-  total        Decimal     @db.Decimal(10, 2)
-  status       OrderStatus @default(PENDING)
+  shippingCost   Decimal     @db.Decimal(10, 2)
+  subtotal       Decimal     @db.Decimal(10, 2)
+  discountAmount Decimal?    @db.Decimal(10, 2) // Coupon discount applied
+  total          Decimal     @db.Decimal(10, 2)
+  status         OrderStatus @default(PENDING)
+
+  // Optional coupon used at checkout
+  couponId String?
 
   // Payment Information
   paymentMethod PaymentMethod @default(COD)
@@ -299,10 +303,12 @@ model Order {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  user  User?       @relation(fields: [userId], references: [id])
-  items OrderItem[]
+  user   User?       @relation(fields: [userId], references: [id])
+  coupon Coupon?     @relation(fields: [couponId], references: [id])
+  items  OrderItem[]
 
   @@index([userId])
+  @@index([couponId])
   @@index([orderNumber])
   @@index([status])
   @@index([paymentStatus])
@@ -323,6 +329,33 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
+}
+
+// ==================== COUPONS ====================
+
+model Coupon {
+  id        String   @id @default(cuid())
+  code      String   @unique // e.g. SAVE10
+  type      CouponType @default(PERCENT) // PERCENT or FIXED
+  value     Decimal  @db.Decimal(10, 2) // percentage 1-100 or fixed BDT amount
+  minOrderAmount Decimal? @db.Decimal(10, 2) // minimum order to use (optional)
+  maxUses   Int?     // null = unlimited
+  usedCount Int      @default(0)
+  validFrom DateTime?
+  validUntil DateTime?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+enum CouponType {
+  PERCENT
+  FIXED
 }
 
 // ==================== USER DATA ====================

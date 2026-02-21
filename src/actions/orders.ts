@@ -38,6 +38,8 @@ interface ResolvedLineItem {
 interface CreateOrderInput {
   formData: CheckoutFormData;
   items: CartItem[];
+  /** Optional: coupon ID from validateCoupon. Server re-validates and applies discount. */
+  couponId?: string | null;
 }
 
 /** Result of createOrder: success with order ids, or failure with error and optional code/cooldown. */
@@ -228,7 +230,32 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     const zoneRate = formData.shippingZone === "inside_dhaka" ? rates.dhaka : rates.outside;
     const shippingCost =
       freeShippingMinimum > 0 && subtotal >= freeShippingMinimum ? 0 : zoneRate;
-    const total = subtotal + shippingCost;
+
+    // Apply coupon discount (server-side validation)
+    let discountAmount = 0;
+    let couponId: string | null = null;
+    if (input.couponId?.trim()) {
+      const coupon = await db.coupon.findUnique({
+        where: { id: input.couponId.trim(), isActive: true },
+      });
+      if (coupon) {
+        const now = new Date();
+        const ok =
+          (!coupon.validFrom || now >= coupon.validFrom) &&
+          (!coupon.validUntil || now <= coupon.validUntil) &&
+          (coupon.maxUses == null || coupon.usedCount < coupon.maxUses) &&
+          (coupon.minOrderAmount == null || Number(coupon.minOrderAmount) <= subtotal);
+        if (ok) {
+          const val = Number(coupon.value);
+          discountAmount =
+            coupon.type === "PERCENT"
+              ? Math.round((subtotal * val) / 100 * 100) / 100
+              : Math.min(val, subtotal);
+          if (discountAmount > 0) couponId = coupon.id;
+        }
+      }
+    }
+    const total = Math.max(0, subtotal - discountAmount + shippingCost);
     
     // Determine payment method and status
     const paymentMethod = (formData.paymentMethod || "COD") as PaymentMethod;
@@ -297,8 +324,10 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
           deliveryNote: formData.deliveryNote || null,
           shippingCost,
           subtotal,
+          discountAmount: discountAmount > 0 ? discountAmount : undefined,
           total,
           status: "PROCESSING",
+          couponId: couponId ?? undefined,
           // Payment fields
           paymentMethod,
           paymentStatus,
@@ -318,6 +347,13 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
           items: true,
         },
       });
+
+      if (couponId) {
+        await tx.coupon.update({
+          where: { id: couponId },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
 
       await deductStockInTransaction(tx, resolvedItems);
       return newOrder;
@@ -439,6 +475,7 @@ export async function getOrderByNumber(orderNumber: string) {
             product: true,
           },
         },
+        coupon: true,
       },
     });
     
