@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Save, RefreshCw, Plus, Trash2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, Save, RefreshCw, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -193,7 +194,7 @@ export default function AdminSettingsPage() {
 
       {hasChanges && (
         <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800 dark:text-yellow-200">
-          You have unsaved changes. Click "Save Changes" to apply them.
+          You have unsaved changes. Click &quot;Save Changes&quot; to apply them.
         </div>
       )}
 
@@ -268,7 +269,7 @@ export default function AdminSettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Social Links</CardTitle>
-              <CardDescription>Your store's social media presence</CardDescription>
+              <CardDescription>Your store&apos;s social media presence</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -586,6 +587,58 @@ export default function AdminSettingsPage() {
                     placeholder="Shop Now"
                   />
                 </div>
+              </div>
+
+              <Separator className="my-6" />
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Countdown timer</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Show a countdown (e.g. &quot;Offer ends in 2d 5h 30m&quot;) to create urgency. When the end time is reached, the bar hides.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Show countdown</Label>
+                  <Switch
+                    checked={settings.announcementCountdownEnabled === "true"}
+                    onCheckedChange={(checked) => handleSwitchChange("announcementCountdownEnabled", checked)}
+                  />
+                </div>
+                {settings.announcementCountdownEnabled === "true" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="announcementCountdownEnd">Offer ends at (date & time)</Label>
+                      <Input
+                        id="announcementCountdownEnd"
+                        type="datetime-local"
+                        value={
+                          settings.announcementCountdownEnd
+                            ? new Date(settings.announcementCountdownEnd).toISOString().slice(0, 16)
+                            : ""
+                        }
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          handleChange("announcementCountdownEnd", v ? new Date(v).toISOString() : "");
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Use your local time; stored in UTC. Leave empty to hide countdown.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="announcementCountdownLabel">Countdown label</Label>
+                      <Input
+                        id="announcementCountdownLabel"
+                        value={settings.announcementCountdownLabel || ""}
+                        onChange={(e) => handleChange("announcementCountdownLabel", e.target.value)}
+                        placeholder="Offer ends in"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Text before the timer, e.g. &quot;Offer ends in&quot; → &quot;Offer ends in 2d 5h 30m&quot;
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>

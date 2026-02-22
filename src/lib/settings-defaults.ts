@@ -25,6 +25,10 @@ export const DEFAULT_SETTINGS = {
   announcementMessage: "Free shipping on orders over BDT 2000!",
   announcementLink: "/shop",
   announcementLinkText: "Shop Now",
+  // Countdown timer (offer ends at – creates urgency)
+  announcementCountdownEnabled: "false",
+  announcementCountdownEnd: "", // ISO date string e.g. 2025-12-31T23:59:00
+  announcementCountdownLabel: "Offer ends in",
   
   // Order Settings
   lowStockThreshold: "5",

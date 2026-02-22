@@ -69,12 +69,15 @@ export async function getWhatsappNumber(): Promise<string> {
   return settings.whatsappNumber || settings.storePhone || "";
 }
 
-// Get announcement settings
+// Get announcement settings (including optional countdown)
 export async function getAnnouncementSettings(): Promise<{
   enabled: boolean;
   message: string;
   link: string;
   linkText: string;
+  countdownEnabled: boolean;
+  countdownEnd: string; // ISO date string, empty if not set
+  countdownLabel: string;
 }> {
   const settings = await getSettings();
   return {
@@ -82,6 +85,9 @@ export async function getAnnouncementSettings(): Promise<{
     message: settings.announcementMessage || "",
     link: settings.announcementLink || "",
     linkText: settings.announcementLinkText || "",
+    countdownEnabled: settings.announcementCountdownEnabled === "true",
+    countdownEnd: settings.announcementCountdownEnd || "",
+    countdownLabel: settings.announcementCountdownLabel || "Offer ends in",
   };
 }
 
