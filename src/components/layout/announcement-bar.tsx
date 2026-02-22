@@ -54,24 +54,26 @@ export function AnnouncementBar({
 
   return (
     <div className="border-b border-primary/20 bg-primary text-primary-foreground text-sm relative">
-      <div className="container flex items-center justify-center gap-2 flex-wrap py-2.5 pl-4 pr-10 min-h-[2.75rem]">
-        <span>{message}</span>
-        {link?.trim() && (
-          <Link
-            href={link}
-            className="font-medium underline underline-offset-2 hover:opacity-90 transition-opacity"
-          >
-            {linkText?.trim() || "Learn more"}
-          </Link>
-        )}
+      <div className="container flex flex-col sm:flex-row sm:items-center sm:justify-center gap-2 sm:gap-2 py-2.5 sm:py-2.5 pl-4 pr-12 sm:pr-10 min-h-[2.75rem] sm:min-h-0">
+        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-center sm:text-left order-1 sm:order-none">
+          <span>{message}</span>
+          {link?.trim() && (
+            <Link
+              href={link}
+              className="font-medium underline underline-offset-2 hover:opacity-90 transition-opacity"
+            >
+              {linkText?.trim() || "Learn more"}
+            </Link>
+          )}
+        </div>
         {countdownEnabled && timeLeft && (
-          <span className="inline-flex items-center gap-1.5 shrink-0">
+          <span className="inline-flex items-center justify-center gap-1.5 sm:gap-1.5 shrink-0 order-2 sm:order-none">
             {countdownLabel?.trim() && (
-              <span className="text-primary-foreground/90 text-xs font-medium uppercase tracking-wider mr-0.5">
+              <span className="text-primary-foreground/90 text-[10px] sm:text-xs font-medium uppercase tracking-wider">
                 {countdownLabel.trim()}
               </span>
             )}
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-0.5 sm:gap-1">
               {[
                 { value: timeLeft.d, label: "D" },
                 { value: timeLeft.h, label: "H" },
@@ -80,12 +82,12 @@ export function AnnouncementBar({
               ].map(({ value, label }) => (
                 <span
                   key={label}
-                  className="inline-flex items-center justify-center gap-1 py-1 px-2 rounded-md bg-primary-foreground/15 border border-primary-foreground/20"
+                  className="inline-flex items-center justify-center gap-0.5 sm:gap-1 py-0.5 sm:py-1 px-1.5 sm:px-2 rounded bg-primary-foreground/15 border border-primary-foreground/20 min-w-[2.25rem] sm:min-w-0"
                 >
-                  <span className="text-base font-bold tabular-nums leading-none">
+                  <span className="text-sm sm:text-base font-bold tabular-nums leading-none">
                     {String(value).padStart(2, "0")}
                   </span>
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-primary-foreground/70">
+                  <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-primary-foreground/70">
                     {label}
                   </span>
                 </span>
@@ -96,7 +98,7 @@ export function AnnouncementBar({
       </div>
       <button
         onClick={() => setIsVisible(false)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
+        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 transition-colors touch-manipulation"
         aria-label="Dismiss announcement"
       >
         <X className="h-4 w-4" />
