@@ -4,32 +4,39 @@ import { ProductGridSkeleton } from "@/components/skeletons";
 import { getRelatedProducts } from "@/actions/products";
 
 interface RelatedProductsProps {
-  categoryId: string;
-  excludeProductId: string;
+  productId: string;
+  categoryId?: string | null;
+  limit?: number;
 }
 
-async function RelatedProductsList({ categoryId, excludeProductId }: RelatedProductsProps) {
-  const { data: products } = await getRelatedProducts(categoryId, excludeProductId, 4);
-  
+async function RelatedProductsList({ productId, categoryId, limit = 4 }: RelatedProductsProps) {
+  const { data: products } = await getRelatedProducts(productId, categoryId, limit);
+
   if (!products || products.length === 0) {
     return null;
   }
-  
-  return <ProductGrid products={products} columns={4} />;
-}
 
-export function RelatedProducts({ categoryId, excludeProductId }: RelatedProductsProps) {
   return (
     <section className="py-12 md:py-16 border-t">
       <div className="container">
         <h2 className="text-2xl font-bold mb-8">You May Also Like</h2>
-        <Suspense fallback={<ProductGridSkeleton count={4} />}>
-          <RelatedProductsList 
-            categoryId={categoryId} 
-            excludeProductId={excludeProductId} 
-          />
-        </Suspense>
+        <ProductGrid products={products} columns={4} />
       </div>
     </section>
+  );
+}
+
+export function RelatedProducts({ productId, categoryId, limit = 4 }: RelatedProductsProps) {
+  return (
+    <Suspense fallback={
+      <section className="py-12 md:py-16 border-t">
+        <div className="container">
+          <h2 className="text-2xl font-bold mb-8">You May Also Like</h2>
+          <ProductGridSkeleton count={limit} />
+        </div>
+      </section>
+    }>
+      <RelatedProductsList productId={productId} categoryId={categoryId} limit={limit} />
+    </Suspense>
   );
 }

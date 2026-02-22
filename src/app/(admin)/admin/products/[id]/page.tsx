@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, Loader2, Save, Package } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Package, ChevronUp, ChevronDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getProductById, updateProduct, getAdminCategories } from "@/actions/admin/products";
+import { getProductById, updateProduct, getAdminCategories, getAdminProductsSearch, setRelatedProducts } from "@/actions/admin/products";
 import { AttributeSelector, ImageUploader, VariantMatrix, SizeGuideEditor } from "@/components/admin";
 import type { SizeChartValue } from "@/components/admin/size-guide-editor";
 import { toast } from "sonner";
@@ -94,6 +94,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [selectedAttributes, setSelectedAttributes] = useState<SelectedAttribute[]>([]);
   const [variantStocks, setVariantStocks] = useState<VariantStock>({});
   const [sizeChart, setSizeChart] = useState<SizeChartValue | null>(null);
+
+  const [relatedProductIds, setRelatedProductIds] = useState<string[]>([]);
+  const [relatedProductTitles, setRelatedProductTitles] = useState<Record<string, string>>({});
+  const [relatedSearchQuery, setRelatedSearchQuery] = useState("");
+  const [relatedSearchResults, setRelatedSearchResults] = useState<Array<{ id: string; title: string; slug: string }>>([]);
+  const [relatedSearching, setRelatedSearching] = useState(false);
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema) as Resolver<ProductFormData>,
@@ -257,6 +263,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         setSelectedAttributes(attrs);
         setVariantStocks(stocks);
 
+        const related = (product as { relatedProducts?: Array<{ relatedProduct: { id: string; title: string; slug: string } }> }).relatedProducts ?? [];
+        setRelatedProductIds(related.map((r) => r.relatedProduct.id));
+        setRelatedProductTitles(
+          related.reduce((acc, r) => ({ ...acc, [r.relatedProduct.id]: r.relatedProduct.title }), {} as Record<string, string>)
+        );
+
         if (categoriesResult.success) {
           setCategories(categoriesResult.data as Category[]);
         }
@@ -269,6 +281,26 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     }
     loadData();
   }, [id, router, form]);
+
+  // Debounced search for related products
+  useEffect(() => {
+    if (!relatedSearchQuery.trim()) {
+      setRelatedSearchResults([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      setRelatedSearching(true);
+      const res = await getAdminProductsSearch(relatedSearchQuery.trim(), id);
+      setRelatedSearching(false);
+      if (res.success && res.data) {
+        const exclude = new Set([id, ...relatedProductIds]);
+        setRelatedSearchResults(res.data.filter((p) => !exclude.has(p.id)));
+      } else {
+        setRelatedSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [relatedSearchQuery, id, relatedProductIds]);
 
   // Stable callback for variant stocks
   const handleVariantStocksChange = useCallback((stocks: VariantStock) => {
@@ -324,8 +356,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       );
 
       if (result.success) {
-        toast.success("Product updated successfully");
-        router.push("/admin/products");
+        const relatedResult = await setRelatedProducts(id, relatedProductIds);
+        if (relatedResult.success) {
+          toast.success("Product updated successfully");
+          router.push("/admin/products");
+        } else {
+          toast.error(relatedResult.error || "Product saved but related products failed to update");
+        }
       } else {
         toast.error(result.error || "Failed to update product");
       }
@@ -717,6 +754,118 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                       {selectedCategoryIds.length} categor{selectedCategoryIds.length === 1 ? "y" : "ies"} selected
                     </p>
                   )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>You may also like</CardTitle>
+                  <CardDescription>
+                    Products to show in the &quot;You may also like&quot; section on the product page. Order matters. Leave empty to use automatic (same category). First 4 are shown on the storefront.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {relatedProductIds.length > 0 && (
+                    <ul className="space-y-2 border rounded-md divide-y">
+                      {relatedProductIds.map((rid, index) => (
+                        <li key={rid} className="flex items-center justify-between gap-2 px-3 py-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="text-sm font-medium truncate">
+                              {relatedProductTitles[rid] ?? rid}
+                            </span>
+                            <Link
+                              href={`/admin/products/${rid}`}
+                              className="text-xs text-muted-foreground hover:underline shrink-0"
+                            >
+                              Edit
+                            </Link>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={index === 0}
+                              onClick={() => {
+                                const next = [...relatedProductIds];
+                                [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                                setRelatedProductIds(next);
+                              }}
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={index === relatedProductIds.length - 1}
+                              onClick={() => {
+                                const next = [...relatedProductIds];
+                                [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                                setRelatedProductIds(next);
+                              }}
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => {
+                                setRelatedProductIds(relatedProductIds.filter((x) => x !== rid));
+                                setRelatedProductTitles((prev) => {
+                                  const next = { ...prev };
+                                  delete next[rid];
+                                  return next;
+                                });
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="relative">
+                    <Input
+                      placeholder="Search products to add..."
+                      value={relatedSearchQuery}
+                      onChange={(e) => setRelatedSearchQuery(e.target.value)}
+                      className="pr-8"
+                    />
+                    {relatedSearchQuery.trim() && (
+                      <div className="absolute z-10 top-full left-0 right-0 mt-1 border bg-background rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {relatedSearching ? (
+                          <div className="p-3 text-sm text-muted-foreground flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Searching...
+                          </div>
+                        ) : relatedSearchResults.length === 0 ? (
+                          <div className="p-3 text-sm text-muted-foreground">No products found</div>
+                        ) : (
+                          relatedSearchResults.map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-muted focus:bg-muted focus:outline-none"
+                              onClick={() => {
+                                setRelatedProductIds((prev) => [...prev, p.id]);
+                                setRelatedProductTitles((prev) => ({ ...prev, [p.id]: p.title }));
+                                setRelatedSearchQuery("");
+                                setRelatedSearchResults([]);
+                              }}
+                            >
+                              {p.title}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 

@@ -140,6 +140,12 @@ export async function getProductById(id: string) {
             },
           },
         },
+        relatedProducts: {
+          include: {
+            relatedProduct: { select: { id: true, title: true, slug: true } },
+          },
+          orderBy: { sortOrder: "asc" },
+        },
       },
     });
 
@@ -184,6 +190,79 @@ export async function getProductById(id: string) {
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Failed to fetch product" 
+    };
+  }
+}
+
+/** Admin product search for "You may also like" picker. Returns id, title, slug. Excludes given product and inactive. */
+export async function getAdminProductsSearch(query: string, excludeProductId?: string) {
+  try {
+    await checkAdmin();
+    const q = (query || "").trim();
+    const products = await db.product.findMany({
+      where: {
+        isActive: true,
+        ...(excludeProductId ? { id: { not: excludeProductId } } : {}),
+        ...(q.length > 0
+          ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { slug: { contains: q, mode: "insensitive" } }] }
+          : {}),
+      },
+      select: { id: true, title: true, slug: true },
+      orderBy: { title: "asc" },
+      take: 20,
+    });
+    return { success: true, data: products };
+  } catch (error) {
+    console.error("Error searching products:", error);
+    return { success: false, error: "Failed to search", data: [] };
+  }
+}
+
+/** Set manual "You may also like" for a product. Replaces existing list. */
+export async function setRelatedProducts(productId: string, relatedProductIds: string[]) {
+  try {
+    await checkAdmin();
+
+    const product = await db.product.findUnique({ where: { id: productId } });
+    if (!product) {
+      return { success: false, error: "Product not found" };
+    }
+
+    const ids = [...new Set(relatedProductIds)].filter((id) => id && id !== productId);
+    if (ids.length !== relatedProductIds.length) {
+      return { success: false, error: "Cannot relate a product to itself or use duplicates" };
+    }
+
+    const existing = await db.product.findMany({
+      where: { id: { in: ids } },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map((p) => p.id));
+    if (ids.some((id) => !existingIds.has(id))) {
+      return { success: false, error: "One or more related product IDs are invalid" };
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.productRelatedProduct.deleteMany({ where: { productId } });
+      if (ids.length > 0) {
+        await tx.productRelatedProduct.createMany({
+          data: ids.map((relatedProductId, index) => ({
+            productId,
+            relatedProductId,
+            sortOrder: index,
+          })),
+        });
+      }
+    });
+
+    revalidatePath("/admin/products");
+    revalidatePath(`/product/${product.slug}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Error setting related products:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to set related products",
     };
   }
 }

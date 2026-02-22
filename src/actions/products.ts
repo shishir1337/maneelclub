@@ -3,8 +3,37 @@
 import { db } from "@/lib/db";
 import type { Product, Category, ProductVariant } from "@/types";
 
+/** Minimal category shape for formatting (name, parent) */
+interface CategoryLike {
+  name: string;
+  slug?: string;
+  parent?: { name: string } | null;
+}
+
+/** DB category from Prisma (minimal shape for transformCategory and primary category) */
+interface DbCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  image?: string | null;
+  parentId?: string | null;
+  isActive?: boolean;
+  sortOrder?: number;
+  createdAt: Date;
+  updatedAt: Date;
+  parent?: DbCategory | null;
+  children?: DbCategory[];
+}
+
+/** DB product shape for primary category (legacy category or many-to-many) */
+interface DbProductCategorySource {
+  categories?: Array<{ category: DbCategory }>;
+  category?: DbCategory | null;
+}
+
 // Helper to format category name with parent hierarchy (e.g., "Collections > Winter Collection")
-function formatCategoryName(category: any): string {
+function formatCategoryName(category: CategoryLike | DbCategory | null | undefined): string {
   if (!category) return "";
   if (category.parent) {
     return `${category.parent.name} > ${category.name}`;
@@ -13,10 +42,11 @@ function formatCategoryName(category: any): string {
 }
 
 // Helper to get primary category from product (prioritizes many-to-many categories, falls back to legacy)
-function getPrimaryCategory(dbProduct: any): { category: any; categoryName: string; categorySlug: string } | null {
+function getPrimaryCategory(dbProduct: DbProductCategorySource): { category: DbCategory; categoryName: string; categorySlug: string } | null {
   // Priority 1: Use first category from many-to-many relationship (if exists)
-  if (dbProduct.categories?.length > 0) {
-    const firstCategory = dbProduct.categories[0].category;
+  const categories = dbProduct.categories;
+  if (categories && categories.length > 0) {
+    const firstCategory = categories[0].category;
     if (firstCategory) {
       return {
         category: firstCategory,
@@ -38,25 +68,72 @@ function getPrimaryCategory(dbProduct: any): { category: any; categoryName: stri
   return null;
 }
 
+/** Variant attribute from Prisma include (metadata can be JsonValue) */
+interface DbVariantAttribute {
+  attributeValue?: {
+    attribute?: { slug?: string };
+    displayValue?: string;
+    metadata?: { hex?: string } | unknown;
+  };
+}
+
+/** Variant from Prisma include */
+interface DbVariant {
+  id: string;
+  productId: string;
+  attributes?: DbVariantAttribute[];
+  stock?: number;
+  sku?: string | null;
+  price?: unknown;
+  images?: string[];
+}
+
+/** DB product from Prisma findMany/findUnique (minimal shape for transformProduct) */
+interface DbProduct {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string | null;
+  regularPrice?: unknown;
+  salePrice?: unknown;
+  images?: string[];
+  colors?: string[];
+  sizes?: string[];
+  categoryId?: string | null;
+  stock?: number;
+  trackInventory?: boolean;
+  productType?: string;
+  isActive?: boolean;
+  isFeatured?: boolean;
+  /** Prisma returns JsonValue; we coerce to SizeChart | null in transform */
+  sizeChart?: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  variants?: DbVariant[];
+  categories?: Array<{ category: DbCategory }>;
+  category?: DbCategory | null;
+}
+
 // Helper to transform DB product to frontend format (including variants with price)
-function transformProduct(dbProduct: any): Product {
+function transformProduct(dbProduct: DbProduct): Product {
   let variants: ProductVariant[] | undefined;
   const colorHexMap: Record<string, string> = {};
 
   if (dbProduct.variants?.length) {
-    const withAttrs = dbProduct.variants.some((v: any) => v.attributes?.length);
+    const withAttrs = dbProduct.variants.some((v: DbVariant) => v.attributes?.length);
     if (withAttrs) {
       for (const v of dbProduct.variants) {
-        const colorAttr = v.attributes?.find((a: any) => a.attributeValue?.attribute?.slug === "color");
+        const colorAttr = v.attributes?.find((a: DbVariantAttribute) => a.attributeValue?.attribute?.slug === "color");
         if (colorAttr?.attributeValue) {
           const name = colorAttr.attributeValue.displayValue;
-          const hex = colorAttr.attributeValue.metadata?.hex;
+          const meta = colorAttr.attributeValue.metadata as { hex?: string } | null | undefined;
+          const hex = meta && typeof meta === "object" && "hex" in meta ? meta.hex : undefined;
           if (name && hex) colorHexMap[name] = String(hex);
         }
       }
-      variants = dbProduct.variants.map((v: any) => {
-        const color = v.attributes?.find((a: any) => a.attributeValue?.attribute?.slug === "color")?.attributeValue?.displayValue ?? "";
-        const size = v.attributes?.find((a: any) => a.attributeValue?.attribute?.slug === "size")?.attributeValue?.displayValue ?? "";
+      variants = dbProduct.variants.map((v: DbVariant) => {
+        const color = v.attributes?.find((a: DbVariantAttribute) => a.attributeValue?.attribute?.slug === "color")?.attributeValue?.displayValue ?? "";
+        const size = v.attributes?.find((a: DbVariantAttribute) => a.attributeValue?.attribute?.slug === "size")?.attributeValue?.displayValue ?? "";
         return {
           id: v.id,
           productId: v.productId,
@@ -69,7 +146,7 @@ function transformProduct(dbProduct: any): Product {
         };
       });
     } else {
-      variants = dbProduct.variants.map((v: any) => ({
+      variants = dbProduct.variants.map((v: DbVariant) => ({
         id: v.id,
         productId: v.productId,
         color: "",
@@ -102,10 +179,10 @@ function transformProduct(dbProduct: any): Product {
     category: primaryCategory?.category ? transformCategory(primaryCategory.category, true) : null,
     stock: dbProduct.stock ?? 0,
     trackInventory: dbProduct.trackInventory ?? false,
-    productType: dbProduct.productType ?? (dbProduct.trackInventory ? "VARIABLE" : "SIMPLE"),
+    productType: (dbProduct.productType ?? (dbProduct.trackInventory ? "VARIABLE" : "SIMPLE")) as Product["productType"],
     isActive: dbProduct.isActive ?? true,
     isFeatured: dbProduct.isFeatured ?? false,
-    sizeChart: dbProduct.sizeChart,
+    sizeChart: (dbProduct.sizeChart ?? null) as Product["sizeChart"],
     variants,
     colorHexMap: Object.keys(colorHexMap).length > 0 ? colorHexMap : undefined,
     createdAt: dbProduct.createdAt,
@@ -113,7 +190,7 @@ function transformProduct(dbProduct: any): Product {
   };
 }
 
-function transformCategory(dbCategory: any, shallow = false): Category {
+function transformCategory(dbCategory: DbCategory, shallow = false): Category {
   const base = {
     id: dbCategory.id,
     name: dbCategory.name,
@@ -132,7 +209,7 @@ function transformCategory(dbCategory: any, shallow = false): Category {
     parent: dbCategory.parent
       ? transformCategory(dbCategory.parent, true)
       : null,
-    children: dbCategory.children?.map((c: any) => transformCategory(c)),
+    children: dbCategory.children?.map((c: DbCategory) => transformCategory(c)),
   } as Category;
 }
 
@@ -439,32 +516,59 @@ export async function getFeaturedCategories(limit = 4) {
 }
 
 /**
- * Get related products (same category, excluding current product)
+ * Get related products: manual list first (from ProductRelatedProduct), then fill with same-category products up to limit.
  */
-export async function getRelatedProducts(categoryId: string, excludeProductId: string, limit = 4) {
+export async function getRelatedProducts(productId: string, categoryId?: string | null, limit = 4) {
   try {
-    const products = await db.product.findMany({
-      where: {
-        isActive: true,
-        id: { not: excludeProductId },
-        OR: [
-          { categoryId },
-          { categories: { some: { categoryId } } },
-        ],
-      },
-      include: { 
-        category: true,
-        categories: {
+    const manualRows = await db.productRelatedProduct.findMany({
+      where: { productId },
+      include: {
+        relatedProduct: {
           include: {
             category: true,
+            categories: { include: { category: true } },
           },
         },
       },
+      orderBy: { sortOrder: "asc" },
       take: limit,
-      orderBy: { createdAt: "desc" },
     });
-    
-    return { success: true, data: products.map(transformProduct) };
+
+    const manual = manualRows
+      .map((r) => r.relatedProduct)
+      .filter((p): p is NonNullable<typeof p> => p != null && p.isActive)
+      .map((p) => transformProduct(p));
+    const manualIds = new Set(manual.map((p) => p.id));
+
+    if (manual.length >= limit) {
+      return { success: true, data: manual.slice(0, limit) };
+    }
+
+    const need = limit - manual.length;
+    const excludeIds = [productId, ...manualIds];
+    let fill: Awaited<ReturnType<typeof db.product.findMany>> = [];
+
+    if (need > 0 && categoryId != null && categoryId !== "") {
+      fill = await db.product.findMany({
+        where: {
+          id: { notIn: excludeIds },
+          isActive: true,
+          OR: [
+            { categoryId },
+            { categories: { some: { categoryId } } },
+          ],
+        },
+        include: {
+          category: true,
+          categories: { include: { category: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: need,
+      });
+    }
+
+    const combined = [...manual, ...fill.map((p) => transformProduct(p))];
+    return { success: true, data: combined.slice(0, limit) };
   } catch (error) {
     console.error("Error fetching related products:", error);
     return { success: false, error: "Failed to fetch products", data: [] };

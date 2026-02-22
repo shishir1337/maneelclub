@@ -154,11 +154,27 @@ model Product {
   attributes ProductAttribute[]
   variants   ProductVariant[]
   orderItems OrderItem[]
+  relatedProducts         ProductRelatedProduct[] @relation("ProductRelated")
+  relatedProductsAsRelated ProductRelatedProduct[] @relation("RelatedToProduct")
 
   @@index([categoryId])
   @@index([slug])
   @@index([isFeatured])
   @@index([isActive])
+}
+
+model ProductRelatedProduct {
+  id               String  @id @default(cuid())
+  productId        String
+  relatedProductId String
+  sortOrder        Int     @default(0)
+
+  product        Product @relation("ProductRelated", fields: [productId], references: [id], onDelete: Cascade)
+  relatedProduct Product @relation("RelatedToProduct", fields: [relatedProductId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, relatedProductId])
+  @@index([productId])
+  @@index([relatedProductId])
 }
 
 model ProductAttribute {

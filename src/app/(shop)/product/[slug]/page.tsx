@@ -49,12 +49,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
         }}
       />
       
-      {product.categoryId && (
-        <RelatedProducts 
-          categoryId={product.categoryId} 
-          excludeProductId={product.id} 
-        />
-      )}
+      <RelatedProducts
+        productId={product.id}
+        categoryId={product.categoryId ?? undefined}
+        limit={4}
+      />
     </>
   );
 }
