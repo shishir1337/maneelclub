@@ -198,19 +198,24 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-7">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="navigation">Navigation</TabsTrigger>
-          <TabsTrigger value="shipping">Shipping</TabsTrigger>
-          <TabsTrigger value="payment">Payment</TabsTrigger>
-          <TabsTrigger value="announcement">Announcement</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="tracking">Tracking</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="general" className="space-y-0">
+        {/* Tab list: horizontal scroll on mobile; clear separation so Store Information never overlaps */}
+        <div className="relative z-0 mb-4 border-b border-border bg-background pb-3 pt-1 md:mb-0 md:border-0 md:pb-0 md:pt-0">
+          <div className="-mx-1 overflow-x-auto px-1 md:mx-0 md:overflow-visible md:px-0 [scrollbar-width:thin]">
+            <TabsList className="inline-flex h-10 w-max min-w-full flex-none flex-nowrap gap-0 rounded-lg border bg-muted/80 p-1 md:grid md:w-full md:grid-cols-7 md:flex-initial">
+              <TabsTrigger value="general" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">General</TabsTrigger>
+              <TabsTrigger value="navigation" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">Navigation</TabsTrigger>
+              <TabsTrigger value="shipping" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">Shipping</TabsTrigger>
+              <TabsTrigger value="payment" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">Payment</TabsTrigger>
+              <TabsTrigger value="announcement" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">Announcement</TabsTrigger>
+              <TabsTrigger value="security" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">Security</TabsTrigger>
+              <TabsTrigger value="tracking" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">Tracking</TabsTrigger>
+            </TabsList>
+          </div>
+        </div>
 
         {/* General Settings */}
-        <TabsContent value="general" className="space-y-6">
+        <TabsContent value="general" className="mt-0 space-y-6 pt-4 md:pt-2">
           <Card>
             <CardHeader>
               <CardTitle>Store Information</CardTitle>
@@ -318,7 +323,7 @@ export default function AdminSettingsPage() {
         </TabsContent>
 
         {/* Security / Order limits */}
-        <TabsContent value="security" className="space-y-6">
+        <TabsContent value="security" className="mt-0 space-y-6 pt-4 md:pt-2">
           <Card>
             <CardHeader>
               <CardTitle>Order cooldown</CardTitle>
@@ -359,7 +364,7 @@ export default function AdminSettingsPage() {
         </TabsContent>
 
         {/* Navigation / Header Menu */}
-        <TabsContent value="navigation" className="space-y-6">
+        <TabsContent value="navigation" className="mt-0 space-y-6 pt-4 md:pt-2">
           <Card>
             <CardHeader>
               <CardTitle>Header Menu</CardTitle>
@@ -439,7 +444,7 @@ export default function AdminSettingsPage() {
         </TabsContent>
 
         {/* Shipping Settings */}
-        <TabsContent value="shipping" className="space-y-6">
+        <TabsContent value="shipping" className="mt-0 space-y-6 pt-4 md:pt-2">
           <Card>
             <CardHeader>
               <CardTitle>Shipping Rates</CardTitle>
@@ -484,7 +489,7 @@ export default function AdminSettingsPage() {
         </TabsContent>
 
         {/* Payment Settings */}
-        <TabsContent value="payment" className="space-y-6">
+        <TabsContent value="payment" className="mt-0 space-y-6 pt-4 md:pt-2">
           <Card>
             <CardHeader>
               <CardTitle>Mobile Payment Numbers</CardTitle>
@@ -537,7 +542,7 @@ export default function AdminSettingsPage() {
         </TabsContent>
 
         {/* Announcement Settings */}
-        <TabsContent value="announcement" className="space-y-6">
+        <TabsContent value="announcement" className="mt-0 space-y-6 pt-4 md:pt-2">
           <Card>
             <CardHeader>
               <CardTitle>Announcement Bar</CardTitle>
@@ -645,7 +650,7 @@ export default function AdminSettingsPage() {
         </TabsContent>
 
         {/* Tracking Settings */}
-        <TabsContent value="tracking" className="space-y-6">
+        <TabsContent value="tracking" className="mt-0 space-y-6 pt-4 md:pt-2">
           <Card>
             <CardHeader>
               <CardTitle>Google Tag Manager</CardTitle>
