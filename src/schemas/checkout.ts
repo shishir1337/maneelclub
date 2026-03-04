@@ -23,9 +23,7 @@ const baseCheckoutSchema = z.object({
   
   phone: z
     .string()
-    .min(11, "Phone number must be at least 11 digits")
-    .max(14, "Phone number is too long")
-    .regex(/^[0-9+]+$/, "Please enter a valid phone number"),
+    .regex(/^01[3-9][0-9]{8}$/, "Enter a valid 11-digit BD mobile number (e.g. 01720054443)"),
   
   // Shipping Address
   address: z
@@ -46,7 +44,7 @@ const baseCheckoutSchema = z.object({
   
   altPhone: z
     .string()
-    .regex(/^[0-9+]*$/, "Please enter a valid phone number")
+    .regex(/^01[3-9][0-9]{8}$/, "Enter a valid 11-digit BD mobile number")
     .optional()
     .or(z.literal("")),
   
