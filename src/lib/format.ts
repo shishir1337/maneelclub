@@ -1,5 +1,25 @@
 import { siteConfig } from "./constants";
 
+/** Known size labels (clothing) - sorted first in this order. */
+const SIZE_ORDER = ["S", "M", "L", "XL", "XXL", "3XL"];
+
+/**
+ * Sort size strings: S/M/L/XL first in order, then numeric (30, 32, 34...), then alphabetical.
+ */
+export function sortSizes(sizes: string[]): string[] {
+  return [...sizes].sort((a, b) => {
+    const aIdx = SIZE_ORDER.indexOf(a);
+    const bIdx = SIZE_ORDER.indexOf(b);
+    if (aIdx >= 0 && bIdx >= 0) return aIdx - bIdx;
+    if (aIdx >= 0) return -1;
+    if (bIdx >= 0) return 1;
+    const aNum = parseInt(a, 10);
+    const bNum = parseInt(b, 10);
+    if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) return aNum - bNum;
+    return a.localeCompare(b);
+  });
+}
+
 /**
  * Format price with currency symbol
  * @param price - The price to format (number or string)

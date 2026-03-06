@@ -14,7 +14,7 @@ import {
   ProductTabs,
   AddToCartButton,
 } from "@/components/product";
-import { formatPrice, calculateDiscount } from "@/lib/format";
+import { formatPrice, calculateDiscount, sortSizes } from "@/lib/format";
 import { UNLIMITED_STOCK } from "@/lib/constants";
 
 interface ProductVariant {
@@ -97,9 +97,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     } else {
       sizes = [];
     }
-    // Sort sizes in order: S, M, L, XL, XXL
-    const sizeOrder = ["S", "M", "L", "XL", "XXL", "3XL"];
-    return sizes.sort((a, b) => sizeOrder.indexOf(a) - sizeOrder.indexOf(b));
+    return sortSizes(sizes);
   }, [product.sizes, product.variants]);
   
   // State - no default selection; user must choose to avoid wrong variant orders

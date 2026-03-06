@@ -409,6 +409,7 @@ export async function getProductBySlug(slug: string) {
           },
         },
         variants: {
+          orderBy: { id: "asc" },
           include: {
             attributes: {
               include: {

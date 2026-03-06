@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getProductById, updateProduct, getAdminCategories, getAdminProductsSearch, setRelatedProducts } from "@/actions/admin/products";
+import { sortSizes } from "@/lib/format";
 import { AttributeSelector, ImageUploader, VariantMatrix, SizeGuideEditor } from "@/components/admin";
 import type { SizeChartValue } from "@/components/admin/size-guide-editor";
 import { toast } from "sonner";
@@ -231,6 +232,18 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             }
           }
           attrs = Array.from(attrMap.values()).sort((a, b) => a.attributeSlug.localeCompare(b.attributeSlug));
+          // Sort each attribute's values for stable display (size: numeric/S-M-L, color: alphabetical)
+          for (const attr of attrs) {
+            if (attr.attributeSlug === "size") {
+              attr.values.sort((a, b) => {
+                if (a.displayValue === b.displayValue) return 0;
+                const order = sortSizes([a.displayValue, b.displayValue]);
+                return order[0] === a.displayValue ? -1 : 1;
+              });
+            } else {
+              attr.values.sort((a, b) => a.displayValue.localeCompare(b.displayValue));
+            }
+          }
         }
 
         if (attrs.length === 0 && (product.colors?.length || product.sizes?.length)) {
@@ -251,7 +264,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               attributeId: "size",
               attributeName: "Size",
               attributeSlug: "size",
-              values: product.sizes.map((s: string) => ({
+              values: sortSizes(product.sizes).map((s: string) => ({
                 id: s.toLowerCase(),
                 value: s.toLowerCase(),
                 displayValue: s,

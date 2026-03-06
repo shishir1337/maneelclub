@@ -132,6 +132,7 @@ export async function getProductById(id: string) {
           },
         },
         variants: {
+          orderBy: { id: "asc" },
           include: {
             attributes: {
               include: {
