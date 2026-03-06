@@ -22,13 +22,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { getProductById, updateProduct, getAdminCategories, getAdminProductsSearch, setRelatedProducts } from "@/actions/admin/products";
 import { sortSizes } from "@/lib/format";
 import { AttributeSelector, ImageUploader, VariantMatrix, SizeGuideEditor } from "@/components/admin";
