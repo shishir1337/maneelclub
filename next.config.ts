@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   serverExternalPackages: ["minio"],
   experimental: {
-    proxyClientMaxBodySize: "10mb",
+    proxyClientMaxBodySize: "30mb",
   },
   images: {
     qualities: [75, 90, 95, 100],

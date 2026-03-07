@@ -367,8 +367,10 @@ export async function refreshCourierCheck(orderId: string): Promise<
   }
 }
 
-// Restore stock for order items (used when order is cancelled)
-async function restoreStockForOrder(orderId: string) {
+// Restore stock for order items (used when order is cancelled/deleted/rejected). Logs to StockMovement.
+type StockRestoreReason = "ORDER_CANCELLED" | "ORDER_DELETED" | "PAYMENT_REJECTED";
+
+async function restoreStockForOrder(orderId: string, reason: StockRestoreReason) {
   const order = await db.order.findUnique({
     where: { id: orderId },
     include: {
@@ -399,7 +401,6 @@ async function restoreStockForOrder(orderId: string) {
     if (!product) continue;
 
     if (product.productType === "VARIABLE" && product.variants.length > 0) {
-      // For variable products, find matching variant by color and size
       const matchingVariant = product.variants.find((variant) => {
         const variantAttributes = variant.attributes.map(
           (attr) => attr.attributeValue.displayValue.toLowerCase()
@@ -411,24 +412,111 @@ async function restoreStockForOrder(orderId: string) {
       });
 
       if (matchingVariant) {
-        // Restore variant stock
         await db.productVariant.update({
           where: { id: matchingVariant.id },
+          data: { stock: { increment: item.quantity } },
+        });
+        await db.stockMovement.create({
           data: {
-            stock: {
-              increment: item.quantity,
-            },
+            productId: item.productId,
+            variantId: matchingVariant.id,
+            delta: item.quantity,
+            reason,
+            orderId: order.id,
+            orderNumber: order.orderNumber,
           },
         });
       }
     } else {
-      // For simple products, restore product stock
       await db.product.update({
         where: { id: item.productId },
+        data: { stock: { increment: item.quantity } },
+      });
+      await db.stockMovement.create({
         data: {
-          stock: {
-            increment: item.quantity,
+          productId: item.productId,
+          variantId: null,
+          delta: item.quantity,
+          reason,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+        },
+      });
+    }
+  }
+}
+
+// Deduct stock for order items (used when reactivating a previously cancelled order). Logs ORDER_REACTIVATED.
+async function deductStockForOrder(orderId: string) {
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          product: {
+            include: {
+              variants: {
+                include: {
+                  attributes: {
+                    include: {
+                      attributeValue: true,
+                    },
+                  },
+                },
+              },
+            },
           },
+        },
+      },
+    },
+  });
+
+  if (!order) return;
+
+  for (const item of order.items) {
+    const product = item.product;
+    if (!product) continue;
+
+    if (product.productType === "VARIABLE" && product.variants.length > 0) {
+      const matchingVariant = product.variants.find((variant) => {
+        const variantAttributes = variant.attributes.map(
+          (attr) => attr.attributeValue.displayValue.toLowerCase()
+        );
+        return (
+          variantAttributes.includes(item.color.toLowerCase()) &&
+          variantAttributes.includes(item.size.toLowerCase())
+        );
+      });
+
+      if (matchingVariant) {
+        await db.productVariant.update({
+          where: { id: matchingVariant.id },
+          data: { stock: { decrement: item.quantity } },
+        });
+        await db.stockMovement.create({
+          data: {
+            productId: item.productId,
+            variantId: matchingVariant.id,
+            delta: -item.quantity,
+            reason: "ORDER_REACTIVATED",
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+          },
+        });
+      }
+    } else {
+      await db.product.update({
+        where: { id: item.productId },
+        data: { stock: { decrement: item.quantity } },
+      });
+      await db.stockMovement.create({
+        data: {
+          productId: item.productId,
+          variantId: null,
+          delta: -item.quantity,
+          reason: "ORDER_REACTIVATED",
+          orderId: order.id,
+          orderNumber: order.orderNumber,
         },
       });
     }
@@ -449,10 +537,17 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
     // Check if order is being cancelled from a non-cancelled state
     const wasNotCancelled = order.status !== "CANCELLED";
     const isBeingCancelled = status === "CANCELLED";
+    const wasCancelled = order.status === "CANCELLED";
+    const isBeingUncancelled = status !== "CANCELLED";
 
-    // If order is being cancelled, restore stock
+    // If order is being cancelled, restore stock and log
     if (wasNotCancelled && isBeingCancelled) {
-      await restoreStockForOrder(id);
+      await restoreStockForOrder(id, "ORDER_CANCELLED");
+    }
+
+    // If order was cancelled and is being reactivated (e.g. back to PROCESSING), deduct stock again
+    if (wasCancelled && isBeingUncancelled) {
+      await deductStockForOrder(id);
     }
 
     const updated = await db.order.update({
@@ -612,7 +707,7 @@ export async function deleteOrder(id: string) {
 
     // Restore stock if order wasn't cancelled or delivered
     if (order.status !== "CANCELLED" && order.status !== "DELIVERED") {
-      await restoreStockForOrder(id);
+      await restoreStockForOrder(id, "ORDER_DELETED");
     }
 
     // Delete order items first, then order
@@ -653,7 +748,7 @@ export async function bulkDeleteOrders(
       }
 
       if (order.status !== "CANCELLED" && order.status !== "DELIVERED") {
-        await restoreStockForOrder(id);
+        await restoreStockForOrder(id, "ORDER_DELETED");
       }
 
       await db.orderItem.deleteMany({ where: { orderId: id } });
@@ -745,6 +840,9 @@ export async function rejectPayment(orderId: string, reason?: string) {
       return { success: false, error: "COD orders cannot be rejected this way" };
     }
 
+    // Restore stock when payment is rejected (order was created so stock was deducted)
+    await restoreStockForOrder(orderId, "PAYMENT_REJECTED");
+
     const updated = await db.order.update({
       where: { id: orderId },
       data: {
@@ -752,7 +850,7 @@ export async function rejectPayment(orderId: string, reason?: string) {
         // Optionally cancel the order
         status: "CANCELLED",
         // Add reason to delivery note for tracking
-        deliveryNote: reason 
+        deliveryNote: reason
           ? `${order.deliveryNote || ""}\n[Payment Rejected: ${reason}]`.trim()
           : order.deliveryNote,
       },
@@ -799,8 +897,13 @@ export async function bulkUpdateOrderStatus(
 
       const wasNotCancelled = order.status !== "CANCELLED";
       const isBeingCancelled = status === "CANCELLED";
+      const wasCancelled = order.status === "CANCELLED";
+      const isBeingUncancelled = status !== "CANCELLED";
       if (wasNotCancelled && isBeingCancelled) {
-        await restoreStockForOrder(id);
+        await restoreStockForOrder(id, "ORDER_CANCELLED");
+      }
+      if (wasCancelled && isBeingUncancelled) {
+        await deductStockForOrder(id);
       }
 
       await db.order.update({ where: { id }, data: { status } });
@@ -906,7 +1009,7 @@ export async function bulkRejectPayment(
         continue;
       }
 
-      await restoreStockForOrder(id);
+      await restoreStockForOrder(id, "PAYMENT_REJECTED");
 
       await db.order.update({
         where: { id },

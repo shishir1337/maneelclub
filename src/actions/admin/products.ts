@@ -456,6 +456,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>, va
     }
 
     const updated = await db.$transaction(async (tx) => {
+      const oldStock = product.stock;
       await tx.product.update({
         where: { id },
         data: {
@@ -482,6 +483,21 @@ export async function updateProduct(id: string, input: Partial<ProductInput>, va
           }),
         } as Parameters<typeof tx.product.update>[0]["data"],
       });
+
+      // Log manual stock change for simple products
+      if (productType === "SIMPLE" && input.stock !== undefined) {
+        const delta = input.stock - Number(oldStock);
+        if (delta !== 0) {
+          await tx.stockMovement.create({
+            data: {
+              productId: id,
+              variantId: null,
+              delta,
+              reason: "MANUAL_EDIT",
+            },
+          });
+        }
+      }
 
       // Handle multiple categories
       if (input.categoryIds !== undefined) {
@@ -559,6 +575,16 @@ export async function updateProduct(id: string, input: Partial<ProductInput>, va
               if (!valueMap.has(attributeValueId)) continue;
               await tx.variantAttributeValue.create({
                 data: { variantId: variant.id, attributeValueId },
+              });
+            }
+            if (stock !== 0) {
+              await tx.stockMovement.create({
+                data: {
+                  productId: id,
+                  variantId: variant.id,
+                  delta: stock,
+                  reason: "MANUAL_EDIT",
+                },
               });
             }
           }

@@ -180,6 +180,29 @@ async function deductStockInTransaction(
 }
 
 /**
+ * Log stock deduction to StockMovement (call inside same transaction after deduct).
+ */
+async function logStockDeductInTransaction(
+  tx: Parameters<Parameters<typeof db.$transaction>[0]>[0],
+  items: ResolvedLineItem[],
+  orderId: string,
+  orderNumber: string
+) {
+  for (const item of items) {
+    await tx.stockMovement.create({
+      data: {
+        productId: item.productId,
+        variantId: item.variantId ?? null,
+        delta: -item.quantity,
+        reason: "ORDER_CREATED",
+        orderId,
+        orderNumber,
+      },
+    });
+  }
+}
+
+/**
  * Create a new order (saves to database)
  */
 export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
@@ -356,6 +379,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       }
 
       await deductStockInTransaction(tx, resolvedItems);
+      await logStockDeductInTransaction(tx, resolvedItems, newOrder.id, newOrder.orderNumber);
       return newOrder;
     });
 
