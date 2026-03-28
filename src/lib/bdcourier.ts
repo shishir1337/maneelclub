@@ -4,7 +4,8 @@
  */
 
 const API_BASE = "https://api.bdcourier.com";
-const FETCH_TIMEOUT_MS = 10000; // 10 seconds
+/** BDCourier often responds in 10–15s+; 10s was aborting before success. */
+const FETCH_TIMEOUT_MS = 30000;
 const MAX_RETRIES = 2;
 
 /** Normalize phone number to API format (017xxxxxxxx) */
@@ -144,11 +145,9 @@ export async function courierCheckByPhone(
   let lastError: string | null = null;
   
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      // Create abort controller for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
       const res = await fetch(`${API_BASE}/courier-check`, {
         method: "POST",
         headers: {
@@ -158,8 +157,6 @@ export async function courierCheckByPhone(
         body: JSON.stringify({ phone: normalizedPhone }),
         signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
 
       const json = (await res.json()) as CourierCheckResponse & { message?: string };
 
@@ -200,17 +197,23 @@ export async function courierCheckByPhone(
         err.message.includes("ECONNREFUSED")
       );
 
-      // Don't retry on abort (timeout) or network errors on last attempt
-      if (isAbort || (isNetworkError && attempt === MAX_RETRIES)) {
-        const message = isAbort
-          ? "Request timed out"
-          : err instanceof Error
-          ? err.message
-          : "Courier check request failed";
+      // Retry on timeout (abort) like slow API responses
+      if (isAbort && attempt < MAX_RETRIES) {
+        lastError = "Request timed out";
+        await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        continue;
+      }
+
+      if (isAbort) {
+        return { success: false, error: sanitizeError("Request timed out") };
+      }
+
+      if (isNetworkError && attempt === MAX_RETRIES) {
+        const message =
+          err instanceof Error ? err.message : "Courier check request failed";
         return { success: false, error: sanitizeError(message) };
       }
 
-      // Retry on network errors
       if (isNetworkError && attempt < MAX_RETRIES) {
         lastError = err instanceof Error ? err.message : "Courier check request failed";
         await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1000));
@@ -220,6 +223,8 @@ export async function courierCheckByPhone(
       const message =
         err instanceof Error ? err.message : "Courier check request failed";
       return { success: false, error: sanitizeError(message) };
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
