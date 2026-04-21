@@ -114,16 +114,15 @@ export function ProductCard({
       {/* Product Info - Clickable link wrapper */}
       <Link href={`/product/${slug}`}>
         <CardContent className="p-3.5 pt-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset rounded-b-xl">
-          {/* Category tag */}
-          {category && (
+          {/* Category tag — hidden */}
+          {/* {category && (
             <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">
               {category}
             </span>
-          )}
-          
+          )} */}
+
           <h3 className={cn(
-            "font-medium text-sm sm:text-base line-clamp-2 mt-1 group-hover:text-primary transition-colors duration-200",
-            !category && "mt-0"
+            "font-medium text-sm sm:text-base line-clamp-2 mt-0 group-hover:text-primary transition-colors duration-200",
           )}>
             {title}
           </h3>
