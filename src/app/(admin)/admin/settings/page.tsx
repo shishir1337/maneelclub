@@ -328,7 +328,7 @@ export default function AdminSettingsPage() {
             <CardHeader>
               <CardTitle>Order cooldown</CardTitle>
               <CardDescription>
-                Limit how often the same IP can place an order (helps reduce spam). When enabled, a customer must wait before placing another order.
+                Limit how often the same phone number can place an order (helps reduce spam). When enabled, a customer must wait before placing another order.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -336,7 +336,7 @@ export default function AdminSettingsPage() {
                 <div className="space-y-0.5">
                   <Label htmlFor="orderCooldownEnabled">Enable order cooldown</Label>
                   <p className="text-sm text-muted-foreground">
-                    Same IP cannot place another order within the cooldown window
+                    Same phone number cannot place another order within the cooldown window
                   </p>
                 </div>
                 <Switch
@@ -356,7 +356,7 @@ export default function AdminSettingsPage() {
                   onChange={(e) => handleChange("orderCooldownMinutes", e.target.value)}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Minimum minutes between orders from the same IP (1–1440)
+                  Minimum minutes between orders from the same phone number (1–1440)
                 </p>
               </div>
             </CardContent>

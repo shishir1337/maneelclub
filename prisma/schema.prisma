@@ -461,6 +461,17 @@ model BannedIp {
   @@index([ipAddress])
 }
 
+// ==================== PHONE BANS (anti-spam) ====================
+
+model BannedPhone {
+  id          String   @id @default(cuid())
+  phoneNumber String   @unique // stored normalized as 01XXXXXXXXX
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  @@index([phoneNumber])
+}
+
 // ==================== SETTINGS ====================
 
 model Setting {

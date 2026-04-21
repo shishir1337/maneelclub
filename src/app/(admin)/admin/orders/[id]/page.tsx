@@ -72,6 +72,7 @@ import {
   deleteOrder,
 } from "@/actions/admin/orders";
 import { banIp } from "@/actions/admin/ip-bans";
+import { banPhone } from "@/actions/admin/phone-bans";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
@@ -177,6 +178,9 @@ export default function AdminOrderDetailPage({
   const [banIpDialogOpen, setBanIpDialogOpen] = useState(false);
   const [banIpReason, setBanIpReason] = useState("");
   const [banIpLoading, setBanIpLoading] = useState(false);
+  const [banPhoneDialogOpen, setBanPhoneDialogOpen] = useState(false);
+  const [banPhoneReason, setBanPhoneReason] = useState("");
+  const [banPhoneLoading, setBanPhoneLoading] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   const loadOrder = useCallback(async () => {
@@ -320,6 +324,26 @@ export default function AdminOrderDetailPage({
       toast.error("Failed to ban IP");
     } finally {
       setBanIpLoading(false);
+    }
+  }
+
+  async function handleBanPhone() {
+    if (!order?.customerPhone) return;
+    setBanPhoneLoading(true);
+    try {
+      const result = await banPhone(order.customerPhone, banPhoneReason.trim() || undefined);
+      if (result.success) {
+        toast.success("Phone banned. They can no longer place orders.");
+        setBanPhoneDialogOpen(false);
+        setBanPhoneReason("");
+        router.push("/admin/phone-bans");
+      } else {
+        toast.error(result.error || "Failed to ban phone");
+      }
+    } catch {
+      toast.error("Failed to ban phone");
+    } finally {
+      setBanPhoneLoading(false);
     }
   }
 
@@ -733,6 +757,30 @@ export default function AdminOrderDetailPage({
             </CardContent>
           </Card>
 
+          {/* Phone Ban */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Ban className="h-4 w-4" />
+                Phone Ban
+              </CardTitle>
+              <CardDescription>
+                Ban this customer&apos;s phone number to block all future orders from them.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <span className="font-mono text-sm">{order.customerPhone}</span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBanPhoneDialogOpen(true)}
+              >
+                <Ban className="h-4 w-4 mr-1" />
+                Ban this phone
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Client IP / Ban */}
           {order.clientIp && (
             <Card>
@@ -997,6 +1045,43 @@ export default function AdminOrderDetailPage({
                 <Ban className="h-4 w-4 mr-2" />
               )}
               Ban IP
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ban Phone dialog */}
+      <Dialog open={banPhoneDialogOpen} onOpenChange={setBanPhoneDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ban this phone number?</DialogTitle>
+            <DialogDescription>
+              <span className="font-mono">{order?.customerPhone}</span> will be blocked from placing any future orders. You can unban from Phone Bans later.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Reason (optional)</label>
+            <Input
+              placeholder="e.g. Repeated fake orders"
+              value={banPhoneReason}
+              onChange={(e) => setBanPhoneReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBanPhoneDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBanPhone}
+              disabled={banPhoneLoading}
+            >
+              {banPhoneLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Ban className="h-4 w-4 mr-2" />
+              )}
+              Ban Phone
             </Button>
           </DialogFooter>
         </DialogContent>

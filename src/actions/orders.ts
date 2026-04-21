@@ -11,6 +11,7 @@ import { sendPurchaseEvent } from "@/lib/conversions-api";
 import { getMetaCapiSettings } from "@/lib/settings";
 import { getClientIp } from "@/lib/client-ip";
 import { isIpBanned } from "@/lib/ip-ban";
+import { isPhoneBanned } from "@/lib/phone-ban";
 
 interface CartItem {
   productId: string;
@@ -48,7 +49,7 @@ export type CreateOrderResult =
   | {
       success: false;
       error: string;
-      code?: "COOLDOWN" | "IP_BANNED";
+      code?: "COOLDOWN" | "IP_BANNED" | "PHONE_BANNED";
       cooldownRemainingSeconds?: number;
       cooldownMinutes?: number;
     };
@@ -299,11 +300,20 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       };
     }
 
-    // Order cooldown: same IP cannot order again within X minutes (when enabled)
+    // Phone ban: blocked phone numbers cannot place orders
+    if (await isPhoneBanned(formData.phone)) {
+      return {
+        success: false,
+        error: "Unable to place an order. Please contact support.",
+        code: "PHONE_BANNED",
+      };
+    }
+
+    // Order cooldown: same phone cannot order again within X minutes (when enabled)
     const cooldown = await getOrderCooldownSettings();
-    if (cooldown.enabled && clientIp) {
+    if (cooldown.enabled) {
       const lastOrder = await db.order.findFirst({
-        where: { clientIp },
+        where: { customerPhone: formData.phone },
         orderBy: { createdAt: "desc" },
         select: { createdAt: true },
       });
@@ -455,29 +465,8 @@ export async function getCheckoutEligibility(): Promise<{
       };
     }
 
-    const cooldown = await getOrderCooldownSettings();
-
-    if (cooldown.enabled && clientIp) {
-      const lastOrder = await db.order.findFirst({
-        where: { clientIp },
-        orderBy: { createdAt: "desc" },
-        select: { createdAt: true },
-      });
-      if (lastOrder) {
-        const windowMs = cooldown.minutes * 60 * 1000;
-        const elapsed = Date.now() - lastOrder.createdAt.getTime();
-        if (elapsed < windowMs) {
-          const cooldownRemainingSeconds = Math.ceil((windowMs - elapsed) / 1000);
-          return {
-            allowed: false,
-            error: "You already placed an order. Please wait before placing another.",
-            code: "COOLDOWN",
-            cooldownRemainingSeconds,
-            cooldownMinutes: cooldown.minutes,
-          };
-        }
-      }
-    }
+    // Phone-based cooldown and phone ban are checked at order submission time
+    // since the phone number is not available until the form is submitted.
 
     return { allowed: true };
   } catch (error) {

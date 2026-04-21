@@ -15,6 +15,7 @@ import {
   ImageIcon,
   MapPin,
   ShieldAlert,
+  PhoneOff,
   Ticket,
   FileText,
 } from "lucide-react";
@@ -43,6 +44,7 @@ const sidebarLinks: SidebarLinkItem[] = [
   { name: "Customers", href: "/admin/customers", icon: Users },
   { name: "Coupons", href: "/admin/coupons", icon: Ticket },
   { name: "IP Bans", href: "/admin/ip-bans", icon: ShieldAlert },
+  { name: "Phone Bans", href: "/admin/phone-bans", icon: PhoneOff },
   { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { name: "Hero Slider", href: "/admin/hero", icon: ImageIcon },
   { name: "Cities", href: "/admin/cities", icon: MapPin },

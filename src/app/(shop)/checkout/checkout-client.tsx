@@ -78,6 +78,7 @@ export default function CheckoutClient({
   const [mounted, setMounted] = useState(false);
   const { items, getSubtotal } = useCartStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [phoneBanned, setPhoneBanned] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<{
@@ -176,7 +177,8 @@ export default function CheckoutClient({
   const isBlockedByCooldown =
     cooldownRemaining != null ||
     (!eligibility.allowed && eligibility.code === "COOLDOWN");
-  const isBlockedByBan = !eligibility.allowed && eligibility.code === "IP_BANNED";
+  const isBlockedByBan =
+    (!eligibility.allowed && eligibility.code === "IP_BANNED") || phoneBanned;
   const isBlocked = isBlockedByCooldown || isBlockedByBan;
   const displayCooldownSeconds =
     cooldownRemaining ?? eligibility.cooldownRemainingSeconds ?? 0;
@@ -267,6 +269,8 @@ export default function CheckoutClient({
       } else if (!result.success) {
         if (result.code === "COOLDOWN" && result.cooldownRemainingSeconds != null) {
           setCooldownRemaining(result.cooldownRemainingSeconds);
+        } else if (result.code === "PHONE_BANNED" || result.code === "IP_BANNED") {
+          setPhoneBanned(true);
         } else {
           toast.error(result.error || "Failed to place order");
         }
