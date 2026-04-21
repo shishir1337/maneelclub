@@ -53,7 +53,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { formatPrice, formatDateWithRelativeTime } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUSES } from "@/lib/constants";
 import { getAdminOrders, getAdminOrderCountsByStatus, updateOrderStatus, verifyPayment, rejectPayment, refreshCourierCheck, bulkUpdateOrderStatus, bulkVerifyPayment, bulkRejectPayment, deleteOrder, bulkDeleteOrders } from "@/actions/admin/orders";
-import { banIp } from "@/actions/admin/ip-bans";
+import { banPhone } from "@/actions/admin/phone-bans";
 import { toast } from "sonner";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
@@ -169,8 +169,8 @@ export default function AdminOrdersPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [courierRefreshLoading, setCourierRefreshLoading] = useState<string | null>(null);
-  const [banIpOrder, setBanIpOrder] = useState<Order | null>(null);
-  const [banIpLoading, setBanIpLoading] = useState(false);
+  const [banPhoneOrder, setBanPhoneOrder] = useState<Order | null>(null);
+  const [banPhoneLoading, setBanPhoneLoading] = useState(false);
   const [statusCounts, setStatusCounts] = useState<Record<string, number> | null>(null);
 
   // Debounce search so we don't refetch on every keystroke
@@ -423,22 +423,22 @@ export default function AdminOrdersPage() {
     }
   }
 
-  async function handleBanIpConfirm() {
-    const order = banIpOrder;
-    if (!order?.clientIp) return;
-    setBanIpLoading(true);
+  async function handleBanPhoneConfirm() {
+    const order = banPhoneOrder;
+    if (!order?.customerPhone) return;
+    setBanPhoneLoading(true);
     try {
-      const result = await banIp(order.clientIp);
+      const result = await banPhone(order.customerPhone);
       if (result.success) {
-        toast.success("IP banned. This address can no longer place orders.");
-        setBanIpOrder(null);
+        toast.success("Phone banned. This number can no longer place orders.");
+        setBanPhoneOrder(null);
       } else {
-        toast.error(result.error || "Failed to ban IP");
+        toast.error(result.error || "Failed to ban phone");
       }
     } catch {
-      toast.error("Failed to ban IP");
+      toast.error("Failed to ban phone");
     } finally {
-      setBanIpLoading(false);
+      setBanPhoneLoading(false);
     }
   }
 
@@ -731,35 +731,30 @@ export default function AdminOrdersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Ban IP confirmation */}
-      <AlertDialog open={!!banIpOrder} onOpenChange={(open) => !open && setBanIpOrder(null)}>
+      {/* Ban Phone confirmation */}
+      <AlertDialog open={!!banPhoneOrder} onOpenChange={(open) => !open && setBanPhoneOrder(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Ban this IP?</AlertDialogTitle>
+            <AlertDialogTitle>Ban this phone number?</AlertDialogTitle>
             <AlertDialogDescription>
-              {banIpOrder?.clientIp ? (
-                <>
-                  Are you sure you want to ban <span className="font-mono font-medium">{banIpOrder.clientIp}</span>?
-                  This address will no longer be able to place orders. You can unban from IP Bans later.
-                </>
-              ) : (
-                "This address will no longer be able to place orders."
-              )}
+              Are you sure you want to ban{" "}
+              <span className="font-mono font-medium">{banPhoneOrder?.customerPhone}</span>?
+              This number will no longer be able to place orders. You can unban from Phone Bans later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={banIpLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={banPhoneLoading}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleBanIpConfirm}
-              disabled={banIpLoading}
+              onClick={handleBanPhoneConfirm}
+              disabled={banPhoneLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {banIpLoading ? (
+              {banPhoneLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
                 <Ban className="h-4 w-4 mr-2" />
               )}
-              Ban IP
+              Ban Phone
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1146,17 +1141,15 @@ export default function AdminOrdersPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {order.clientIp && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setBanIpOrder(order)}
-                              title="Ban this IP address"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                            >
-                              <Ban className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setBanPhoneOrder(order)}
+                            title="Ban this phone number"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          >
+                            <Ban className="h-4 w-4" />
+                          </Button>
                           <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
@@ -1221,19 +1214,17 @@ export default function AdminOrdersPage() {
                               <XCircle className="h-4 w-4 mr-2" />
                               Mark as Canceled
                             </DropdownMenuItem>
-                            {order.clientIp && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => setBanIpOrder(order)}
-                                  className="text-red-600 focus:text-red-600"
-                                  disabled={actionLoading === order.id}
-                                >
-                                  <Ban className="h-4 w-4 mr-2" />
-                                  Ban IP
-                                </DropdownMenuItem>
-                              </>
-                            )}
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setBanPhoneOrder(order)}
+                                className="text-red-600 focus:text-red-600"
+                                disabled={actionLoading === order.id}
+                              >
+                                <Ban className="h-4 w-4 mr-2" />
+                                Ban Phone
+                              </DropdownMenuItem>
+                            </>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => setDeleteOrderId(order.id)}
