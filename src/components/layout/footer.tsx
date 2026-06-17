@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Facebook, Mail, Phone, MapPin, Code, ExternalLink } from "lucide-react";
+import { Facebook, Mail, Phone, MapPin, Code } from "lucide-react";
 import { siteConfig } from "@/lib/constants";
 
 const footerLinks = {
@@ -170,18 +170,15 @@ export function Footer() {
                 <div className="flex items-center gap-1.5">
                   <Code className="h-3.5 w-3.5" />
                   <span>Developed by</span>
-                  <span className="font-medium text-foreground">Md. Shishir Ahmed</span>
+                  <a
+                    href="https://arrowbin.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-foreground hover:text-primary transition-colors"
+                  >
+                    Arrowbin
+                  </a>
                 </div>
-                <span className="hidden sm:inline">•</span>
-                <a
-                  href="https://outnet.it.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 font-medium text-primary hover:underline transition-colors group"
-                >
-                  <span>Visit Portfolio</span>
-                  <ExternalLink className="h-3 w-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </a>
               </div>
             </div>
           </div>
