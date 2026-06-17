@@ -4,8 +4,10 @@ import { db } from "@/lib/db";
 import { getShippingRates, getFreeShippingMinimum, getOrderCooldownSettings } from "@/lib/settings";
 import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { runAndSaveCourierCheck } from "@/lib/courier-check";
 import { PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { sendPurchaseEvent } from "@/lib/conversions-api";
 import { getMetaCapiSettings } from "@/lib/settings";
@@ -399,6 +401,11 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     if (userId) {
       revalidatePath("/dashboard/orders");
     }
+
+    // Auto-run the BDCourier fraud check in the background so admins don't have to
+    // click refresh per order. Runs after the response is sent (after()) since the
+    // BDCourier API is slow (10-30s) and must not block the customer's checkout.
+    after(() => runAndSaveCourierCheck(order.id));
 
     // Meta Conversions API: send Purchase for deduplication with Pixel (use orderNumber as event_id)
     // Credentials from env or admin settings (configure after deployment)
