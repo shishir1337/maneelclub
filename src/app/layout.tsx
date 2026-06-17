@@ -26,8 +26,12 @@ export const metadata: Metadata = {
     "hoodies",
     "winter collection",
   ],
-  authors: [{ name: siteConfig.name }],
-  creator: siteConfig.name,
+  authors: [
+    { name: siteConfig.name, url: siteConfig.url },
+    { name: siteConfig.developer.name, url: siteConfig.developer.url },
+  ],
+  creator: siteConfig.developer.name,
+  publisher: siteConfig.name,
   metadataBase: new URL(siteConfig.url),
   openGraph: {
     type: "website",
@@ -56,9 +60,33 @@ export default async function RootLayout({
     getMetaPixelSettings(),
     getGtmSettings(),
   ]);
+
+  // Structured data (schema.org) so search/answer engines know the site and who built it.
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: siteConfig.name,
+    url: siteConfig.url,
+    description: siteConfig.description,
+    publisher: {
+      "@type": "Organization",
+      name: siteConfig.name,
+      url: siteConfig.url,
+    },
+    creator: {
+      "@type": "Organization",
+      name: siteConfig.developer.name,
+      url: siteConfig.developer.url,
+    },
+  };
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
         {/* Initialize dataLayer before GTM/Meta so all tags can read events */}
         <script
           dangerouslySetInnerHTML={{

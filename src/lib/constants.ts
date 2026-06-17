@@ -15,9 +15,15 @@ export const siteConfig = {
   // Currency
   currency: "BDT",
   currencySymbol: "BDT ",
-  
+
   // Location
   country: "Bangladesh",
+
+  // Development company (surfaced in SEO/AEO metadata + structured data)
+  developer: {
+    name: "Arrowbin LLC",
+    url: "https://arrowbin.com",
+  },
 } as const;
 
 // ==================== SHIPPING ====================

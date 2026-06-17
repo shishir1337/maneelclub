@@ -169,14 +169,14 @@ export function Footer() {
               <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                   <Code className="h-3.5 w-3.5" />
-                  <span>Developed by</span>
+                  <span>Designed &amp; built by</span>
                   <a
                     href="https://arrowbin.com"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium text-foreground hover:text-primary transition-colors"
                   >
-                    Arrowbin
+                    Arrowbin LLC
                   </a>
                 </div>
               </div>
