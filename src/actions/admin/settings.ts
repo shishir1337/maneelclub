@@ -83,7 +83,7 @@ export async function updateSettings(data: Record<string, string>) {
     await db.$transaction(operations);
 
     revalidatePath("/admin/settings");
-    revalidatePath("/"); // Revalidate homepage and layout (announcement, Meta Pixel)
+    revalidatePath("/", "layout"); // Revalidate shared layout for ALL routes (header menu, announcement, footer, Meta Pixel)
 
     return { success: true };
   } catch (error) {
