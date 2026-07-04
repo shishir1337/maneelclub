@@ -302,7 +302,9 @@ export async function createProduct(input: ProductInput, variants?: VariantRecor
           description: validated.description,
           regularPrice: validated.regularPrice,
           salePrice: validated.salePrice,
-          categoryId: validated.categoryId,
+          // Legacy categoryId is kept in sync with the primary (first) selected category
+          // so it can never drift from the many-to-many `categories` source of truth.
+          categoryId: validated.categoryIds?.[0] ?? validated.categoryId ?? null,
           images: validated.images,
           colors: validated.colors,
           sizes: validated.sizes,
@@ -466,7 +468,13 @@ export async function updateProduct(id: string, input: Partial<ProductInput>, va
           ...(input.description !== undefined && { description: input.description }),
           ...(input.regularPrice !== undefined && { regularPrice: input.regularPrice }),
           ...(input.salePrice !== undefined && { salePrice: input.salePrice }),
-          ...(input.categoryId !== undefined && { categoryId: input.categoryId }),
+          // Keep legacy categoryId in sync with the primary (first) selected category.
+          // When categoryIds is provided it is the source of truth and overrides any stale categoryId.
+          ...(input.categoryIds !== undefined
+            ? { categoryId: input.categoryIds[0] ?? null }
+            : input.categoryId !== undefined
+              ? { categoryId: input.categoryId }
+              : {}),
           ...(input.images && { images: input.images }),
           ...(input.colors && { colors: input.colors }),
           ...(input.sizes && { sizes: input.sizes }),

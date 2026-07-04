@@ -317,14 +317,13 @@ export async function getProductsByCategory(categorySlug: string) {
       return { success: true, data: [] };
     }
 
-    // Get products that match via legacy categoryId OR via ProductCategory relationship
+    // Match products via the ProductCategory (many-to-many) relationship — the single
+    // source of truth for a product's categories. The legacy `categoryId` is kept in
+    // sync with the primary category on write, so it is intentionally not queried here.
     const products = await db.product.findMany({
       where: {
         isActive: true,
-        OR: [
-          { categoryId: { in: categoryIds } },
-          { categories: { some: { categoryId: { in: categoryIds } } } },
-        ],
+        categories: { some: { categoryId: { in: categoryIds } } },
       },
       include: { 
         category: true,
