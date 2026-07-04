@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { slugify } from "@/lib/format";
 
 // Size guide table (optional, shown on product page)
 const sizeChartSchema = z.object({
@@ -724,6 +725,13 @@ export async function createCategory(
   try {
     await checkAdmin();
 
+    // Always normalize the slug to a URL-safe form (lowercase, no spaces/special chars).
+    // Falls back to slugifying the name if the provided slug reduces to nothing.
+    slug = slugify(slug) || slugify(name);
+    if (!slug) {
+      return { success: false, error: "Could not generate a valid slug. Please provide a name or slug with letters or numbers." };
+    }
+
     const existing = await db.category.findUnique({ where: { slug } });
 
     if (existing) {
@@ -792,6 +800,15 @@ export async function updateCategory(
 
     if (!category) {
       return { success: false, error: "Category not found" };
+    }
+
+    // Normalize the slug to a URL-safe form if one was provided.
+    if (data.slug !== undefined) {
+      const normalized = slugify(data.slug) || slugify(data.name ?? category.name);
+      if (!normalized) {
+        return { success: false, error: "Could not generate a valid slug. Please provide a name or slug with letters or numbers." };
+      }
+      data = { ...data, slug: normalized };
     }
 
     if (data.parentId) {

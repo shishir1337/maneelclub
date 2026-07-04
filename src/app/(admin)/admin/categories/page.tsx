@@ -114,7 +114,7 @@ export default function AdminCategoriesPage() {
 
     setActionLoading(true);
     try {
-      const categorySlug = slug.trim() || slugify(name);
+      const categorySlug = slugify(slug) || slugify(name);
       const result = await createCategory(
         name.trim(),
         categorySlug,
@@ -143,7 +143,7 @@ export default function AdminCategoriesPage() {
 
     setActionLoading(true);
     try {
-      const categorySlug = slug.trim() || slugify(name);
+      const categorySlug = slugify(slug) || slugify(name);
       const result = await updateCategory(editCategoryId, {
         name: name.trim(),
         slug: categorySlug,
@@ -427,7 +427,15 @@ export default function AdminCategoriesPage() {
                 id="slug"
                 placeholder="category-slug"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
+                onChange={(e) =>
+                  setSlug(
+                    e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]+/g, "-")
+                      .replace(/-{2,}/g, "-")
+                      .replace(/^-/, "")
+                  )
+                }
               />
               <p className="text-sm text-muted-foreground">
                 URL-friendly name. Auto-generated from name if left empty.
