@@ -20,6 +20,8 @@ export interface Product {
   categoryId: string | null;
   category?: Category | null;
   categorySlug?: string;
+  /** All category slugs this product belongs to (many-to-many); used for shop filtering */
+  categorySlugs?: string[];
   categoryName?: string;
   variants?: ProductVariant[];
   /** Map of color display name -> hex for storefront swatches (from attribute metadata) */

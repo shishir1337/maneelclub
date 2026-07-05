@@ -162,6 +162,17 @@ function transformProduct(dbProduct: DbProduct): Product {
   // Intelligently get primary category (handles both legacy and many-to-many relationships)
   const primaryCategory = getPrimaryCategory(dbProduct);
 
+  // All category slugs this product belongs to (many-to-many + legacy fallback),
+  // so shop-page filtering matches the same products as the category archive page.
+  const categorySlugs = [
+    ...new Set(
+      [
+        ...(dbProduct.categories?.map((c) => c.category?.slug) ?? []),
+        dbProduct.category?.slug,
+      ].filter((s): s is string => Boolean(s))
+    ),
+  ];
+
   return {
     id: dbProduct.id,
     title: dbProduct.title,
@@ -175,6 +186,7 @@ function transformProduct(dbProduct: DbProduct): Product {
     sizes: dbProduct.sizes || [],
     categoryId: dbProduct.categoryId || "",
     categorySlug: primaryCategory?.categorySlug || "",
+    categorySlugs,
     categoryName: primaryCategory?.categoryName || "",
     category: primaryCategory?.category ? transformCategory(primaryCategory.category, true) : null,
     stock: dbProduct.stock ?? 0,

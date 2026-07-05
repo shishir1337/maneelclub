@@ -119,18 +119,20 @@ export function ShopContent({ products, categories, colorOptions = [], searchPar
       );
     }
     
-    // Filter by category (expand parent slugs to child slugs; products are in subcategories)
+    // Filter by category. A selected parent matches products in the parent itself AND
+    // its children. Products can belong to multiple categories, so match against all of
+    // a product's category slugs (mirrors the category archive page's DB query).
     if (selectedCategories.length > 0) {
       const slugsToMatch = new Set<string>();
       for (const slug of selectedCategories) {
+        slugsToMatch.add(slug);
         const cat = categories.find((c) => c.slug === slug);
-        if (cat?.children && cat.children.length > 0) {
-          cat.children.forEach((c) => slugsToMatch.add(c.slug));
-        } else {
-          slugsToMatch.add(slug);
-        }
+        cat?.children?.forEach((c) => slugsToMatch.add(c.slug));
       }
-      result = result.filter((p) => slugsToMatch.has(p.categorySlug || ""));
+      result = result.filter((p) => {
+        const productSlugs = p.categorySlugs?.length ? p.categorySlugs : [p.categorySlug || ""];
+        return productSlugs.some((s) => slugsToMatch.has(s));
+      });
     }
     
     // Filter by color (match product color to colorList by label or value)
