@@ -9,6 +9,8 @@ import { HeroCarousel } from "@/components/home/hero-carousel";
 import { siteConfig } from "@/lib/constants";
 import { getFeaturedProducts, getNewArrivals, getFeaturedCategories } from "@/actions/products";
 import { getHeroSlides } from "@/actions/hero-slides";
+import { getFreeShippingMinimum } from "@/lib/settings";
+import { formatPrice } from "@/lib/format";
 
 async function HeroSection() {
   const { data: slides } = await getHeroSlides();
@@ -95,6 +97,35 @@ async function NewArrivalsProducts() {
   return <ProductGrid products={products} columns={4} />;
 }
 
+// Server component: promo banner driven by the Free Shipping Minimum setting.
+// Returns null when the minimum is 0 (free shipping disabled), hiding the section.
+async function PromoBannerSection() {
+  const freeShippingMinimum = await getFreeShippingMinimum();
+
+  if (freeShippingMinimum <= 0) {
+    return null;
+  }
+
+  return (
+    <section className="py-12 md:py-16">
+      <div className="container">
+        <div className="bg-primary text-primary-foreground rounded-2xl p-8 md:p-12 text-center">
+          <h2 className="text-2xl md:text-4xl font-bold mb-4">
+            Free Shipping on Orders Over {formatPrice(freeShippingMinimum)}
+          </h2>
+          <p className="text-lg opacity-90 mb-6 max-w-2xl mx-auto">
+            Get your favorite styles delivered to your doorstep without any extra charges.
+            Limited time offer!
+          </p>
+          <Button size="lg" variant="secondary" asChild>
+            <Link href="/shop">Shop Now</Link>
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function HomePage() {
   return (
     <>
@@ -148,23 +179,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Promo Banner */}
-      <section className="py-12 md:py-16">
-        <div className="container">
-          <div className="bg-primary text-primary-foreground rounded-2xl p-8 md:p-12 text-center">
-            <h2 className="text-2xl md:text-4xl font-bold mb-4">
-              Free Shipping on Orders Over BDT 2000
-            </h2>
-            <p className="text-lg opacity-90 mb-6 max-w-2xl mx-auto">
-              Get your favorite styles delivered to your doorstep without any extra charges.
-              Limited time offer!
-            </p>
-            <Button size="lg" variant="secondary" asChild>
-              <Link href="/shop">Shop Now</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+      {/* Promo Banner - hidden when Free Shipping Minimum is 0 */}
+      <Suspense fallback={null}>
+        <PromoBannerSection />
+      </Suspense>
 
       {/* Why Choose Us */}
       <section className="py-12 md:py-16">

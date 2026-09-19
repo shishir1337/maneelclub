@@ -377,7 +377,7 @@ export default function AdminAnalyticsPage() {
       ] = await Promise.all([
         getAnalyticsOverview(r.dateFrom, r.dateTo),
         getTopSellingProducts(10, { dateFrom: r.dateFrom, dateTo: r.dateTo }),
-        getSalesByCity(5, r.dateFrom, r.dateTo),
+        getSalesByCity(100, r.dateFrom, r.dateTo),
         getPaymentMethodStats(r.dateFrom, r.dateTo),
         getRecentActivity(5, r.dateFrom, r.dateTo),
       ]);
@@ -1032,7 +1032,7 @@ export default function AdminAnalyticsPage() {
                 No sales data yet
               </p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2">
                 {cityData.map((city) => (
                   <div key={city.city} className="space-y-2">
                     <div className="flex items-center justify-between">

@@ -40,7 +40,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
   
   return (
     <>
+      {/* key: remount per product so colour/size selection never carries over between products */}
       <ProductDetails
+        key={product.id}
         product={{
           ...product,
           regularPrice: Number(product.regularPrice),

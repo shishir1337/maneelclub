@@ -100,8 +100,26 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     return sortSizes(sizes);
   }, [product.sizes, product.variants]);
   
-  // State - no default selection; user must choose to avoid wrong variant orders
-  const [selectedColor, setSelectedColor] = useState("");
+  // Default colour: the first one that still has stock, falling back to the first colour.
+  // Pre-selecting lets customers see size availability immediately, without a click.
+  // Preferring an in-stock colour avoids opening on a sold-out colour with every size disabled.
+  const defaultColor = useMemo(() => {
+    if (availableColors.length === 0) return "";
+
+    const variants = product.variants;
+    const tracking = product.trackInventory ?? false;
+    if (!tracking || !variants || variants.length === 0) {
+      return availableColors[0];
+    }
+
+    const firstInStock = availableColors.find((color) =>
+      variants.some((v) => v.color === color && v.stock > 0)
+    );
+    return firstInStock ?? availableColors[0];
+  }, [availableColors, product.variants, product.trackInventory]);
+
+  // State - size is still an explicit choice; colour defaults to defaultColor
+  const [selectedColor, setSelectedColor] = useState(defaultColor);
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
   
