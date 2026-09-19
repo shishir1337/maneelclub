@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
 import { resolveTouch } from "@/lib/attribution";
 import { useAttributionStore } from "@/store/attribution-store";
 
@@ -16,9 +15,13 @@ import { useAttributionStore } from "@/store/attribution-store";
  * Wrapped in try/catch - attribution must never break the page.
  */
 export function AttributionProvider({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const record = useAttributionStore((state) => state.record);
 
+  // Mount-only on purpose. A genuine new arrival is always a fresh document load,
+  // which remounts this provider. Re-running on route change would misread internal
+  // navigation (no params, no referrer) as a new "direct" visit and overwrite the
+  // real source - which is exactly what happens in the Meta/TikTok in-app browsers
+  // where the referrer is stripped.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -35,7 +38,8 @@ export function AttributionProvider({ children }: { children: React.ReactNode })
     } catch {
       // Analytics only - never surface or block on failure.
     }
-  }, [pathname, record]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return <>{children}</>;
 }

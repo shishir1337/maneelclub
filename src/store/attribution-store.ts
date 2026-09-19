@@ -28,10 +28,17 @@ export const useAttributionStore = create<AttributionState>()(
       record: (touch) => {
         if (!touch) return;
 
-        const { first, firstSetAt } = get();
+        const { first, last, firstSetAt } = get();
         const now = Date.now();
         const firstExpired =
           firstSetAt == null || now - firstSetAt > FIRST_TOUCH_WINDOW_MS;
+
+        // Last non-direct attribution (the rule Google Analytics uses): a later direct
+        // visit must not erase a known source. Without this, a customer who arrives from
+        // an ad and returns later by typing the URL would be credited to "direct".
+        if (touch.channel === "direct" && last && last.channel !== "direct") {
+          return;
+        }
 
         set({
           // First-touch is write-once within the window.
