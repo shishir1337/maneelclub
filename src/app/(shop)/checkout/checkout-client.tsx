@@ -22,6 +22,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useCartStore } from "@/store/cart-store";
+import { useAttributionStore } from "@/store/attribution-store";
 import { formatPrice } from "@/lib/format";
 import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { createOrder } from "@/actions/orders";
@@ -261,6 +262,14 @@ export default function CheckoutClient({
           quantity: item.quantity,
         })),
         couponId: appliedCoupon?.couponId ?? undefined,
+        // Traffic source, for admin reporting. Never blocks the order if unavailable.
+        attribution: (() => {
+          try {
+            return useAttributionStore.getState().getAttribution();
+          } catch {
+            return undefined;
+          }
+        })(),
       });
       
       if (result.success && result.data) {

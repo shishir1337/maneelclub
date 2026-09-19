@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { courierCheckByPhone, type CourierCheckData } from "@/lib/bdcourier";
+import type { TouchData } from "@/lib/attribution";
 
 // Helper to check admin role
 async function checkAdmin() {
@@ -44,6 +45,9 @@ export type OrderDetailData = {
   transactionId: string | null;
   paidAt: Date | null;
   clientIp: string | null;
+  sourceChannel: string | null;
+  firstSourceChannel: string | null;
+  attribution: { first: TouchData | null; last: TouchData | null } | null;
   courierCheckData: CourierCheckData | null;
   courierCheckCheckedAt: Date | null;
   createdAt: Date;
@@ -74,6 +78,8 @@ export async function getAdminOrders(options?: {
   paymentStatus?: PaymentStatus;
   search?: string;
   userId?: string;
+  /** Normalized traffic channel, or "unknown" for orders with no attribution. */
+  source?: string;
   limit?: number;
   offset?: number;
 }) {
@@ -92,6 +98,11 @@ export async function getAdminOrders(options?: {
 
     if (options?.userId) {
       where.userId = options.userId;
+    }
+
+    if (options?.source) {
+      // Orders placed before attribution shipped have no channel at all.
+      where.sourceChannel = options.source === "unknown" ? null : options.source;
     }
 
     if (options?.search) {
@@ -275,6 +286,10 @@ export async function getOrderById(
       transactionId: order.transactionId,
       paidAt: order.paidAt,
       clientIp: order.clientIp ?? null,
+      sourceChannel: order.sourceChannel ?? null,
+      firstSourceChannel: order.firstSourceChannel ?? null,
+      attribution:
+        (order.attribution as { first: TouchData | null; last: TouchData | null } | null) ?? null,
       courierCheckData: (order as { courierCheckData?: CourierCheckData | null }).courierCheckData ?? null,
       courierCheckCheckedAt: (order as { courierCheckCheckedAt?: Date | null }).courierCheckCheckedAt ?? null,
       createdAt: order.createdAt,

@@ -339,6 +339,11 @@ model Order {
   // Client IP for cooldown and IP ban (best-effort; x-forwarded-for can be spoofed)
   clientIp     String?
 
+  // Traffic attribution (best-effort, captured client-side; null for pre-feature orders)
+  sourceChannel      String?  // normalized last-touch channel, e.g. "facebook"
+  firstSourceChannel String?  // normalized first-touch channel
+  attribution        Json?    // { first: TouchData | null, last: TouchData | null }
+
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -353,6 +358,7 @@ model Order {
   @@index([status])
   @@index([paymentStatus])
   @@index([createdAt])
+  @@index([sourceChannel])
 }
 
 model OrderItem {

@@ -55,6 +55,7 @@ import { ORDER_STATUS, ORDER_STATUSES, PAYMENT_STATUSES } from "@/lib/constants"
 import { getAdminOrders, getAdminOrderCountsByStatus, updateOrderStatus, verifyPayment, rejectPayment, refreshCourierCheck, bulkUpdateOrderStatus, bulkVerifyPayment, bulkRejectPayment, deleteOrder, bulkDeleteOrders } from "@/actions/admin/orders";
 import { banPhone } from "@/actions/admin/phone-bans";
 import { toast } from "sonner";
+import { CHANNELS, channelLabel, channelColor } from "@/lib/attribution";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -128,6 +129,7 @@ interface Order {
   courierCheckData?: CourierCheckData | null;
   courierCheckCheckedAt?: Date | null;
   clientIp?: string | null;
+  sourceChannel?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -156,6 +158,7 @@ export default function AdminOrdersPage() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -181,12 +184,12 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filters change
-  }, [customerId, debouncedSearchQuery, statusFilter, paymentFilter]);
+  }, [customerId, debouncedSearchQuery, statusFilter, paymentFilter, sourceFilter]);
 
   // Clear selection when filters, page, or search change
   useEffect(() => {
     setSelectedOrderIds(new Set());
-  }, [currentPage, statusFilter, paymentFilter, debouncedSearchQuery, customerId]);
+  }, [currentPage, statusFilter, paymentFilter, sourceFilter, debouncedSearchQuery, customerId]);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -199,6 +202,7 @@ export default function AdminOrdersPage() {
         search: debouncedSearchQuery || undefined,
         status: statusFilter !== "all" ? (statusFilter as OrderStatus) : undefined,
         paymentStatus: paymentFilter !== "all" ? (paymentFilter as PaymentStatus) : undefined,
+        source: sourceFilter !== "all" ? sourceFilter : undefined,
       });
 
       if (result.success && result.data) {
@@ -212,7 +216,7 @@ export default function AdminOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [customerId, currentPage, debouncedSearchQuery, statusFilter, paymentFilter]);
+  }, [customerId, currentPage, debouncedSearchQuery, statusFilter, paymentFilter, sourceFilter]);
 
   useEffect(() => {
     loadOrders();
@@ -560,6 +564,20 @@ export default function AdminOrdersPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={sourceFilter} onValueChange={setSourceFilter}>
+            <SelectTrigger className="h-9 w-full text-sm sm:w-[140px]">
+              <SelectValue placeholder="Source" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sources</SelectItem>
+              {CHANNELS.map((channel) => (
+                <SelectItem key={channel} value={channel}>
+                  {channelLabel(channel)}
+                </SelectItem>
+              ))}
+              <SelectItem value="unknown">Unknown</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -865,6 +883,7 @@ export default function AdminOrdersPage() {
                   <TableHead>Courier</TableHead>
                   <TableHead>Purchases</TableHead>
                   <TableHead>Payment</TableHead>
+                  <TableHead>Source</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
@@ -874,7 +893,7 @@ export default function AdminOrdersPage() {
               <TableBody>
                 {orders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       <p className="text-muted-foreground">
                         {loading
                           ? "Loading orders..."
@@ -1096,6 +1115,15 @@ export default function AdminOrdersPage() {
                             </div>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {order.sourceChannel ? (
+                          <Badge className={channelColor(order.sourceChannel)}>
+                            {channelLabel(order.sourceChannel)}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <p className="font-medium">{formatPrice(order.total)}</p>

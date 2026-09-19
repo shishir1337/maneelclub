@@ -615,6 +615,53 @@ export async function getSalesByCity(
   }
 }
 
+/**
+ * Orders, revenue and AOV grouped by traffic source.
+ * Orders placed before attribution shipped have a null channel and group as "unknown".
+ */
+export async function getOrdersBySource(
+  dateFrom?: string | null,
+  dateTo?: string | null
+) {
+  try {
+    await checkAdmin();
+
+    const range = parseDateRange(dateFrom ?? undefined, dateTo ?? undefined);
+    const dateWhere = range ? { createdAt: { gte: range.start, lte: range.end } } : undefined;
+
+    const grouped = await db.order.groupBy({
+      by: ["sourceChannel"],
+      _count: { id: true },
+      _sum: { total: true },
+      where: {
+        status: { not: "CANCELLED" },
+        ...dateWhere,
+      },
+      orderBy: { _sum: { total: "desc" } },
+    });
+
+    const data = grouped.map((item) => {
+      const orders = item._count.id;
+      const revenue = Number(item._sum.total || 0);
+      return {
+        channel: item.sourceChannel ?? "unknown",
+        orders,
+        revenue,
+        aov: orders > 0 ? revenue / orders : 0,
+      };
+    });
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("Error fetching orders by source:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to fetch orders by source",
+    };
+  }
+}
+
 // Get payment method statistics (optionally scoped to dateFrom/dateTo)
 export async function getPaymentMethodStats(
   dateFrom?: string | null,

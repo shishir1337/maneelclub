@@ -65,11 +65,13 @@ import {
   getOrdersByStatusOverTime,
   getTopSellingProducts,
   getSalesByCity,
+  getOrdersBySource,
   getPaymentMethodStats,
   getRecentActivity,
 } from "@/actions/admin/analytics";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { channelLabel, channelColor } from "@/lib/attribution";
 
 // Colors for charts
 const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7300", "#0088fe"];
@@ -163,6 +165,13 @@ interface CityData {
   city: string;
   orders: number;
   revenue: number;
+}
+
+interface SourceData {
+  channel: string;
+  orders: number;
+  revenue: number;
+  aov: number;
 }
 
 interface PaymentData {
@@ -259,12 +268,13 @@ function buildAnalyticsCsv(params: {
   overview: OverviewData | null;
   topProducts: TopProduct[];
   cityData: CityData[];
+  sourceData: SourceData[];
   paymentData: PaymentData[];
   recentOrders: RecentOrder[];
   revenueData: RevenueData[];
   orderData: OrderData[];
 }): string {
-  const { rangeLabel, overview, topProducts, cityData, paymentData, recentOrders, revenueData, orderData } = params;
+  const { rangeLabel, overview, topProducts, cityData, sourceData, paymentData, recentOrders, revenueData, orderData } = params;
   const lines: string[] = [];
   const now = new Date().toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
 
@@ -300,6 +310,13 @@ function buildAnalyticsCsv(params: {
   lines.push("City,Orders,Revenue");
   cityData.forEach((c) => {
     lines.push(`${escapeCsvCell(c.city)},${escapeCsvCell(c.orders)},${escapeCsvCell(c.revenue)}`);
+  });
+  lines.push("");
+
+  lines.push("Sales by Source");
+  lines.push("Source,Orders,Revenue,AOV");
+  sourceData.forEach((x) => {
+    lines.push(`${escapeCsvCell(channelLabel(x.channel))},${escapeCsvCell(x.orders)},${escapeCsvCell(x.revenue)},${escapeCsvCell(Math.round(x.aov))}`);
   });
   lines.push("");
 
@@ -349,6 +366,7 @@ export default function AdminAnalyticsPage() {
   const [statusOverTimeData, setStatusOverTimeData] = useState<StatusOverTimeData[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [cityData, setCityData] = useState<CityData[]>([]);
+  const [sourceData, setSourceData] = useState<SourceData[]>([]);
   const [paymentData, setPaymentData] = useState<PaymentData[]>([]);
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [rangeLabel, setRangeLabel] = useState<string>("");
@@ -365,6 +383,7 @@ export default function AdminAnalyticsPage() {
     setOverview(null);
     setTopProducts([]);
     setCityData([]);
+    setSourceData([]);
     setPaymentData([]);
     setRecentOrders([]);
     try {
@@ -372,12 +391,14 @@ export default function AdminAnalyticsPage() {
         overviewResult,
         topProductsResult,
         cityResult,
+        sourceResult,
         paymentResult,
         recentResult,
       ] = await Promise.all([
         getAnalyticsOverview(r.dateFrom, r.dateTo),
         getTopSellingProducts(10, { dateFrom: r.dateFrom, dateTo: r.dateTo }),
         getSalesByCity(100, r.dateFrom, r.dateTo),
+        getOrdersBySource(r.dateFrom, r.dateTo),
         getPaymentMethodStats(r.dateFrom, r.dateTo),
         getRecentActivity(5, r.dateFrom, r.dateTo),
       ]);
@@ -392,6 +413,10 @@ export default function AdminAnalyticsPage() {
 
       if (cityResult.success && cityResult.data) {
         setCityData(cityResult.data);
+      }
+
+      if (sourceResult.success && sourceResult.data) {
+        setSourceData(sourceResult.data);
       }
 
       if (paymentResult.success && paymentResult.data) {
@@ -514,6 +539,7 @@ export default function AdminAnalyticsPage() {
                   overview,
                   topProducts,
                   cityData,
+                  sourceData,
                   paymentData,
                   recentOrders,
                   revenueData,
@@ -1065,6 +1091,74 @@ export default function AdminAnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sales by Source */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Sales by Source</CardTitle>
+          <CardDescription>
+            Which traffic source drives revenue. Orders placed before source tracking was
+            added show as Unknown.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sourceData.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No source data yet
+            </p>
+          ) : (
+            <div className="space-y-6">
+              <div className="h-[260px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={sourceData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="channel"
+                      tickFormatter={(value: string) => channelLabel(value)}
+                      tick={{ fontSize: 12 }}
+                      interval={0}
+                      angle={-25}
+                      textAnchor="end"
+                      height={70}
+                    />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(value) => formatPrice(Number(value ?? 0))}
+                      labelFormatter={(label) => channelLabel(String(label ?? ""))}
+                    />
+                    <Bar dataKey="revenue" fill="#8884d8" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Source</TableHead>
+                    <TableHead className="text-right">Orders</TableHead>
+                    <TableHead className="text-right">Revenue</TableHead>
+                    <TableHead className="text-right">AOV</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sourceData.map((row) => (
+                    <TableRow key={row.channel}>
+                      <TableCell>
+                        <Badge className={channelColor(row.channel)}>
+                          {channelLabel(row.channel)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">{row.orders}</TableCell>
+                      <TableCell className="text-right">{formatPrice(row.revenue)}</TableCell>
+                      <TableCell className="text-right">{formatPrice(row.aov)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Payment Methods */}

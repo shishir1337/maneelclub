@@ -2,7 +2,7 @@
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { DataLayerProvider } from "@/components/analytics";
+import { DataLayerProvider, AttributionProvider } from "@/components/analytics";
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -12,7 +12,7 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <TooltipProvider delayDuration={0}>
       <DataLayerProvider>
-        {children}
+        <AttributionProvider>{children}</AttributionProvider>
         <Toaster 
         position="bottom-center"
         richColors

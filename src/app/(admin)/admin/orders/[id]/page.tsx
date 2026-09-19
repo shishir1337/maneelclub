@@ -22,7 +22,9 @@ import {
   RefreshCw,
   Trash2,
   Ban,
+  Megaphone,
 } from "lucide-react";
+import { channelLabel, channelColor, isAmbiguousMeta, type TouchData } from "@/lib/attribution";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -118,6 +120,9 @@ interface Order {
   transactionId: string | null;
   paidAt: Date | null;
   clientIp: string | null;
+  sourceChannel: string | null;
+  firstSourceChannel: string | null;
+  attribution: { first: TouchData | null; last: TouchData | null } | null;
   items: OrderItem[];
   createdAt: Date;
   updatedAt: Date;
@@ -700,6 +705,85 @@ export default function AdminOrderDetailPage({
                 <p className="text-sm text-muted-foreground">
                   Payment will be collected upon delivery.
                 </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Traffic Source */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Megaphone className="h-4 w-4" />
+                Traffic Source
+              </CardTitle>
+              <CardDescription>Where this customer came from</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!order.sourceChannel ? (
+                <p className="text-sm text-muted-foreground">
+                  No source recorded. Orders placed before source tracking was added show as unknown.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Last touch (closed the sale)</p>
+                      <Badge className={channelColor(order.sourceChannel)}>
+                        {channelLabel(order.sourceChannel)}
+                      </Badge>
+                      {isAmbiguousMeta(order.attribution?.last) && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Meta click — exact app unknown
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">First touch (found them)</p>
+                      <Badge className={channelColor(order.firstSourceChannel)}>
+                        {channelLabel(order.firstSourceChannel)}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {order.attribution?.last && (
+                    <div className="space-y-2 text-sm border-t pt-4">
+                      {order.attribution.last.campaign && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Campaign</span>
+                          <span className="text-right break-all">{order.attribution.last.campaign}</span>
+                        </div>
+                      )}
+                      {order.attribution.last.medium && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Medium</span>
+                          <span className="text-right">{order.attribution.last.medium}</span>
+                        </div>
+                      )}
+                      {order.attribution.last.clickIdType && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Click ID</span>
+                          <span className="text-right font-mono text-xs break-all">
+                            {order.attribution.last.clickIdType}
+                          </span>
+                        </div>
+                      )}
+                      {order.attribution.last.landingPage && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Landing page</span>
+                          <span className="text-right break-all">{order.attribution.last.landingPage}</span>
+                        </div>
+                      )}
+                      {order.attribution.last.referrer && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Referrer</span>
+                          <span className="text-right break-all text-xs">
+                            {order.attribution.last.referrer}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

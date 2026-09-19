@@ -14,6 +14,7 @@ import { getMetaCapiSettings } from "@/lib/settings";
 import { getClientIp } from "@/lib/client-ip";
 import { isIpBanned } from "@/lib/ip-ban";
 import { isPhoneBanned } from "@/lib/phone-ban";
+import { attributionSchema } from "@/schemas/attribution";
 
 interface CartItem {
   productId: string;
@@ -43,6 +44,45 @@ interface CreateOrderInput {
   items: CartItem[];
   /** Optional: coupon ID from validateCoupon. Server re-validates and applies discount. */
   couponId?: string | null;
+  /** Optional: traffic attribution captured client-side. Never trusted; validated below. */
+  attribution?: unknown;
+}
+
+/** Resolved attribution columns, or all-null when absent/invalid. */
+interface ResolvedAttribution {
+  sourceChannel: string | null;
+  firstSourceChannel: string | null;
+  attribution: Prisma.InputJsonValue | undefined;
+}
+
+/**
+ * Validate client-supplied attribution. Analytics data must never block an order,
+ * so any problem degrades to nulls rather than throwing.
+ */
+function resolveAttribution(input: unknown): ResolvedAttribution {
+  const empty: ResolvedAttribution = {
+    sourceChannel: null,
+    firstSourceChannel: null,
+    attribution: undefined,
+  };
+
+  try {
+    if (!input) return empty;
+
+    const parsed = attributionSchema.safeParse(input);
+    if (!parsed.success) return empty;
+
+    const { first, last } = parsed.data;
+    if (!first && !last) return empty;
+
+    return {
+      sourceChannel: last?.channel ?? first?.channel ?? null,
+      firstSourceChannel: first?.channel ?? last?.channel ?? null,
+      attribution: { first, last } as unknown as Prisma.InputJsonValue,
+    };
+  } catch {
+    return empty;
+  }
 }
 
 /** Result of createOrder: success with order ids, or failure with error and optional code/cooldown. */
@@ -292,6 +332,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
 
     const h = await headers();
     const clientIp = getClientIp(h);
+    const attribution = resolveAttribution(input.attribution);
 
     // IP ban: blocked IPs cannot place orders
     if (clientIp && (await isIpBanned(clientIp))) {
@@ -350,6 +391,9 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
           orderNumber,
           userId,
           clientIp,
+          sourceChannel: attribution.sourceChannel,
+          firstSourceChannel: attribution.firstSourceChannel,
+          attribution: attribution.attribution,
           customerName: formData.fullName,
           customerEmail: formData.email || null,
           customerPhone: formData.phone,
