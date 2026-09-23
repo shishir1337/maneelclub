@@ -1,4 +1,49 @@
 // Default settings values - shared between client and server
+
+// ---------- Shared link / footer types and typed defaults ----------
+// Declared above DEFAULT_SETTINGS because it serialises them.
+
+/** A single navigation link (header menu, footer columns, footer bottom bar). */
+export type LinkItem = { name: string; href: string };
+
+/** One footer link column: a heading plus its links. */
+export type FooterColumn = { title: string; links: LinkItem[] };
+
+export const DEFAULT_HEADER_MENU: LinkItem[] = [
+  { name: "Home", href: "/" },
+  { name: "Shop", href: "/shop" },
+  { name: "New Arrivals", href: "/product-category/new-arrivals" },
+  { name: "Winter Collection", href: "/product-category/winter-collection" },
+  { name: "Hoodie", href: "/product-category/hoodie" },
+];
+
+export const DEFAULT_FOOTER_COLUMNS: FooterColumn[] = [
+  {
+    title: "Shop",
+    links: [
+      { name: "All Products", href: "/shop" },
+      { name: "About Us", href: "/about" },
+      { name: "New Arrivals", href: "/product-category/new-arrivals" },
+      { name: "Winter Collection", href: "/product-category/winter-collection" },
+      { name: "Hoodie", href: "/product-category/hoodie" },
+    ],
+  },
+  {
+    title: "Support",
+    links: [
+      { name: "Contact Us", href: "/contact" },
+      { name: "Shipping Info", href: "/shipping" },
+      { name: "Returns & Exchange", href: "/returns" },
+      { name: "FAQ", href: "/faq" },
+    ],
+  },
+];
+
+export const DEFAULT_FOOTER_BOTTOM_LINKS: LinkItem[] = [
+  { name: "Privacy Policy", href: "/privacy" },
+  { name: "Terms of Service", href: "/terms" },
+];
+
 export const DEFAULT_SETTINGS = {
   // Store Information
   storeName: "Maneel Club",
@@ -47,13 +92,70 @@ export const DEFAULT_SETTINGS = {
   gtmContainerId: "",
 
   // Header navigation (JSON array of { name, href })
-  headerMenu: JSON.stringify([
-    { name: "Home", href: "/" },
-    { name: "Shop", href: "/shop" },
-    { name: "New Arrivals", href: "/product-category/new-arrivals" },
-    { name: "Winter Collection", href: "/product-category/winter-collection" },
-    { name: "Hoodie", href: "/product-category/hoodie" },
-  ]),
+  headerMenu: JSON.stringify(DEFAULT_HEADER_MENU),
+
+  // Footer (Admin → Settings → Footer). Store name, phone, email and socials come from the General tab.
+  footerTagline: "Premium clothing brand in Bangladesh. Quality fashion at affordable prices.",
+  footerColumns: JSON.stringify(DEFAULT_FOOTER_COLUMNS), // JSON array of { title, links: [{ name, href }] }
+  footerAddress:
+    "Block #A, Muntaha Tower (Grand Floor)\nBehind Al Baraka Hospital, Model Town\nKeraniganj, Dhaka- 1310", // one line per row
+  footerMapUrl: "https://maps.app.goo.gl/eva1uWFvVgVcTaKC9",
+  footerBottomLinks: JSON.stringify(DEFAULT_FOOTER_BOTTOM_LINKS), // JSON array of { name, href }
 } as const;
 
 export type SettingsKey = keyof typeof DEFAULT_SETTINGS;
+
+// ---------- Parsers (pure; safe on client and server) ----------
+
+export function isLinkItem(value: unknown): value is LinkItem {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as LinkItem).name === "string" &&
+    typeof (value as LinkItem).href === "string"
+  );
+}
+
+/**
+ * Parse a JSON link list setting. Missing, blank, unparsable or non-array input returns `fallback`.
+ * A valid array returns its valid items, which may be empty, so an admin can genuinely clear a list.
+ */
+export function parseLinkList(raw: string | null | undefined, fallback: LinkItem[]): LinkItem[] {
+  if (!raw?.trim()) return fallback;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return fallback;
+    return parsed.filter(isLinkItem).map(({ name, href }) => ({ name, href }));
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Parse the footer columns JSON setting. Same contract as parseLinkList: keeps columns that have a
+ * string title and an array of links, dropping any malformed links inside them.
+ */
+export function parseFooterColumns(
+  raw: string | null | undefined,
+  fallback: FooterColumn[]
+): FooterColumn[] {
+  if (!raw?.trim()) return fallback;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return fallback;
+    return parsed
+      .filter(
+        (column): column is { title: string; links: unknown[] } =>
+          typeof column === "object" &&
+          column !== null &&
+          typeof (column as FooterColumn).title === "string" &&
+          Array.isArray((column as FooterColumn).links)
+      )
+      .map((column) => ({
+        title: column.title,
+        links: column.links.filter(isLinkItem).map(({ name, href }) => ({ name, href })),
+      }));
+  } catch {
+    return fallback;
+  }
+}
