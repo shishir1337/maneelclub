@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Save, RefreshCw, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, Save, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,15 @@ import { getSettings, updateSettings } from "@/actions/admin/settings";
 import {
   DEFAULT_SETTINGS,
   DEFAULT_HEADER_MENU,
+  DEFAULT_FOOTER_COLUMNS,
+  DEFAULT_FOOTER_BOTTOM_LINKS,
   parseLinkList,
+  parseFooterColumns,
   type LinkItem,
+  type FooterColumn,
 } from "@/lib/settings-defaults";
+import { LinkListEditor } from "@/components/admin/link-list-editor";
+import { FooterColumnsEditor } from "@/components/admin/footer-columns-editor";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -30,6 +36,8 @@ function parseHeaderMenu(raw: string | undefined): LinkItem[] {
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS as unknown as Record<string, string>);
   const [menuItems, setMenuItems] = useState<LinkItem[]>(DEFAULT_HEADER_MENU);
+  const [footerColumns, setFooterColumns] = useState<FooterColumn[]>(DEFAULT_FOOTER_COLUMNS);
+  const [footerBottomLinks, setFooterBottomLinks] = useState<LinkItem[]>(DEFAULT_FOOTER_BOTTOM_LINKS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -45,6 +53,8 @@ export default function AdminSettingsPage() {
       if (result.success && result.data) {
         setSettings(result.data);
         setMenuItems(parseHeaderMenu(result.data.headerMenu));
+        setFooterColumns(parseFooterColumns(result.data.footerColumns, DEFAULT_FOOTER_COLUMNS));
+        setFooterBottomLinks(parseLinkList(result.data.footerBottomLinks, DEFAULT_FOOTER_BOTTOM_LINKS));
       } else {
         toast.error(result.error || "Failed to load settings");
       }
@@ -86,6 +96,8 @@ export default function AdminSettingsPage() {
     if (confirm("Are you sure you want to reset all settings to defaults?")) {
       setSettings(DEFAULT_SETTINGS as unknown as Record<string, string>);
       setMenuItems(DEFAULT_HEADER_MENU);
+      setFooterColumns(DEFAULT_FOOTER_COLUMNS);
+      setFooterBottomLinks(DEFAULT_FOOTER_BOTTOM_LINKS);
       setHasChanges(true);
     }
   }
@@ -96,27 +108,16 @@ export default function AdminSettingsPage() {
     setHasChanges(true);
   }
 
-  function addMenuItem() {
-    updateMenuItems([...menuItems, { name: "New Link", href: "/" }]);
+  function updateFooterColumns(next: FooterColumn[]) {
+    setFooterColumns(next);
+    setSettings((prev) => ({ ...prev, footerColumns: JSON.stringify(next) }));
+    setHasChanges(true);
   }
 
-  function removeMenuItem(index: number) {
-    updateMenuItems(menuItems.filter((_, i) => i !== index));
-  }
-
-  function moveMenuItem(index: number, dir: "up" | "down") {
-    const newItems = [...menuItems];
-    const target = dir === "up" ? index - 1 : index + 1;
-    if (target < 0 || target >= newItems.length) return;
-    [newItems[index], newItems[target]] = [newItems[target], newItems[index]];
-    updateMenuItems(newItems);
-  }
-
-  function updateMenuItemField(index: number, field: "name" | "href", value: string) {
-    const next = menuItems.map((item, i) =>
-      i === index ? { ...item, [field]: value } : item
-    );
-    updateMenuItems(next);
+  function updateFooterBottomLinks(next: LinkItem[]) {
+    setFooterBottomLinks(next);
+    setSettings((prev) => ({ ...prev, footerBottomLinks: JSON.stringify(next) }));
+    setHasChanges(true);
   }
 
   if (isLoading) {
@@ -185,9 +186,10 @@ export default function AdminSettingsPage() {
         {/* Tab list: horizontal scroll on mobile; clear separation so Store Information never overlaps */}
         <div className="relative z-0 mb-4 border-b border-border bg-background pb-3 pt-1 md:mb-0 md:border-0 md:pb-0 md:pt-0">
           <div className="-mx-1 overflow-x-auto px-1 md:mx-0 md:overflow-visible md:px-0 [scrollbar-width:thin]">
-            <TabsList className="inline-flex h-10 w-max min-w-full flex-none flex-nowrap gap-0 rounded-lg border bg-muted/80 p-1 md:grid md:w-full md:grid-cols-7 md:flex-initial">
+            <TabsList className="inline-flex h-10 w-max min-w-full flex-none flex-nowrap gap-0 rounded-lg border bg-muted/80 p-1 md:grid md:w-full md:grid-cols-8 md:flex-initial">
               <TabsTrigger value="general" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">General</TabsTrigger>
               <TabsTrigger value="navigation" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">Navigation</TabsTrigger>
+              <TabsTrigger value="footer" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">Footer</TabsTrigger>
               <TabsTrigger value="shipping" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">Shipping</TabsTrigger>
               <TabsTrigger value="payment" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">Payment</TabsTrigger>
               <TabsTrigger value="announcement" className="max-md:flex-none max-md:flex-shrink-0 md:flex-1">Announcement</TabsTrigger>
@@ -355,73 +357,98 @@ export default function AdminSettingsPage() {
                 Manage the main navigation links in the storefront header. Order is top to bottom (first item appears left).
               </CardDescription>
             </CardHeader>
+            <CardContent>
+              <LinkListEditor
+                items={menuItems}
+                onChange={updateMenuItems}
+                minItems={1}
+                addLabel="Add menu item"
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Footer */}
+        <TabsContent value="footer" className="mt-0 space-y-6 pt-4 md:pt-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Brand</CardTitle>
+              <CardDescription>
+                Short text shown under the logo in the footer. Store name, phone, email, Facebook and Instagram come from the General tab.
+              </CardDescription>
+            </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-3">
-                {menuItems.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-col sm:flex-row gap-2 p-3 rounded-lg border bg-muted/30"
-                  >
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => moveMenuItem(index, "up")}
-                        disabled={index === 0}
-                        aria-label="Move up"
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => moveMenuItem(index, "down")}
-                        disabled={index === menuItems.length - 1}
-                        aria-label="Move down"
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => removeMenuItem(index)}
-                        disabled={menuItems.length <= 1}
-                        aria-label="Remove"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="flex-1 grid gap-2 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Label</Label>
-                        <Input
-                          value={item.name}
-                          onChange={(e) => updateMenuItemField(index, "name", e.target.value)}
-                          placeholder="e.g. Shop"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">URL</Label>
-                        <Input
-                          value={item.href}
-                          onChange={(e) => updateMenuItemField(index, "href", e.target.value)}
-                          placeholder="e.g. /shop or /product-category/slug"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="space-y-2">
+                <Label htmlFor="footerTagline">Tagline</Label>
+                <Textarea
+                  id="footerTagline"
+                  value={settings.footerTagline || ""}
+                  onChange={(e) => handleChange("footerTagline", e.target.value)}
+                  rows={2}
+                  placeholder="Premium clothing brand in Bangladesh."
+                />
+                <p className="text-sm text-muted-foreground">Leave empty to hide the tagline.</p>
               </div>
-              <Button type="button" variant="outline" onClick={addMenuItem} className="w-full sm:w-auto">
-                <Plus className="h-4 w-4 mr-2" />
-                Add menu item
-              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Link Columns</CardTitle>
+              <CardDescription>
+                Link columns shown between the brand block and the Contact column. The current design uses two: Shop and Support.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FooterColumnsEditor columns={footerColumns} onChange={updateFooterColumns} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Contact</CardTitle>
+              <CardDescription>
+                Address shown in the footer Contact column. Phone and email come from the General tab.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="footerAddress">Address</Label>
+                <Textarea
+                  id="footerAddress"
+                  value={settings.footerAddress || ""}
+                  onChange={(e) => handleChange("footerAddress", e.target.value)}
+                  rows={3}
+                  placeholder={"Block #A, Muntaha Tower\nKeraniganj, Dhaka"}
+                />
+                <p className="text-sm text-muted-foreground">One line per row. Leave empty to hide the address.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="footerMapUrl">Map link</Label>
+                <Input
+                  id="footerMapUrl"
+                  value={settings.footerMapUrl || ""}
+                  onChange={(e) => handleChange("footerMapUrl", e.target.value)}
+                  placeholder="https://maps.app.goo.gl/..."
+                />
+                <p className="text-sm text-muted-foreground">The address links to this URL when set.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Bottom Links</CardTitle>
+              <CardDescription>Links next to the copyright line, e.g. Privacy Policy and Terms of Service.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LinkListEditor
+                items={footerBottomLinks}
+                onChange={updateFooterBottomLinks}
+                labelPlaceholder="e.g. Privacy Policy"
+                hrefPlaceholder="e.g. /privacy"
+                addLabel="Add link"
+              />
             </CardContent>
           </Card>
         </TabsContent>
