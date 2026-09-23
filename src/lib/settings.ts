@@ -3,9 +3,14 @@ import { cache } from "react";
 import {
   DEFAULT_SETTINGS,
   DEFAULT_HEADER_MENU,
+  buildFooterSettings,
   parseLinkList,
+  type FooterSettings,
   type LinkItem,
 } from "@/lib/settings-defaults";
+import { siteConfig } from "@/lib/constants";
+
+export type { FooterSettings };
 
 // Cache the settings fetch to avoid multiple database calls per request
 export const getSettings = cache(async (): Promise<Record<string, string>> => {
@@ -158,4 +163,13 @@ export const getHeaderMenu = cache(async (): Promise<HeaderNavItem[]> => {
   const settings = await getSettings();
   const items = parseLinkList(settings.headerMenu, DEFAULT_HEADER_MENU);
   return items.length > 0 ? items : DEFAULT_HEADER_MENU;
+});
+
+// Get everything the storefront footer and WhatsApp button need (Admin → Settings → General + Footer)
+export const getFooterSettings = cache(async (): Promise<FooterSettings> => {
+  const [settings, whatsappNumber] = await Promise.all([getSettings(), getWhatsappNumber()]);
+  return buildFooterSettings(settings, {
+    whatsappNumber,
+    fallbackStoreName: siteConfig.name,
+  });
 });

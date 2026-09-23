@@ -105,6 +105,50 @@ export const DEFAULT_SETTINGS = {
 
 export type SettingsKey = keyof typeof DEFAULT_SETTINGS;
 
+/** Everything the storefront footer renders. Empty strings and empty arrays mean "hide". */
+export type FooterSettings = {
+  storeName: string;
+  tagline: string;
+  facebookUrl: string;
+  instagramUrl: string;
+  /** Raw number as entered, e.g. "+8801997193518". Strip non-digits for wa.me links. */
+  whatsappNumber: string;
+  email: string;
+  phone: string;
+  /** Trimmed non-empty address lines. */
+  address: string[];
+  mapUrl: string;
+  columns: FooterColumn[];
+  bottomLinks: LinkItem[];
+};
+
+/**
+ * Build the footer view model from raw settings. Pure so it can be unit tested; the server wrapper
+ * in lib/settings.ts supplies the settings map and the resolved WhatsApp number.
+ */
+export function buildFooterSettings(
+  settings: Record<string, string | undefined>,
+  options: { whatsappNumber: string; fallbackStoreName: string }
+): FooterSettings {
+  const text = (value: string | undefined) => (value ?? "").trim();
+  return {
+    storeName: text(settings.storeName) || options.fallbackStoreName,
+    tagline: text(settings.footerTagline),
+    facebookUrl: text(settings.facebookUrl),
+    instagramUrl: text(settings.instagramUrl),
+    whatsappNumber: text(options.whatsappNumber),
+    email: text(settings.storeEmail),
+    phone: text(settings.storePhone),
+    address: (settings.footerAddress ?? "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean),
+    mapUrl: text(settings.footerMapUrl),
+    columns: parseFooterColumns(settings.footerColumns, DEFAULT_FOOTER_COLUMNS),
+    bottomLinks: parseLinkList(settings.footerBottomLinks, DEFAULT_FOOTER_BOTTOM_LINKS),
+  };
+}
+
 // ---------- Parsers (pure; safe on client and server) ----------
 
 export function isLinkItem(value: unknown): value is LinkItem {
