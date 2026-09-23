@@ -87,7 +87,7 @@ describe("DEFAULT_SETTINGS footer and header defaults", () => {
     );
     assert.deepEqual(
       DEFAULT_FOOTER_COLUMNS[1].links.map((l) => l.href),
-      ["/contact", "/shipping", "/returns", "/faq"]
+      ["/contact", "/reviews", "/shipping", "/returns", "/faq"]
     );
   });
 

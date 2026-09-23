@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ProductGrid } from "@/components/product";
 import { ProductGridSkeleton, CategoryGridSkeleton } from "@/components/skeletons";
 import { HeroCarousel } from "@/components/home/hero-carousel";
+import { SocialProofSection } from "@/components/reviews";
 import { siteConfig } from "@/lib/constants";
 import { getFeaturedProducts, getNewArrivals, getFeaturedCategories } from "@/actions/products";
 import { getHeroSlides } from "@/actions/hero-slides";
@@ -178,6 +179,9 @@ export default function HomePage() {
           </Suspense>
         </div>
       </section>
+
+      {/* Social proof: customer count + screenshot reviews (static data until the Reviews admin lands) */}
+      <SocialProofSection />
 
       {/* Promo Banner - hidden when Free Shipping Minimum is 0 */}
       <Suspense fallback={null}>

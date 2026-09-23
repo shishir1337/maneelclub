@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -9,6 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ReviewsGrid } from "@/components/reviews/reviews-grid";
+import type { Review } from "@/lib/reviews-static";
 
 interface SizeChartRow {
   size: string;
@@ -23,6 +27,8 @@ interface SizeChart {
 interface ProductTabsProps {
   description: string | null;
   sizeChart: SizeChart | null;
+  /** Customer screenshots for this product (tagged first, then featured general ones). */
+  reviews?: Review[];
 }
 
 const shippingInfo = `
@@ -45,7 +51,8 @@ For customers with high cancellation rates or suspected fraud orders, advance bo
 *Note: Delivery may be delayed due to weather conditions, political situations, or technical issues.*
 `;
 
-export function ProductTabs({ description, sizeChart }: ProductTabsProps) {
+export function ProductTabs({ description, sizeChart, reviews = [] }: ProductTabsProps) {
+  const hasReviews = reviews.length > 0;
   return (
     <Tabs defaultValue="description" className="w-full">
       <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
@@ -61,6 +68,14 @@ export function ProductTabs({ description, sizeChart }: ProductTabsProps) {
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
           >
             Size Chart
+          </TabsTrigger>
+        )}
+        {hasReviews && (
+          <TabsTrigger
+            value="reviews"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+          >
+            Reviews
           </TabsTrigger>
         )}
         <TabsTrigger
@@ -115,6 +130,29 @@ export function ProductTabs({ description, sizeChart }: ProductTabsProps) {
           <p className="text-xs text-muted-foreground mt-4">
             * Measurements are approximate and may vary slightly.
           </p>
+        </TabsContent>
+      )}
+
+      {hasReviews && (
+        <TabsContent value="reviews" className="mt-6">
+          <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <p className="max-w-xl text-sm text-muted-foreground">
+              Screenshots of messages customers sent us after their parcel arrived, shared with
+              their permission.
+            </p>
+            <Link
+              href="/reviews"
+              className="flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline"
+            >
+              See all reviews
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <ReviewsGrid
+            reviews={reviews}
+            columnsClassName="columns-2 md:columns-3"
+            sizes="(max-width: 768px) 50vw, 33vw"
+          />
         </TabsContent>
       )}
 

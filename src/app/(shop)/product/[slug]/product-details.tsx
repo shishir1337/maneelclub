@@ -14,6 +14,8 @@ import {
   ProductTabs,
   AddToCartButton,
 } from "@/components/product";
+import { TrustLine } from "@/components/reviews/trust-line";
+import { getReviewsForProduct } from "@/lib/reviews-static";
 import { formatPrice, calculateDiscount, sortSizes } from "@/lib/format";
 import { UNLIMITED_STOCK } from "@/lib/constants";
 
@@ -410,15 +412,17 @@ export function ProductDetails({ product }: ProductDetailsProps) {
                 disabled={!isInStock}
                 className="w-full"
               />
+              <TrustLine className="pt-1" />
             </div>
           </div>
         </div>
 
         {/* Product Tabs */}
         <div className="mt-12">
-          <ProductTabs 
-            description={product.description} 
-            sizeChart={product.sizeChart} 
+          <ProductTabs
+            description={product.description}
+            sizeChart={product.sizeChart}
+            reviews={getReviewsForProduct(product.slug, 6)}
           />
         </div>
       </div>
