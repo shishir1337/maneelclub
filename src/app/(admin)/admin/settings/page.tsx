@@ -12,41 +12,24 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getSettings, updateSettings } from "@/actions/admin/settings";
-import { DEFAULT_SETTINGS } from "@/lib/settings-defaults";
+import {
+  DEFAULT_SETTINGS,
+  DEFAULT_HEADER_MENU,
+  parseLinkList,
+  type LinkItem,
+} from "@/lib/settings-defaults";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type NavItem = { name: string; href: string };
-
-const DEFAULT_HEADER_MENU: NavItem[] = [
-  { name: "Home", href: "/" },
-  { name: "Shop", href: "/shop" },
-  { name: "New Arrivals", href: "/product-category/new-arrivals" },
-  { name: "Winter Collection", href: "/product-category/winter-collection" },
-  { name: "Hoodie", href: "/product-category/hoodie" },
-];
-
-function parseHeaderMenu(raw: string | undefined): NavItem[] {
-  if (!raw?.trim()) return DEFAULT_HEADER_MENU;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return DEFAULT_HEADER_MENU;
-    const items = parsed.filter(
-      (item): item is NavItem =>
-        typeof item === "object" &&
-        item !== null &&
-        typeof (item as NavItem).name === "string" &&
-        typeof (item as NavItem).href === "string"
-    );
-    return items.length > 0 ? items : DEFAULT_HEADER_MENU;
-  } catch {
-    return DEFAULT_HEADER_MENU;
-  }
+/** Header menu editor state: an empty list is never shown, it falls back to the default menu. */
+function parseHeaderMenu(raw: string | undefined): LinkItem[] {
+  const items = parseLinkList(raw, DEFAULT_HEADER_MENU);
+  return items.length > 0 ? items : DEFAULT_HEADER_MENU;
 }
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS as unknown as Record<string, string>);
-  const [menuItems, setMenuItems] = useState<NavItem[]>(DEFAULT_HEADER_MENU);
+  const [menuItems, setMenuItems] = useState<LinkItem[]>(DEFAULT_HEADER_MENU);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -107,7 +90,7 @@ export default function AdminSettingsPage() {
     }
   }
 
-  function updateMenuItems(next: NavItem[]) {
+  function updateMenuItems(next: LinkItem[]) {
     setMenuItems(next);
     setSettings((prev) => ({ ...prev, headerMenu: JSON.stringify(next) }));
     setHasChanges(true);

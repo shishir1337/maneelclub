@@ -17,20 +17,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { siteConfig } from "@/lib/constants";
+import { DEFAULT_HEADER_MENU, type LinkItem } from "@/lib/settings-defaults";
 import { useCartStore } from "@/store/cart-store";
 import { useSession, signOut } from "@/lib/auth-client";
 import { SearchDialog } from "./search-dialog";
 import { useSearchStore } from "@/store/search-store";
 
-const defaultNavigation = [
-  { name: "Home", href: "/" },
-  { name: "Shop", href: "/shop" },
-  { name: "New Arrivals", href: "/product-category/new-arrivals" },
-  { name: "Winter Collection", href: "/product-category/winter-collection" },
-  { name: "Hoodie", href: "/product-category/hoodie" },
-];
-
-export type NavItem = { name: string; href: string };
+export type NavItem = LinkItem;
 
 interface HeaderProps {
   /** Navigation items from admin settings. Falls back to default if not provided. */
@@ -38,7 +31,7 @@ interface HeaderProps {
 }
 
 export function Header({ navigation: navFromProps }: HeaderProps = {}) {
-  const navigation = navFromProps && navFromProps.length > 0 ? navFromProps : defaultNavigation;
+  const navigation = navFromProps && navFromProps.length > 0 ? navFromProps : DEFAULT_HEADER_MENU;
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const searchOpen = useSearchStore((s) => s.isOpen);
