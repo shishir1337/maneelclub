@@ -1,13 +1,22 @@
 "use client";
 
 import { MessageCircle } from "lucide-react";
-import { siteConfig } from "@/lib/constants";
 
-export function WhatsAppButton() {
+interface WhatsAppButtonProps {
+  /** WhatsApp number from admin settings, e.g. "+8801997193518". Renders nothing when empty. */
+  whatsappNumber: string;
+  /** Store name used in the pre-filled chat message. */
+  storeName: string;
+}
+
+export function WhatsAppButton({ whatsappNumber, storeName }: WhatsAppButtonProps) {
+  const digits = whatsappNumber.replace(/\D/g, "");
+  if (!digits) return null;
+
   const message = encodeURIComponent(
-    "Hello! I'm interested in your products from Maneel Club."
+    `Hello! I'm interested in your products from ${storeName}.`
   );
-  const whatsappUrl = `https://wa.me/${siteConfig.whatsapp.replace("+", "")}?text=${message}`;
+  const whatsappUrl = `https://wa.me/${digits}?text=${message}`;
 
   return (
     <a

@@ -1,30 +1,38 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Facebook, Mail, Phone, MapPin, Code } from "lucide-react";
-import { siteConfig } from "@/lib/constants";
+import { Facebook, Instagram, Mail, Phone, MapPin, Code } from "lucide-react";
+import type { FooterSettings } from "@/lib/settings-defaults";
 
-const footerLinks = {
-  shop: [
-    { name: "All Products", href: "/shop" },
-    { name: "About Us", href: "/about" },
-    { name: "New Arrivals", href: "/product-category/new-arrivals" },
-    { name: "Winter Collection", href: "/product-category/winter-collection" },
-    { name: "Hoodie", href: "/product-category/hoodie" },
-  ],
-  support: [
-    { name: "Contact Us", href: "/contact" },
-    { name: "Shipping Info", href: "/shipping" },
-    { name: "Returns & Exchange", href: "/returns" },
-    { name: "FAQ", href: "/faq" },
-  ],
-  account: [
-    { name: "My Account", href: "/dashboard" },
-    { name: "My Orders", href: "/dashboard/orders" },
-  ],
-};
+interface FooterProps {
+  /** Footer content from admin settings (General + Footer tabs). */
+  settings: FooterSettings;
+}
 
-export function Footer() {
+export function Footer({ settings }: FooterProps) {
+  const {
+    storeName,
+    tagline,
+    facebookUrl,
+    instagramUrl,
+    whatsappNumber,
+    email,
+    phone,
+    address,
+    mapUrl,
+    columns,
+    bottomLinks,
+  } = settings;
+  const whatsappDigits = whatsappNumber.replace(/\D/g, "");
+  const whatsappLink = whatsappDigits ? `https://wa.me/${whatsappDigits}` : "";
+  const hasSocial = Boolean(facebookUrl || instagramUrl || whatsappLink);
+  const hasContact = Boolean(phone || email || address.length > 0);
   const currentYear = new Date().getFullYear();
+
+  const addressLines = address.map((line, index) => (
+    <span key={index} className="block">
+      {line}
+    </span>
+  ));
 
   return (
     <footer className="bg-muted/40 border-t">
@@ -43,104 +51,116 @@ export function Footer() {
                     className="object-contain"
                   />
                 </div>
-                <span className="font-bold text-xl">{siteConfig.name}</span>
+                <span className="font-bold text-xl">{storeName}</span>
               </Link>
-              <p className="text-sm text-muted-foreground">
-                Premium clothing brand in Bangladesh. Quality fashion at affordable prices.
-              </p>
-              <div className="flex items-center gap-4">
-                <a
-                  href={siteConfig.facebook}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-primary transition-colors"
-                  aria-label="Facebook"
-                >
-                  <Facebook className="h-5 w-5" />
-                </a>
-                <a
-                  href={siteConfig.whatsappLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-primary transition-colors"
-                  aria-label="WhatsApp"
-                >
-                  <Phone className="h-5 w-5" />
-                </a>
+              {tagline && (
+                <p className="text-sm text-muted-foreground">{tagline}</p>
+              )}
+              {hasSocial && (
+                <div className="flex items-center gap-4">
+                  {facebookUrl && (
+                    <a
+                      href={facebookUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      aria-label="Facebook"
+                    >
+                      <Facebook className="h-5 w-5" />
+                    </a>
+                  )}
+                  {instagramUrl && (
+                    <a
+                      href={instagramUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      aria-label="Instagram"
+                    >
+                      <Instagram className="h-5 w-5" />
+                    </a>
+                  )}
+                  {whatsappLink && (
+                    <a
+                      href={whatsappLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      aria-label="WhatsApp"
+                    >
+                      <Phone className="h-5 w-5" />
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Link Columns (editable in Admin → Settings → Footer) */}
+            {columns.map((column, columnIndex) => (
+              <div key={columnIndex}>
+                <h3 className="font-semibold mb-4">{column.title}</h3>
+                <ul className="space-y-2">
+                  {column.links.map((link, linkIndex) => (
+                    <li key={`${linkIndex}-${link.href}`}>
+                      <Link
+                        href={link.href}
+                        className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        {link.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
-
-            {/* Shop Links */}
-            <div>
-              <h3 className="font-semibold mb-4">Shop</h3>
-              <ul className="space-y-2">
-                {footerLinks.shop.map((link) => (
-                  <li key={link.name}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      {link.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Support Links */}
-            <div>
-              <h3 className="font-semibold mb-4">Support</h3>
-              <ul className="space-y-2">
-                {footerLinks.support.map((link) => (
-                  <li key={link.name}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      {link.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            ))}
 
             {/* Contact Info */}
-            <div>
-              <h3 className="font-semibold mb-4">Contact</h3>
-              <ul className="space-y-3">
-                <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <Phone className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <a
-                    href={`tel:${siteConfig.whatsapp}`}
-                    className="hover:text-primary transition-colors"
-                  >
-                    {siteConfig.whatsapp}
-                  </a>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <Mail className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <a
-                    href={`mailto:${siteConfig.email}`}
-                    className="hover:text-primary transition-colors"
-                  >
-                    {siteConfig.email}
-                  </a>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <a
-                    href="https://maps.app.goo.gl/eva1uWFvVgVcTaKC9"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-primary transition-colors"
-                  >
-                    <span className="block">Block #A, Muntaha Tower (Grand Floor)</span>
-                    <span className="block">Behind Al Baraka Hospital, Model Town</span>
-                    <span className="block">Keraniganj, Dhaka- 1310</span>
-                  </a>
-                </li>
-              </ul>
-            </div>
+            {hasContact && (
+              <div>
+                <h3 className="font-semibold mb-4">Contact</h3>
+                <ul className="space-y-3">
+                  {phone && (
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <Phone className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <a
+                        href={`tel:${phone}`}
+                        className="hover:text-primary transition-colors"
+                      >
+                        {phone}
+                      </a>
+                    </li>
+                  )}
+                  {email && (
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <Mail className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <a
+                        href={`mailto:${email}`}
+                        className="hover:text-primary transition-colors"
+                      >
+                        {email}
+                      </a>
+                    </li>
+                  )}
+                  {address.length > 0 && (
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      {mapUrl ? (
+                        <a
+                          href={mapUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-primary transition-colors"
+                        >
+                          {addressLines}
+                        </a>
+                      ) : (
+                        <span>{addressLines}</span>
+                      )}
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -152,18 +172,23 @@ export function Footer() {
             {/* Copyright and Links */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <p className="text-sm text-muted-foreground">
-                &copy; {currentYear} {siteConfig.name}. All rights reserved.
+                &copy; {currentYear} {storeName}. All rights reserved.
               </p>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <Link href="/privacy" className="hover:text-primary transition-colors">
-                  Privacy Policy
-                </Link>
-                <Link href="/terms" className="hover:text-primary transition-colors">
-                  Terms of Service
-                </Link>
-              </div>
+              {bottomLinks.length > 0 && (
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  {bottomLinks.map((link, index) => (
+                    <Link
+                      key={`${index}-${link.href}`}
+                      href={link.href}
+                      className="hover:text-primary transition-colors"
+                    >
+                      {link.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
-            
+
             {/* Developer Credit */}
             <div className="pt-4 border-t border-border/50">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs text-muted-foreground">

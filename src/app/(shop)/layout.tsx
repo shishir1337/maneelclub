@@ -1,14 +1,15 @@
 import { AnnouncementBar, Header, Footer, WhatsAppButton, MobileDock } from "@/components/layout";
-import { getHeaderMenu, getAnnouncementSettings } from "@/lib/settings";
+import { getHeaderMenu, getAnnouncementSettings, getFooterSettings } from "@/lib/settings";
 
 export default async function ShopLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [navigation, announcement] = await Promise.all([
+  const [navigation, announcement, footer] = await Promise.all([
     getHeaderMenu(),
     getAnnouncementSettings(),
+    getFooterSettings(),
   ]);
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden">
@@ -21,10 +22,10 @@ export default async function ShopLayout({
         countdownEnd={announcement.countdownEnd}
         countdownLabel={announcement.countdownLabel}
       />
-      <Header navigation={navigation} />
+      <Header navigation={navigation} storeName={footer.storeName} />
       <main className="flex-1 pb-24 md:pb-0 overflow-x-hidden">{children}</main>
-      <Footer />
-      <WhatsAppButton />
+      <Footer settings={footer} />
+      <WhatsAppButton whatsappNumber={footer.whatsappNumber} storeName={footer.storeName} />
       <MobileDock />
     </div>
   );

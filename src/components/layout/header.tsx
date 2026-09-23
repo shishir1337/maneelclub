@@ -28,10 +28,13 @@ export type NavItem = LinkItem;
 interface HeaderProps {
   /** Navigation items from admin settings. Falls back to default if not provided. */
   navigation?: NavItem[];
+  /** Store name from admin settings. Falls back to siteConfig.name if not provided. */
+  storeName?: string;
 }
 
-export function Header({ navigation: navFromProps }: HeaderProps = {}) {
+export function Header({ navigation: navFromProps, storeName: storeNameFromProps }: HeaderProps = {}) {
   const navigation = navFromProps && navFromProps.length > 0 ? navFromProps : DEFAULT_HEADER_MENU;
+  const storeName = storeNameFromProps || siteConfig.name;
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const searchOpen = useSearchStore((s) => s.isOpen);
@@ -75,7 +78,7 @@ export function Header({ navigation: navFromProps }: HeaderProps = {}) {
                   <nav className="flex flex-col h-full">
                     {/* Menu header with padding */}
                     <div className="px-5 pt-6 pb-4 border-b">
-                      <span className="text-lg font-semibold text-foreground">{siteConfig.name}</span>
+                      <span className="text-lg font-semibold text-foreground">{storeName}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto py-4 px-5">
                       <div className="flex flex-col gap-1">
@@ -159,7 +162,7 @@ export function Header({ navigation: navFromProps }: HeaderProps = {}) {
               <div className="relative h-9 w-9">
                 <Image
                   src="/logo.png"
-                  alt={siteConfig.name}
+                  alt={storeName}
                   fill
                   sizes="36px"
                   className="object-contain"
@@ -206,7 +209,7 @@ export function Header({ navigation: navFromProps }: HeaderProps = {}) {
                     className="object-contain"
                   />
                 </div>
-                <span className="font-bold text-xl">{siteConfig.name}</span>
+                <span className="font-bold text-xl">{storeName}</span>
               </Link>
             </div>
             <nav className="flex flex-1 items-center justify-center gap-6">
