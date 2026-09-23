@@ -19,9 +19,18 @@ async function checkAdmin() {
   return session.user;
 }
 
-// Get all settings
+/** Settings whose value must be a JSON array (link lists edited in the admin). */
+const JSON_ARRAY_KEYS: ReadonlySet<string> = new Set(["headerMenu", "footerColumns", "footerBottomLinks"]);
+
+function isKnownKey(key: string): key is SettingsKey {
+  return Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key);
+}
+
+// Get all settings (admin only: includes server-side secrets such as the Meta CAPI token)
 export async function getSettings() {
   try {
+    await checkAdmin();
+
     const settings = await db.setting.findMany();
     
     // Merge with defaults
@@ -42,9 +51,11 @@ export async function getSettings() {
   }
 }
 
-// Get a single setting by key
+// Get a single setting by key (admin only)
 export async function getSetting(key: string) {
   try {
+    await checkAdmin();
+
     const setting = await db.setting.findUnique({
       where: { key },
     });
@@ -71,8 +82,27 @@ export async function updateSettings(data: Record<string, string>) {
   try {
     await checkAdmin();
 
+    // Only known keys are written; link lists must be JSON arrays so the storefront can parse them.
+    const entries = Object.entries(data).filter(([key]) => isKnownKey(key));
+    for (const [key, value] of entries) {
+      if (typeof value !== "string") {
+        throw new Error(`Invalid value for "${key}"`);
+      }
+      if (JSON_ARRAY_KEYS.has(key)) {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(value);
+        } catch {
+          throw new Error(`"${key}" must be valid JSON`);
+        }
+        if (!Array.isArray(parsed)) {
+          throw new Error(`"${key}" must be a JSON array`);
+        }
+      }
+    }
+
     // Upsert each setting
-    const operations = Object.entries(data).map(([key, value]) =>
+    const operations = entries.map(([key, value]) =>
       db.setting.upsert({
         where: { key },
         update: { value },
