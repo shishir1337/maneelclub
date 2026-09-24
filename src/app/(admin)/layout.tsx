@@ -19,6 +19,7 @@ import {
   Ticket,
   FileText,
   MessageSquareQuote,
+  Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -45,6 +46,7 @@ const sidebarLinks: SidebarLinkItem[] = [
   { name: "Customers", href: "/admin/customers", icon: Users },
   { name: "Reviews", href: "/admin/reviews", icon: MessageSquareQuote },
   { name: "Coupons", href: "/admin/coupons", icon: Ticket },
+  { name: "Offers", href: "/admin/offers", icon: Gift },
   { name: "IP Bans", href: "/admin/ip-bans", icon: ShieldAlert },
   { name: "Phone Bans", href: "/admin/phone-bans", icon: PhoneOff },
   { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
