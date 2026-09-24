@@ -13,10 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatPrice, formatDate } from "@/lib/format";
-import { getOrderStats, getRecentOrders } from "@/actions/admin/orders";
 import { ORDER_STATUS } from "@/lib/constants";
-import { getAdminProducts } from "@/actions/admin/products";
-import { getCustomerStats } from "@/actions/admin/customers";
+import { getAdminDashboard } from "@/actions/admin/dashboard";
 import { toast } from "sonner";
 import Link from "next/link";
 import { AdminDashboardSkeleton } from "@/components/skeletons/admin-dashboard-skeleton";
@@ -61,17 +59,22 @@ export default function AdminDashboardPage() {
   async function loadDashboardData() {
     setLoading(true);
     try {
-      const [orderStatsResult, recentOrdersResult, productsResult, customerStatsResult] = await Promise.all([
-        getOrderStats(),
-        getRecentOrders(5),
-        getAdminProducts(),
-        getCustomerStats(),
-      ]);
+      // One request for the whole dashboard (the server runs the parts in parallel).
+      const dashboard = await getAdminDashboard();
+      if (!dashboard.success) {
+        toast.error(dashboard.error || "Failed to load dashboard data");
+        return;
+      }
+      const {
+        orderStats: orderStatsResult,
+        recentOrders: recentOrdersResult,
+        productCount,
+        customerStats: customerStatsResult,
+      } = dashboard.data;
 
       if (orderStatsResult.success && orderStatsResult.data) {
         const orderData = orderStatsResult.data;
         const customerData = customerStatsResult.success ? customerStatsResult.data : null;
-        const productCount = productsResult.success ? productsResult.data?.length || 0 : 0;
 
         // Calculate revenue change percentage
         const revenueChange = orderData.lastMonthRevenue > 0
