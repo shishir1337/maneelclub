@@ -8,6 +8,7 @@ import { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/clien
 import { courierCheckByPhone, type CourierCheckData } from "@/lib/bdcourier";
 import type { TouchData } from "@/lib/attribution";
 import { getOrderPromotion } from "@/lib/promotions";
+import { countPurchasesByCustomer, statusCountsFromGroups } from "@/lib/admin-order-stats";
 
 // Helper to check admin role
 async function checkAdmin() {
@@ -123,12 +124,12 @@ export async function getAdminOrders(options?: {
       db.order.findMany({
         where,
         include: {
+          // The list only shows the product title; skip descriptions, size charts, etc.
           items: {
             include: {
-              product: true,
+              product: { select: { id: true, title: true, slug: true, images: true, regularPrice: true, salePrice: true } },
             },
           },
-          user: true,
         },
         orderBy: { createdAt: "desc" },
         take: options?.limit || 50,
@@ -137,29 +138,31 @@ export async function getAdminOrders(options?: {
       db.order.count({ where }),
     ]);
 
-    // Count how many times each customer has purchased (match by phone or email)
-    const purchaseCounts = await Promise.all(
-      ordersRaw.map((o) =>
-        db.order.count({
-          where: {
-            OR: [
-              { customerPhone: o.customerPhone },
-              ...(o.customerEmail
-                ? [{ customerEmail: o.customerEmail }]
-                : []),
-            ],
-          },
-        })
-      )
-    );
+    // "Times purchased" per row (orders sharing the phone or email): one query for the whole
+    // page instead of one count per row.
+    const phones = [...new Set(ordersRaw.map((o) => o.customerPhone))];
+    const emails = [...new Set(ordersRaw.map((o) => o.customerEmail).filter((e): e is string => !!e))];
+    const history =
+      ordersRaw.length === 0
+        ? []
+        : await db.order.findMany({
+            where: {
+              OR: [
+                { customerPhone: { in: phones } },
+                ...(emails.length > 0 ? [{ customerEmail: { in: emails } }] : []),
+              ],
+            },
+            select: { customerPhone: true, customerEmail: true },
+          });
+    const purchaseCounts = countPurchasesByCustomer(ordersRaw, history);
 
-    const orders = ordersRaw.map((o, i) => ({
+    const orders = ordersRaw.map((o) => ({
       ...o,
       clientIp: (o as { clientIp?: string | null }).clientIp ?? null,
       shippingCost: Number(o.shippingCost),
       subtotal: Number(o.subtotal),
       total: Number(o.total),
-      timesPurchased: purchaseCounts[i] ?? 0,
+      timesPurchased: purchaseCounts[o.id] ?? 0,
       items: o.items.map((item) => ({
         ...item,
         price: Number(item.price),
@@ -215,21 +218,13 @@ export async function getAdminOrderCountsByStatus(options?: {
       ];
     }
 
-    const statuses: OrderStatus[] = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
-    const [allCount, ...statusCounts] = await Promise.all([
-      db.order.count({ where }),
-      ...statuses.map((status) => db.order.count({ where: { ...where, status } })),
-    ]);
-
-    const data: Record<OrderStatus | "all", number> = {
-      all: allCount,
-      PENDING: statusCounts[0] ?? 0,
-      CONFIRMED: statusCounts[1] ?? 0,
-      PROCESSING: statusCounts[2] ?? 0,
-      SHIPPED: statusCounts[3] ?? 0,
-      DELIVERED: statusCounts[4] ?? 0,
-      CANCELLED: statusCounts[5] ?? 0,
-    };
+    // One grouped query instead of seven separate counts.
+    const groups = await db.order.groupBy({
+      by: ["status"],
+      where,
+      _count: { _all: true },
+    });
+    const data: Record<OrderStatus | "all", number> = statusCountsFromGroups(groups);
 
     return { success: true, data };
   } catch (error) {
