@@ -242,3 +242,51 @@
     }
   }
 }
+
+/* Review screenshots: thin primary frame with a light that travels around the edge.
+   A large rotating conic layer sits behind the card; only its 3px rim shows. Transform-only
+   animation keeps it on the compositor. Each card sets --glow-delay so they don't move in sync. */
+@keyframes review-border-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.review-glow-border {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1rem;
+  padding: 3px;
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+}
+
+.review-glow-border::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: 300%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) rotate(0deg);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0% 68%,
+    color-mix(in oklab, var(--primary) 70%, transparent) 80%,
+    #d98a9a 88%,
+    var(--primary) 94%,
+    transparent 100%
+  );
+  animation: review-border-spin 7s linear infinite;
+  animation-delay: var(--glow-delay, 0s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-glow-border {
+    background: color-mix(in oklab, var(--primary) 45%, transparent);
+  }
+  .review-glow-border::before {
+    display: none;
+  }
+}
