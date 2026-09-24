@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { reviewAltText, type Review } from "@/lib/reviews-static";
+import { reviewAltText, type Review } from "@/lib/reviews-shared";
 
 interface ReviewLightboxProps {
   reviews: Review[];

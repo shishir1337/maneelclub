@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { ReviewsCarousel } from "@/components/reviews/reviews-carousel";
 import { ReviewsMarquee } from "@/components/reviews/reviews-marquee";
-import type { Review } from "@/lib/reviews-static";
+import type { Review } from "@/lib/reviews-shared";
 
 interface SizeChartRow {
   size: string;

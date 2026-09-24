@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { reviewAltText, type Review } from "@/lib/reviews-static";
+import { reviewAltText, type Review } from "@/lib/reviews-shared";
 
 interface ReviewCardProps {
   review: Review;

@@ -15,7 +15,7 @@ import {
   AddToCartButton,
 } from "@/components/product";
 import { TrustLine } from "@/components/reviews/trust-line";
-import { getReviewsForProduct } from "@/lib/reviews-static";
+import type { Review, SocialProofSettings } from "@/lib/reviews-shared";
 import { formatPrice, calculateDiscount, sortSizes } from "@/lib/format";
 import { UNLIMITED_STOCK } from "@/lib/constants";
 
@@ -66,9 +66,12 @@ interface Product {
 
 interface ProductDetailsProps {
   product: Product;
+  /** Customer screenshots for the Reviews tab (tagged first, then featured). */
+  reviews: Review[];
+  socialProof: SocialProofSettings;
 }
 
-export function ProductDetails({ product }: ProductDetailsProps) {
+export function ProductDetails({ product, reviews, socialProof }: ProductDetailsProps) {
   useEffect(() => {
     const value = product.salePrice ?? product.regularPrice;
     trackViewContent({
@@ -412,7 +415,9 @@ export function ProductDetails({ product }: ProductDetailsProps) {
                 disabled={!isInStock}
                 className="w-full"
               />
-              <TrustLine className="pt-1" />
+              {socialProof.trustLineEnabled && (
+                <TrustLine customerCount={socialProof.customerCount} className="pt-1" />
+              )}
             </div>
           </div>
         </div>
@@ -422,7 +427,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
           <ProductTabs
             description={product.description}
             sizeChart={product.sizeChart}
-            reviews={getReviewsForProduct(product.slug, 10)}
+            reviews={socialProof.productTabEnabled ? reviews : []}
           />
         </div>
       </div>

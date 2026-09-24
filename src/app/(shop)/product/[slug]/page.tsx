@@ -4,6 +4,7 @@ import { getProductBySlug } from "@/actions/products";
 import { siteConfig } from "@/lib/constants";
 import { ProductDetails } from "./product-details";
 import { RelatedProducts } from "@/components/product";
+import { getReviewsForProduct, getSocialProofSettings } from "@/lib/reviews";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -37,7 +38,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
   if (error || !product) {
     notFound();
   }
-  
+
+  const [reviews, socialProof] = await Promise.all([
+    getReviewsForProduct(product.id, 10),
+    getSocialProofSettings(),
+  ]);
+
   return (
     <>
       {/* key: remount per product so colour/size selection never carries over between products */}
@@ -49,6 +55,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
           salePrice: product.salePrice != null ? Number(product.salePrice) : null,
           category: product.category ?? null,
         }}
+        reviews={reviews}
+        socialProof={socialProof}
       />
       
       <RelatedProducts

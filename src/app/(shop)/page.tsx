@@ -180,8 +180,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Social proof: customer count + screenshot reviews (static data until the Reviews admin lands) */}
-      <SocialProofSection />
+      {/* Social proof: customer count + screenshot reviews (Admin → Reviews) */}
+      <Suspense fallback={null}>
+        <SocialProofSection />
+      </Suspense>
 
       {/* Promo Banner - hidden when Free Shipping Minimum is 0 */}
       <Suspense fallback={null}>

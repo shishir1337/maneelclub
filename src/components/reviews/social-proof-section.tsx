@@ -1,16 +1,15 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { TRUST_NUMBERS, getActiveReviews, getFeaturedReviews } from "@/lib/reviews-static";
+import { getHomeReviews, getSocialProofSettings } from "@/lib/reviews";
 import { ReviewsMarquee } from "./reviews-marquee";
 
 /**
- * Home page social proof: the customer count as a sentence, one line of context,
- * then a wall of real screenshots. Server component; data will come from the DB later.
+ * Home page social proof: the customer count as a sentence, one line of context, then two rows
+ * of real screenshots. Managed in Admin → Reviews; hidden when switched off or when empty.
  */
-export function SocialProofSection() {
-  // Two rows need a healthy pool, so use every active review, featured ones first.
-  const featured = getFeaturedReviews(100);
-  const reviews = [...featured, ...getActiveReviews().filter((r) => !r.isFeatured)];
+export async function SocialProofSection() {
+  const [settings, reviews] = await Promise.all([getSocialProofSettings(), getHomeReviews()]);
+  if (!settings.homeEnabled || reviews.length === 0) return null;
 
   return (
     <section className="py-12 md:py-16">
@@ -18,10 +17,10 @@ export function SocialProofSection() {
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
             <h2 className="text-2xl md:text-3xl font-bold">
-              Over {TRUST_NUMBERS.customers.replace("+", "")} customers have shopped with us
+              Over {settings.customerCount.replace(/\+$/, "")} customers have shopped with us
             </h2>
             <p className="mt-3 text-muted-foreground">
-              More than {TRUST_NUMBERS.ordersDelivered} orders delivered, cash on delivery in every
+              More than {settings.ordersDelivered} orders delivered, cash on delivery in every
               district. These are the messages customers send us after their parcel arrives.
             </p>
           </div>
