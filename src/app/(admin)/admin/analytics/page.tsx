@@ -58,17 +58,7 @@ import {
 } from "recharts";
 import { formatPrice } from "@/lib/format";
 import { ORDER_STATUS } from "@/lib/constants";
-import {
-  getAnalyticsOverview,
-  getRevenueByPeriod,
-  getOrdersByPeriod,
-  getOrdersByStatusOverTime,
-  getTopSellingProducts,
-  getSalesByCity,
-  getOrdersBySource,
-  getPaymentMethodStats,
-  getRecentActivity,
-} from "@/actions/admin/analytics";
+import { getAnalyticsDashboard } from "@/actions/admin/analytics";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { channelLabel, channelColor } from "@/lib/attribution";
@@ -387,60 +377,24 @@ export default function AdminAnalyticsPage() {
     setPaymentData([]);
     setRecentOrders([]);
     try {
-      const [
-        overviewResult,
-        topProductsResult,
-        cityResult,
-        sourceResult,
-        paymentResult,
-        recentResult,
-      ] = await Promise.all([
-        getAnalyticsOverview(r.dateFrom, r.dateTo),
-        getTopSellingProducts(10, { dateFrom: r.dateFrom, dateTo: r.dateTo }),
-        getSalesByCity(100, r.dateFrom, r.dateTo),
-        getOrdersBySource(r.dateFrom, r.dateTo),
-        getPaymentMethodStats(r.dateFrom, r.dateTo),
-        getRecentActivity(5, r.dateFrom, r.dateTo),
-      ]);
-
-      if (overviewResult.success && overviewResult.data) {
-        setOverview(overviewResult.data);
+      // One request for the whole page (the server runs the parts in parallel).
+      const result = await getAnalyticsDashboard(r.dateFrom, r.dateTo);
+      if (!result.success) {
+        toast.error(result.error || "Failed to load analytics data");
+        return;
       }
+      const { overview, topProducts, cities, sources, payments, recent, charts } = result.data;
 
-      if (topProductsResult.success && topProductsResult.data) {
-        setTopProducts(topProductsResult.data);
-      }
-
-      if (cityResult.success && cityResult.data) {
-        setCityData(cityResult.data);
-      }
-
-      if (sourceResult.success && sourceResult.data) {
-        setSourceData(sourceResult.data);
-      }
-
-      if (paymentResult.success && paymentResult.data) {
-        setPaymentData(paymentResult.data);
-      }
-
-      if (recentResult.success && recentResult.data) {
-        setRecentOrders(recentResult.data as unknown as RecentOrder[]);
-      }
-
-      const [revenueResult, orderResult, statusOverTimeResult] = await Promise.all([
-        getRevenueByPeriod("daily", r.dateFrom, r.dateTo),
-        getOrdersByPeriod("daily", r.dateFrom, r.dateTo),
-        getOrdersByStatusOverTime(r.dateFrom, r.dateTo),
-      ]);
-
-      if (revenueResult.success && revenueResult.data) {
-        setRevenueData(revenueResult.data);
-      }
-      if (orderResult.success && orderResult.data) {
-        setOrderData(orderResult.data);
-      }
-      if (statusOverTimeResult.success && statusOverTimeResult.data) {
-        setStatusOverTimeData(statusOverTimeResult.data as StatusOverTimeData[]);
+      if (overview.success && overview.data) setOverview(overview.data);
+      if (topProducts.success && topProducts.data) setTopProducts(topProducts.data);
+      if (cities.success && cities.data) setCityData(cities.data);
+      if (sources.success && sources.data) setSourceData(sources.data);
+      if (payments.success && payments.data) setPaymentData(payments.data);
+      if (recent.success && recent.data) setRecentOrders(recent.data as unknown as RecentOrder[]);
+      if (charts.success && charts.data) {
+        setRevenueData(charts.data.revenue);
+        setOrderData(charts.data.orders);
+        setStatusOverTimeData(charts.data.statusOverTime as StatusOverTimeData[]);
       }
     } catch {
       toast.error("Failed to load analytics data");

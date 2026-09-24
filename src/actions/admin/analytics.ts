@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { buildChartSeries, resolveChartRange } from "@/lib/analytics-charts";
 
 // Helper to check admin role
 async function checkAdmin() {
@@ -259,6 +260,26 @@ export async function getAnalyticsOverview(dateFrom?: string | null, dateTo?: st
   }
 }
 
+/**
+ * All three chart series from ONE query (previously each chart loaded the same orders separately).
+ * Revenue excludes cancelled orders; order counts and the status breakdown include them.
+ */
+async function loadChartSeries(
+  period: "daily" | "monthly",
+  dateFrom?: string | null,
+  dateTo?: string | null
+) {
+  const range = resolveChartRange(period, parseDateRange(dateFrom ?? undefined, dateTo ?? undefined), new Date());
+  const rows = await db.order.findMany({
+    where: { createdAt: { gte: range.startDate, lte: range.endDate } },
+    select: { createdAt: true, total: true, status: true },
+  });
+  return buildChartSeries(
+    rows.map((r) => ({ createdAt: r.createdAt, total: Number(r.total), status: r.status })),
+    range
+  );
+}
+
 // Get revenue by period (daily or monthly). With dateFrom/dateTo, uses that range and picks grouping by length (<=31 days = daily).
 export async function getRevenueByPeriod(
   period: "daily" | "monthly" = "daily",
@@ -267,68 +288,7 @@ export async function getRevenueByPeriod(
 ) {
   try {
     await checkAdmin();
-
-    const now = new Date();
-    let startDate: Date;
-    let endDate: Date;
-    let useDaily: boolean;
-
-    const range = parseDateRange(dateFrom ?? undefined, dateTo ?? undefined);
-    if (range) {
-      startDate = range.start;
-      endDate = range.end;
-      const days = Math.round((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-      useDaily = days <= 31;
-    } else {
-      useDaily = period === "daily";
-      if (useDaily) {
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 30);
-        endDate = now;
-      } else {
-        startDate = new Date(now);
-        startDate.setMonth(startDate.getMonth() - 12);
-        endDate = now;
-      }
-    }
-
-    const orders = await db.order.findMany({
-      where: {
-        createdAt: { gte: startDate, lte: endDate },
-        status: { not: "CANCELLED" },
-      },
-      select: {
-        total: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "asc" },
-    });
-
-    const grouped: Record<string, number> = {};
-    for (const order of orders) {
-      const date = order.createdAt;
-      const key = useDaily
-        ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
-        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      grouped[key] = (grouped[key] || 0) + Number(order.total);
-    }
-
-    const data: { date: string; revenue: number }[] = [];
-    const current = new Date(startDate);
-
-    while (current <= endDate) {
-      const key = useDaily
-        ? `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`
-        : `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
-      const label = useDaily
-        ? `${current.getDate()}/${current.getMonth() + 1}`
-        : `${current.toLocaleString("default", { month: "short" })} ${current.getFullYear()}`;
-      data.push({ date: label, revenue: grouped[key] || 0 });
-      if (useDaily) current.setDate(current.getDate() + 1);
-      else current.setMonth(current.getMonth() + 1);
-    }
-
-    return { success: true, data };
+    return { success: true, data: (await loadChartSeries(period, dateFrom, dateTo)).revenue };
   } catch (error) {
     console.error("Error fetching revenue by period:", error);
     return {
@@ -346,67 +306,7 @@ export async function getOrdersByPeriod(
 ) {
   try {
     await checkAdmin();
-
-    const now = new Date();
-    let startDate: Date;
-    let endDate: Date;
-    let useDaily: boolean;
-
-    const range = parseDateRange(dateFrom ?? undefined, dateTo ?? undefined);
-    if (range) {
-      startDate = range.start;
-      endDate = range.end;
-      const days = Math.round((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-      useDaily = days <= 31;
-    } else {
-      useDaily = period === "daily";
-      if (useDaily) {
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 30);
-        endDate = now;
-      } else {
-        startDate = new Date(now);
-        startDate.setMonth(startDate.getMonth() - 12);
-        endDate = now;
-      }
-    }
-
-    const orders = await db.order.findMany({
-      where: {
-        createdAt: { gte: startDate, lte: endDate },
-      },
-      select: {
-        createdAt: true,
-        status: true,
-      },
-      orderBy: { createdAt: "asc" },
-    });
-
-    const grouped: Record<string, number> = {};
-    for (const order of orders) {
-      const date = order.createdAt;
-      const key = useDaily
-        ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
-        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      grouped[key] = (grouped[key] || 0) + 1;
-    }
-
-    const data: { date: string; orders: number }[] = [];
-    const current = new Date(startDate);
-
-    while (current <= endDate) {
-      const key = useDaily
-        ? `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`
-        : `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
-      const label = useDaily
-        ? `${current.getDate()}/${current.getMonth() + 1}`
-        : `${current.toLocaleString("default", { month: "short" })} ${current.getFullYear()}`;
-      data.push({ date: label, orders: grouped[key] || 0 });
-      if (useDaily) current.setDate(current.getDate() + 1);
-      else current.setMonth(current.getMonth() + 1);
-    }
-
-    return { success: true, data };
+    return { success: true, data: (await loadChartSeries(period, dateFrom, dateTo)).orders };
   } catch (error) {
     console.error("Error fetching orders by period:", error);
     return {
@@ -416,8 +316,6 @@ export async function getOrdersByPeriod(
   }
 }
 
-const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
-
 // Get orders by status over time (stacked chart). Optional dateFrom/dateTo; grouping by day if <=31 days else by month.
 export async function getOrdersByStatusOverTime(
   dateFrom?: string | null,
@@ -425,67 +323,7 @@ export async function getOrdersByStatusOverTime(
 ) {
   try {
     await checkAdmin();
-
-    const now = new Date();
-    let startDate: Date;
-    let endDate: Date;
-    let useDaily: boolean;
-
-    const range = parseDateRange(dateFrom ?? undefined, dateTo ?? undefined);
-    if (range) {
-      startDate = range.start;
-      endDate = range.end;
-      const days = Math.round((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-      useDaily = days <= 31;
-    } else {
-      startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 30);
-      endDate = now;
-      useDaily = true;
-    }
-
-    const orders = await db.order.findMany({
-      where: {
-        createdAt: { gte: startDate, lte: endDate },
-      },
-      select: { createdAt: true, status: true },
-      orderBy: { createdAt: "asc" },
-    });
-
-    type StatusKey = (typeof ORDER_STATUSES)[number];
-    const grouped: Record<string, Record<StatusKey, number>> = {};
-
-    for (const order of orders) {
-      const date = order.createdAt;
-      const key = useDaily
-        ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
-        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      if (!grouped[key]) {
-        grouped[key] = { PENDING: 0, CONFIRMED: 0, PROCESSING: 0, SHIPPED: 0, DELIVERED: 0, CANCELLED: 0 };
-      }
-      const status = order.status as StatusKey;
-      if (ORDER_STATUSES.includes(status)) {
-        grouped[key][status] += 1;
-      }
-    }
-
-    const data: ({ date: string } & Record<StatusKey, number>)[] = [];
-    const current = new Date(startDate);
-
-    while (current <= endDate) {
-      const key = useDaily
-        ? `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`
-        : `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
-      const label = useDaily
-        ? `${current.getDate()}/${current.getMonth() + 1}`
-        : `${current.toLocaleString("default", { month: "short" })} ${current.getFullYear()}`;
-      const row = grouped[key] ?? { PENDING: 0, CONFIRMED: 0, PROCESSING: 0, SHIPPED: 0, DELIVERED: 0, CANCELLED: 0 };
-      data.push({ date: label, ...row });
-      if (useDaily) current.setDate(current.getDate() + 1);
-      else current.setMonth(current.getMonth() + 1);
-    }
-
-    return { success: true, data };
+    return { success: true, data: (await loadChartSeries("daily", dateFrom, dateTo)).statusOverTime };
   } catch (error) {
     console.error("Error fetching orders by status over time:", error);
     return {
@@ -508,41 +346,27 @@ export async function getTopSellingProducts(
     const range = parseDateRange(dateFrom, dateTo);
     if (!range) return { success: true, data: [] };
 
-    const orders = await db.order.findMany({
-      where: {
-        createdAt: { gte: range.start, lte: range.end },
-        status: { not: "CANCELLED" },
-      },
-      select: { id: true },
-    });
-    const orderIds = orders.map((o) => o.id);
-    if (orderIds.length === 0) return { success: true, data: [] };
+    // Summed in the database with a join, instead of loading every order id and item into the app
+    // (which took seconds for long ranges). Parameterised: no user input is concatenated.
+    const grouped = await db.$queryRaw<Array<{ productId: string; totalQuantity: bigint; totalRevenue: unknown }>>`
+      SELECT oi."productId" AS "productId",
+             SUM(oi."quantity") AS "totalQuantity",
+             SUM(oi."price" * oi."quantity") AS "totalRevenue"
+      FROM "OrderItem" oi
+      JOIN "Order" o ON o."id" = oi."orderId"
+      WHERE o."createdAt" >= ${range.start}
+        AND o."createdAt" <= ${range.end}
+        AND o."status" <> 'CANCELLED'
+      GROUP BY oi."productId"
+      ORDER BY SUM(oi."quantity") DESC, oi."productId" ASC
+      LIMIT ${limit}
+    `;
+    if (grouped.length === 0) return { success: true, data: [] };
 
-    const items = await db.orderItem.findMany({
-      where: { orderId: { in: orderIds } },
-      select: { productId: true, quantity: true, price: true },
-    });
-
-    const byProduct = new Map<
-      string,
-      { totalQuantity: number; totalRevenue: number }
-    >();
-    for (const row of items) {
-      const q = row.quantity;
-      const p = Number(row.price);
-      const rev = p * q;
-      const cur = byProduct.get(row.productId);
-      if (cur) {
-        cur.totalQuantity += q;
-        cur.totalRevenue += rev;
-      } else {
-        byProduct.set(row.productId, { totalQuantity: q, totalRevenue: rev });
-      }
-    }
-
-    const sorted = [...byProduct.entries()]
-      .sort((a, b) => b[1].totalQuantity - a[1].totalQuantity)
-      .slice(0, limit);
+    const sorted: Array<[string, { totalQuantity: number; totalRevenue: number }]> = grouped.map((g) => [
+      g.productId,
+      { totalQuantity: Number(g.totalQuantity), totalRevenue: Number(g.totalRevenue) },
+    ]);
 
     const productIds = sorted.map(([id]) => id);
     const products = await db.product.findMany({
@@ -744,4 +568,37 @@ export async function getRecentActivity(
         error instanceof Error ? error.message : "Failed to fetch recent activity",
     };
   }
+}
+
+/**
+ * Everything the Analytics page shows, in ONE request. Next.js runs server actions from the
+ * browser one at a time, so the page's nine separate calls queued behind each other; here they
+ * run in parallel on the server. Each part keeps its own success/error, as before.
+ */
+export async function getAnalyticsDashboard(dateFrom: string, dateTo: string) {
+  try {
+    await checkAdmin();
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Unauthorized" };
+  }
+
+  const [overview, topProducts, cities, sources, payments, recent, charts] = await Promise.all([
+    getAnalyticsOverview(dateFrom, dateTo),
+    getTopSellingProducts(10, { dateFrom, dateTo }),
+    getSalesByCity(100, dateFrom, dateTo),
+    getOrdersBySource(dateFrom, dateTo),
+    getPaymentMethodStats(dateFrom, dateTo),
+    getRecentActivity(5, dateFrom, dateTo),
+    loadChartSeries("daily", dateFrom, dateTo)
+      .then((data) => ({ success: true as const, data }))
+      .catch((error: unknown) => {
+        console.error("Error fetching analytics charts:", error);
+        return { success: false as const, data: null };
+      }),
+  ]);
+
+  return {
+    success: true as const,
+    data: { overview, topProducts, cities, sources, payments, recent, charts },
+  };
 }
