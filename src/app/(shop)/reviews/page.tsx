@@ -25,9 +25,8 @@ export default function ReviewsPage() {
         <h1 className="text-3xl md:text-4xl font-bold">What customers sent us</h1>
         <p className="mt-4 text-muted-foreground">
           Over {TRUST_NUMBERS.customers} customers have shopped with {siteConfig.name}, most of
-          them paying on delivery. Below are {TRUST_NUMBERS.screenshotReviews} screenshots of the
-          messages they sent on WhatsApp, Messenger and Facebook after their parcel arrived, shared
-          with their permission.
+          them paying on delivery. Below are messages and photos they sent us on Messenger and
+          Instagram after their parcel arrived.
         </p>
       </header>
 
