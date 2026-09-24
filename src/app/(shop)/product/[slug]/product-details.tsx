@@ -422,7 +422,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
           <ProductTabs
             description={product.description}
             sizeChart={product.sizeChart}
-            reviews={getReviewsForProduct(product.slug, 6)}
+            reviews={getReviewsForProduct(product.slug, 10)}
           />
         </div>
       </div>
