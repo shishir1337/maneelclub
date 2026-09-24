@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ReviewsCarousel } from "@/components/reviews/reviews-carousel";
 import { ReviewsMarquee } from "@/components/reviews/reviews-marquee";
 import type { Review } from "@/lib/reviews-static";
 
@@ -148,7 +149,12 @@ export function ProductTabs({ description, sizeChart, reviews = [] }: ProductTab
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
+          {/* Phones: arrow carousel with auto-slide. Tablet and up: two drifting rows. */}
+          <div className="md:hidden">
+            <ReviewsCarousel reviews={reviews} />
+          </div>
           <ReviewsMarquee
+            className="hidden md:block"
             reviews={reviews}
             cardClassName="w-[130px] sm:w-[150px] md:w-[170px]"
             sizes="(max-width: 640px) 130px, (max-width: 768px) 150px, 170px"
