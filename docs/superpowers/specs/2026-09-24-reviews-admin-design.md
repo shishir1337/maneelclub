@@ -96,10 +96,18 @@ model ReviewProduct {            // screenshots tagged to specific products
 
 ## Launch steps (need owner approval, run once)
 
-1. Deploy the code.
-2. `prisma migrate deploy` applies `prisma/migrations/20260924000000_add_reviews`.
-3. `tsx prisma/seed-reviews.ts` inserts the 14 existing screenshots from `/public/reviews`
-   (skips if the table already has rows). After that everything is managed in the admin.
+Order matters: the home page and `/reviews` are prerendered at build time, so the table must
+exist and hold the screenshots **before** `next build`, or those pages ship empty until the next
+admin save.
+
+1. Pull the code on the server.
+2. `npx prisma migrate deploy` applies `prisma/migrations/20260924000000_add_reviews`.
+3. `npx tsx prisma/seed-reviews.ts` prints the target database and what it would insert; then
+   `npx tsx prisma/seed-reviews.ts --yes` inserts the 14 existing screenshots (skips if the table
+   already has rows). Never run `pnpm db:seed` here: it resets every setting to defaults.
+4. `next build` and restart. After that everything is managed in Admin → Reviews.
+
+If the build ever runs first, saving anything in Admin → Reviews refreshes the pages.
 
 ## Verification
 
