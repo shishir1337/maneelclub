@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildSocialProofSettings,
+  fillSocialProofText,
   pickReviewsForProduct,
   reviewAltText,
   type Review,
@@ -53,6 +54,8 @@ describe("buildSocialProofSettings", () => {
         reviewsHomeEnabled: "false",
         reviewsProductTabEnabled: "true",
         reviewsTrustLineEnabled: "false",
+        reviewsHomeHeading: "Loved by {customers} shoppers",
+        reviewsHomeDescription: "Thanks for {orders} orders!",
       }),
       {
         customerCount: "12,000+",
@@ -60,18 +63,44 @@ describe("buildSocialProofSettings", () => {
         homeEnabled: false,
         productTabEnabled: true,
         trustLineEnabled: false,
+        homeHeading: "Loved by 12,000+ shoppers",
+        homeDescription: "Thanks for 9,000+ orders!",
       }
     );
   });
 
   it("uses the defaults when keys are missing or blank", () => {
-    assert.deepEqual(buildSocialProofSettings({ reviewsCustomerCount: "  " }), {
+    assert.deepEqual(buildSocialProofSettings({ reviewsCustomerCount: "  ", reviewsHomeHeading: " " }), {
       customerCount: "10,000+",
       ordersDelivered: "8,800+",
       homeEnabled: true,
       productTabEnabled: true,
       trustLineEnabled: true,
+      homeHeading: "10,000+ customers have shopped with us",
+      homeDescription:
+        "8,800+ orders delivered, cash on delivery in every district. These are the messages customers send us after their parcel arrives.",
     });
+  });
+});
+
+describe("buildSocialProofSettings home description", () => {
+  it("keeps a deliberately emptied description empty so only the heading shows", () => {
+    assert.equal(buildSocialProofSettings({ reviewsHomeDescription: "   " }).homeDescription, "");
+  });
+});
+
+describe("fillSocialProofText", () => {
+  const values = { customers: "10,000+", orders: "8,800+" };
+
+  it("replaces every placeholder, with or without spaces inside the braces", () => {
+    assert.equal(
+      fillSocialProofText("{customers} happy, { orders } sent, {customers} again", values),
+      "10,000+ happy, 8,800+ sent, 10,000+ again"
+    );
+  });
+
+  it("leaves text without placeholders and unknown placeholders untouched", () => {
+    assert.equal(fillSocialProofText("Thanks {friends}!", values), "Thanks {friends}!");
   });
 });
 

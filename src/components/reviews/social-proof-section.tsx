@@ -16,13 +16,10 @@ export async function SocialProofSection() {
       <div className="container">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
-            <h2 className="text-2xl md:text-3xl font-bold">
-              Over {settings.customerCount.replace(/\+$/, "")} customers have shopped with us
-            </h2>
-            <p className="mt-3 text-muted-foreground">
-              More than {settings.ordersDelivered} orders delivered, cash on delivery in every
-              district. These are the messages customers send us after their parcel arrives.
-            </p>
+            <h2 className="text-2xl md:text-3xl font-bold">{settings.homeHeading}</h2>
+            {settings.homeDescription && (
+              <p className="mt-3 text-muted-foreground">{settings.homeDescription}</p>
+            )}
           </div>
           <Link
             href="/reviews"

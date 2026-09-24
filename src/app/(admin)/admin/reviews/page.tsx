@@ -44,7 +44,12 @@ import {
   type AdminReview,
 } from "@/actions/admin/reviews";
 import { getSettings, updateSettings } from "@/actions/admin/settings";
-import { SOCIAL_PROOF_DEFAULTS, SOURCE_META } from "@/lib/reviews-shared";
+import {
+  SOCIAL_PROOF_DEFAULTS,
+  SOURCE_META,
+  buildSocialProofSettings,
+} from "@/lib/reviews-shared";
+import { Textarea } from "@/components/ui/textarea";
 import { ReviewEditDialog, type ReviewEditValues } from "@/components/admin/review-edit-dialog";
 
 type SocialProofKey = keyof typeof SOCIAL_PROOF_DEFAULTS;
@@ -231,6 +236,9 @@ export default function AdminReviewsPage() {
 
   // ---------- Render ----------
 
+  // Same logic the storefront uses, so the preview matches the home page exactly.
+  const preview = buildSocialProofSettings(display);
+
   const activeCount = reviews.filter((r) => r.isActive).length;
   const featuredCount = reviews.filter((r) => r.isActive && r.isFeatured).length;
 
@@ -296,6 +304,47 @@ export default function AdminReviewsPage() {
                 placeholder="8,800+"
               />
               <p className="text-xs text-muted-foreground">Shown under the home page heading.</p>
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-lg border p-4">
+            <div>
+              <p className="text-sm font-medium">Home page text</p>
+              <p className="text-xs text-muted-foreground">
+                Type <code className="rounded bg-muted px-1">{"{customers}"}</code> or{" "}
+                <code className="rounded bg-muted px-1">{"{orders}"}</code> to insert the numbers above.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reviewsHomeHeading">Heading</Label>
+              <Input
+                id="reviewsHomeHeading"
+                value={display.reviewsHomeHeading}
+                maxLength={120}
+                onChange={(e) => setDisplayValue("reviewsHomeHeading", e.target.value)}
+                placeholder={SOCIAL_PROOF_DEFAULTS.reviewsHomeHeading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reviewsHomeDescription">Description</Label>
+              <Textarea
+                id="reviewsHomeDescription"
+                value={display.reviewsHomeDescription}
+                maxLength={400}
+                rows={3}
+                onChange={(e) => setDisplayValue("reviewsHomeDescription", e.target.value)}
+                placeholder={SOCIAL_PROOF_DEFAULTS.reviewsHomeDescription}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty to show the heading only. An empty heading goes back to the default.
+              </p>
+            </div>
+            <div className="rounded-md bg-muted/50 p-3">
+              <p className="mb-1 text-xs text-muted-foreground">Preview</p>
+              <p className="font-semibold">{preview.homeHeading}</p>
+              {preview.homeDescription && (
+                <p className="mt-1 text-sm text-muted-foreground">{preview.homeDescription}</p>
+              )}
             </div>
           </div>
 

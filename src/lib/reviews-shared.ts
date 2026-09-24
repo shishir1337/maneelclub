@@ -55,6 +55,10 @@ export interface SocialProofSettings {
   homeEnabled: boolean;
   productTabEnabled: boolean;
   trustLineEnabled: boolean;
+  /** Home section heading with placeholders already filled in. */
+  homeHeading: string;
+  /** Home section paragraph with placeholders already filled in. */
+  homeDescription: string;
 }
 
 export const SOCIAL_PROOF_DEFAULTS = {
@@ -63,18 +67,38 @@ export const SOCIAL_PROOF_DEFAULTS = {
   reviewsHomeEnabled: "true",
   reviewsProductTabEnabled: "true",
   reviewsTrustLineEnabled: "true",
+  // Home section text. {customers} and {orders} are replaced with the two numbers above.
+  reviewsHomeHeading: "{customers} customers have shopped with us",
+  reviewsHomeDescription:
+    "{orders} orders delivered, cash on delivery in every district. These are the messages customers send us after their parcel arrives.",
 } as const;
+
+/** Replace {customers} and {orders} in admin-written text. Unknown placeholders are left as typed. */
+export function fillSocialProofText(
+  template: string,
+  values: { customers: string; orders: string }
+): string {
+  return template.replace(/\{\s*(customers|orders)\s*\}/g, (_, key: "customers" | "orders") => values[key]);
+}
 
 /** Read the social-proof settings from the raw settings map, falling back to defaults. */
 export function buildSocialProofSettings(settings: Record<string, string | undefined>): SocialProofSettings {
   const text = (key: keyof typeof SOCIAL_PROOF_DEFAULTS) =>
     (settings[key] ?? "").trim() || SOCIAL_PROOF_DEFAULTS[key];
   const flag = (key: keyof typeof SOCIAL_PROOF_DEFAULTS) => text(key) !== "false";
+  const values = { customers: text("reviewsCustomerCount"), orders: text("reviewsOrdersDelivered") };
   return {
-    customerCount: text("reviewsCustomerCount"),
-    ordersDelivered: text("reviewsOrdersDelivered"),
+    customerCount: values.customers,
+    ordersDelivered: values.orders,
     homeEnabled: flag("reviewsHomeEnabled"),
     productTabEnabled: flag("reviewsProductTabEnabled"),
     trustLineEnabled: flag("reviewsTrustLineEnabled"),
+    homeHeading: fillSocialProofText(text("reviewsHomeHeading"), values),
+    // Unlike the heading, an emptied description is respected (heading-only section);
+    // the default applies only when the setting has never been saved.
+    homeDescription: fillSocialProofText(
+      (settings.reviewsHomeDescription ?? SOCIAL_PROOF_DEFAULTS.reviewsHomeDescription).trim(),
+      values
+    ),
   };
 }
