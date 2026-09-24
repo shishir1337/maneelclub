@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { TRUST_NUMBERS, getActiveReviews, getFeaturedReviews } from "@/lib/reviews-static";
-import { ReviewsCarousel } from "./reviews-carousel";
 import { ReviewsMarquee } from "./reviews-marquee";
 
 /**
@@ -36,12 +35,8 @@ export function SocialProofSection() {
           </Link>
         </div>
       </div>
-      {/* Phones: one row with arrows and auto-slide, easier to control with a thumb. */}
-      <div className="container md:hidden">
-        <ReviewsCarousel reviews={reviews} />
-      </div>
-      {/* Tablet and up: two full-bleed rows drifting in opposite directions, faded at the sides. */}
-      <ReviewsMarquee reviews={reviews} className="hidden md:block" />
+      {/* All screen sizes: two full-bleed rows drifting in opposite directions, faded at the sides. */}
+      <ReviewsMarquee reviews={reviews} />
     </section>
   );
 }
