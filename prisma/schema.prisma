@@ -361,6 +361,11 @@ model Order {
   @@index([paymentStatus])
   @@index([createdAt])
   @@index([sourceChannel])
+  // Customer history lookups ("times purchased", search). Both already exist in the live DB:
+  // the phone index from 20260421000000_add_banned_phone, the email index built CONCURRENTLY
+  // on 2026-09-25; the matching migration uses IF NOT EXISTS so it is a no-op there.
+  @@index([customerPhone])
+  @@index([customerEmail])
 }
 
 model OrderItem {
