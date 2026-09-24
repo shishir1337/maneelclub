@@ -352,6 +352,7 @@ model Order {
   coupon          Coupon?           @relation(fields: [couponId], references: [id])
   items           OrderItem[]
   stockMovements  StockMovement[]
+  promotion       OrderPromotion?
 
   @@index([userId])
   @@index([couponId])
@@ -398,6 +399,45 @@ model Coupon {
 
   @@index([code])
   @@index([isActive])
+}
+
+// ==================== AUTOMATIC OFFERS ====================
+// "Spend X, get Y" discounts applied at checkout without a code. Kept in their own tables
+// (not columns on Coupon) so the code runs safely even before this migration is applied.
+
+model Promotion {
+  id             String     @id @default(cuid())
+  name           String     // shown to customers, e.g. "Eid offer"
+  type           CouponType @default(PERCENT)
+  value          Decimal    @db.Decimal(10, 2) // percent 0-100 or fixed BDT; 0 allowed with free delivery
+  minOrderAmount Decimal    @db.Decimal(10, 2) // subtotal needed to unlock the offer
+  maxDiscount    Decimal?   @db.Decimal(10, 2) // optional cap for percentage offers
+  freeShipping   Boolean    @default(false)
+  isActive       Boolean    @default(true)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  usedCount      Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  orders OrderPromotion[]
+
+  @@index([isActive])
+}
+
+// The offer applied to an order, with its name and amounts frozen at the time of purchase.
+model OrderPromotion {
+  orderId        String   @id
+  promotionId    String?
+  name           String
+  discountAmount Decimal  @db.Decimal(10, 2)
+  freeShipping   Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  order     Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  promotion Promotion? @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+
+  @@index([promotionId])
 }
 
 enum CouponType {
