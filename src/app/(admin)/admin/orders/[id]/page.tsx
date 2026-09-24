@@ -112,6 +112,7 @@ interface Order {
   subtotal: number;
   discountAmount?: number;
   couponCode?: string | null;
+  promotionName?: string | null;
   total: number;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
@@ -200,6 +201,7 @@ export default function AdminOrderDetailPage({
           subtotal: Number(data.subtotal),
           discountAmount: data.discountAmount,
           couponCode: data.couponCode,
+          promotionName: data.promotionName,
           total: Number(data.total),
           items: data.items.map((item): OrderItem => ({
             id: item.id,
@@ -622,7 +624,14 @@ export default function AdminOrderDetailPage({
                 </div>
                 {order.discountAmount != null && order.discountAmount > 0 && (
                   <div className="flex justify-between text-green-600 dark:text-green-400">
-                    <span>Discount{order.couponCode ? ` (${order.couponCode})` : ""}</span>
+                    <span>
+                      Discount
+                      {order.couponCode
+                        ? ` (${order.couponCode})`
+                        : order.promotionName
+                          ? ` (Offer: ${order.promotionName})`
+                          : ""}
+                    </span>
                     <span>−{formatPrice(order.discountAmount)}</span>
                   </div>
                 )}

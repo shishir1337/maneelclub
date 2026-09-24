@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { courierCheckByPhone, type CourierCheckData } from "@/lib/bdcourier";
 import type { TouchData } from "@/lib/attribution";
+import { getOrderPromotion } from "@/lib/promotions";
 
 // Helper to check admin role
 async function checkAdmin() {
@@ -37,6 +38,8 @@ export type OrderDetailData = {
   subtotal: number;
   discountAmount?: number;
   couponCode?: string | null;
+  /** Automatic offer applied to this order, if any. */
+  promotionName?: string | null;
   total: number;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
@@ -278,6 +281,7 @@ export async function getOrderById(
       subtotal: Number(order.subtotal),
       discountAmount: order.discountAmount != null ? Number(order.discountAmount) : undefined,
       couponCode: order.coupon?.code ?? null,
+      promotionName: order.coupon ? null : (await getOrderPromotion(order.id))?.name ?? null,
       total: Number(order.total),
       status: order.status,
       paymentMethod: order.paymentMethod,

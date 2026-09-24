@@ -131,9 +131,14 @@ export function findNextPromotion(
   return next ? { promotion: next, amountNeeded: roundMoney(next.minOrderAmount - subtotal) } : null;
 }
 
-/** Short customer-facing description, e.g. "10% off (up to ৳500) + free delivery". */
-export function describePromotion(p: Pick<Promotion, "type" | "value" | "maxDiscount" | "freeShipping">): string {
-  const money = (n: number) => `৳${n.toLocaleString("en-US")}`;
+/**
+ * Short customer-facing description, e.g. "10% off (up to BDT 500) + free delivery".
+ * `money` is the store's price formatter so amounts match the rest of the site.
+ */
+export function describePromotion(
+  p: Pick<Promotion, "type" | "value" | "maxDiscount" | "freeShipping">,
+  money: (amount: number) => string
+): string {
   const off =
     p.value > 0
       ? p.type === "PERCENT"

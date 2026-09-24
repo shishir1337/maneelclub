@@ -3,20 +3,29 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCartStore } from "@/store/cart-store";
 import { formatPrice } from "@/lib/format";
+import {
+  computeOrderPricing,
+  describePromotion,
+  findNextPromotion,
+  type Promotion,
+} from "@/lib/pricing";
 
 interface CartClientProps {
   /** Free Shipping Minimum setting. 0 means free shipping is disabled. */
   freeShippingMinimum: number;
+  /** Active automatic offers ("spend X, get Y"). */
+  promotions: Promotion[];
 }
 
-export default function CartClient({ freeShippingMinimum }: CartClientProps) {
+export default function CartClient({ freeShippingMinimum, promotions }: CartClientProps) {
+  const [pricingNow] = useState(() => new Date());
   const [mounted, setMounted] = useState(false);
   const { items, updateQuantity, removeItem, getSubtotal } = useCartStore();
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
@@ -29,9 +38,21 @@ export default function CartClient({ freeShippingMinimum }: CartClientProps) {
   const subtotal = getSubtotal();
   // Free shipping is disabled when the minimum is 0 (must match checkout-client and createOrder).
   const freeShippingEnabled = freeShippingMinimum > 0;
-  // Free shipping at freeShippingMinimum+ (match checkout). Below that, don't add shipping to total — city is unknown until checkout.
-  const qualifiesForFreeShipping = freeShippingEnabled && subtotal >= freeShippingMinimum;
-  const total = subtotal;
+  // Delivery zone is unknown here, so price with no delivery charge: this shows the offer's
+  // discount and whether it includes free delivery; checkout adds the zone rate.
+  const pricing = computeOrderPricing({
+    subtotal,
+    zoneRate: 0,
+    freeShippingMinimum,
+    coupon: null,
+    promotions,
+    now: pricingNow,
+  });
+  const offer = pricing.applied?.kind === "promotion" ? pricing.applied : null;
+  const nextOffer = findNextPromotion(promotions, subtotal, pricingNow);
+  const qualifiesForFreeShipping =
+    (freeShippingEnabled && subtotal >= freeShippingMinimum) || Boolean(offer?.freeShipping);
+  const total = subtotal - pricing.discount;
 
   const handleUpdateQuantity = (itemId: string, newQuantity: number) => {
     setIsUpdating(itemId);
@@ -212,6 +233,13 @@ export default function CartClient({ freeShippingMinimum }: CartClientProps) {
                   <span className="font-medium">{formatPrice(subtotal)}</span>
                 </div>
 
+                {offer && pricing.discount > 0 && (
+                  <div className="flex justify-between text-green-600 dark:text-green-400">
+                    <span>Discount ({offer.name})</span>
+                    <span className="font-medium">−{formatPrice(pricing.discount)}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
                   <span className="font-medium">
@@ -223,10 +251,29 @@ export default function CartClient({ freeShippingMinimum }: CartClientProps) {
                   </span>
                 </div>
 
-                {freeShippingEnabled && subtotal < freeShippingMinimum && (
-                  <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                    Add {formatPrice(freeShippingMinimum - subtotal)} more for free shipping!
+                {offer && (
+                  <p className="flex items-start gap-2 rounded bg-green-50 p-2 text-xs text-green-800 dark:bg-green-950/30 dark:text-green-200">
+                    <Gift className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    {offer.name} unlocked. No code needed.
                   </p>
+                )}
+
+                {nextOffer ? (
+                  <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                    Add {formatPrice(nextOffer.amountNeeded)} more to get{" "}
+                    <span className="font-medium text-foreground">
+                      {describePromotion(nextOffer.promotion, formatPrice)}
+                    </span>
+                    .
+                  </p>
+                ) : (
+                  !qualifiesForFreeShipping &&
+                  freeShippingEnabled &&
+                  subtotal < freeShippingMinimum && (
+                    <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                      Add {formatPrice(freeShippingMinimum - subtotal)} more for free shipping!
+                    </p>
+                  )
                 )}
 
                 <Separator className="my-4" />

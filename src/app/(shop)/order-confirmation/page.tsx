@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { siteConfig, PAYMENT_METHODS } from "@/lib/constants";
 import { getOrderByNumber } from "@/actions/orders";
+import { getOrderPromotion } from "@/lib/promotions";
 import { PurchaseEventTracker } from "@/components/analytics";
 
 interface OrderConfirmationPageProps {
@@ -48,6 +49,8 @@ export default async function OrderConfirmationPage({ searchParams }: OrderConfi
   const paymentMethod = order.paymentMethod;
   const paymentLabel = PAYMENT_METHODS.find((p) => p.value === paymentMethod)?.label ?? paymentMethod;
   const isCod = paymentMethod === "COD";
+  // Automatic offer name for the discount line (null when a code was used or there was no offer).
+  const orderPromotion = order.coupon ? null : await getOrderPromotion(order.id);
 
   const orderValue = Number(order.total);
   const numItems = order.items?.reduce((sum, i) => sum + i.quantity, 0) ?? 0;
@@ -86,7 +89,14 @@ export default async function OrderConfirmationPage({ searchParams }: OrderConfi
           </div>
           {order.discountAmount != null && Number(order.discountAmount) > 0 && (
             <div className="flex items-center justify-between text-sm text-green-600 dark:text-green-400 mb-2">
-              <span>Discount{order.coupon?.code ? ` (${order.coupon.code})` : ""}</span>
+              <span>
+                Discount
+                {order.coupon?.code
+                  ? ` (${order.coupon.code})`
+                  : orderPromotion
+                    ? ` (${orderPromotion.name})`
+                    : ""}
+              </span>
               <span>−{Number(order.discountAmount).toLocaleString()} BDT</span>
             </div>
           )}

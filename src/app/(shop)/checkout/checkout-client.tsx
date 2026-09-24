@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronRight, Loader2, MessageCircle } from "lucide-react";
+import { ChevronRight, Gift, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +24,12 @@ import {
 import { useCartStore } from "@/store/cart-store";
 import { useAttributionStore } from "@/store/attribution-store";
 import { formatPrice } from "@/lib/format";
+import {
+  computeOrderPricing,
+  describePromotion,
+  findNextPromotion,
+  type Promotion,
+} from "@/lib/pricing";
 import { checkoutSchema, CheckoutFormData } from "@/schemas/checkout";
 import { createOrder } from "@/actions/orders";
 import { validateCoupon } from "@/actions/coupons";
@@ -65,6 +71,8 @@ interface CheckoutClientProps {
   freeShippingMinimum: number;
   eligibility: CheckoutEligibility;
   whatsappNumber: string;
+  /** Active automatic offers ("spend X, get Y"); empty when there are none. */
+  promotions: Promotion[];
 }
 
 export default function CheckoutClient({
@@ -74,7 +82,10 @@ export default function CheckoutClient({
   freeShippingMinimum,
   eligibility,
   whatsappNumber,
+  promotions,
 }: CheckoutClientProps) {
+  // Fixed at page load so offer date windows are checked once, the same way on every render.
+  const [pricingNow] = useState(() => new Date());
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const { items, getSubtotal } = useCartStore();
@@ -138,10 +149,23 @@ export default function CheckoutClient({
   const shippingZone = form.watch("shippingZone");
   const subtotal = getSubtotal();
   const zoneRate = shippingZone === "inside_dhaka" ? shippingRates.dhaka : shippingRates.outside;
-  const shippingCost =
-    freeShippingMinimum > 0 && subtotal >= freeShippingMinimum ? 0 : zoneRate;
-  const discount = appliedCoupon?.discount ?? 0;
-  const total = Math.max(0, subtotal - discount + shippingCost);
+  // Same pricing function the server uses when creating the order.
+  const pricing = computeOrderPricing({
+    subtotal,
+    zoneRate,
+    freeShippingMinimum,
+    coupon: appliedCoupon,
+    promotions,
+    now: pricingNow,
+  });
+  const { shippingCost, discount, total } = pricing;
+  const appliedOffer = pricing.applied?.kind === "promotion" ? pricing.applied : null;
+  const appliedOfferDetails = appliedOffer ? promotions.find((p) => p.id === appliedOffer.promotionId) : null;
+  // The customer entered a valid code, but an automatic offer saves them more.
+  const codeOutdone = appliedCoupon != null && appliedOffer != null;
+  const discountLabel =
+    pricing.applied?.kind === "coupon" ? pricing.applied.code : appliedOffer?.name ?? "";
+  const nextOffer = findNextPromotion(promotions, subtotal, pricingNow);
 
   const handleApplyCoupon = async () => {
     const code = couponCode.trim();
@@ -643,6 +667,31 @@ export default function CheckoutClient({
 
                 <Separator className="my-1" />
 
+                {/* Automatic offer (no code needed) */}
+                {appliedOffer && (
+                  <div className="flex items-start gap-2 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-3 py-2 text-sm text-green-800 dark:text-green-200">
+                    <Gift className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>
+                      <span className="font-medium">{appliedOffer.name} applied</span>
+                      {appliedOfferDetails && `: ${describePromotion(appliedOfferDetails, formatPrice)}`}
+                      {codeOutdone && (
+                        <span className="block text-xs opacity-90">
+                          This offer saves you more than code {appliedCoupon?.code}, so it is used instead.
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
+                {nextOffer && (
+                  <p className="text-sm text-muted-foreground">
+                    Add {formatPrice(nextOffer.amountNeeded)} more to get{" "}
+                    <span className="font-medium text-foreground">
+                      {describePromotion(nextOffer.promotion, formatPrice)}
+                    </span>
+                    .
+                  </p>
+                )}
+
                 {/* Discount code */}
                 <div className="space-y-2">
                   {appliedCoupon ? (
@@ -694,7 +743,7 @@ export default function CheckoutClient({
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-green-600 dark:text-green-400">
-                      <span>Discount ({appliedCoupon?.code})</span>
+                      <span>Discount ({discountLabel})</span>
                       <span>−{formatPrice(discount)}</span>
                     </div>
                   )}

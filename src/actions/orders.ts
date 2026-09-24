@@ -15,6 +15,11 @@ import { getClientIp } from "@/lib/client-ip";
 import { isIpBanned } from "@/lib/ip-ban";
 import { isPhoneBanned } from "@/lib/phone-ban";
 import { attributionSchema } from "@/schemas/attribution";
+import { computeOrderPricing, type AppliedCoupon } from "@/lib/pricing";
+import { getActivePromotions } from "@/lib/promotions";
+
+/** Thrown inside the order transaction when a limited coupon was used up by a concurrent order. */
+class CouponLimitReachedError extends Error {}
 
 interface CartItem {
   productId: string;
@@ -294,12 +299,10 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       getFreeShippingMinimum(),
     ]);
     const zoneRate = formData.shippingZone === "inside_dhaka" ? rates.dhaka : rates.outside;
-    const shippingCost =
-      freeShippingMinimum > 0 && subtotal >= freeShippingMinimum ? 0 : zoneRate;
 
-    // Apply coupon discount (server-side validation)
-    let discountAmount = 0;
-    let couponId: string | null = null;
+    // Validate the customer's coupon code (server-side; unchanged rules)
+    let validatedCoupon: AppliedCoupon | null = null;
+    let couponMaxUses: number | null = null;
     if (input.couponId?.trim()) {
       const coupon = await db.coupon.findUnique({
         where: { id: input.couponId.trim(), isActive: true },
@@ -313,15 +316,32 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
           (coupon.minOrderAmount == null || Number(coupon.minOrderAmount) <= subtotal);
         if (ok) {
           const val = Number(coupon.value);
-          discountAmount =
+          const couponDiscount =
             coupon.type === "PERCENT"
               ? Math.round((subtotal * val) / 100 * 100) / 100
               : Math.min(val, subtotal);
-          if (discountAmount > 0) couponId = coupon.id;
+          if (couponDiscount > 0) {
+            validatedCoupon = { couponId: coupon.id, code: coupon.code, discount: couponDiscount };
+            couponMaxUses = coupon.maxUses;
+          }
         }
       }
     }
-    const total = Math.max(0, subtotal - discountAmount + shippingCost);
+
+    // Discount, delivery and total: same function the checkout page uses to display them.
+    // Automatic offers come back empty if their table is missing, so pricing then matches the old rules.
+    const pricing = computeOrderPricing({
+      subtotal,
+      zoneRate,
+      freeShippingMinimum,
+      coupon: validatedCoupon,
+      promotions: await getActivePromotions(),
+      now: new Date(),
+    });
+    const { shippingCost, total } = pricing;
+    const discountAmount = pricing.discount;
+    const couponId = pricing.applied?.kind === "coupon" ? pricing.applied.couponId : null;
+    const appliedPromotion = pricing.applied?.kind === "promotion" ? pricing.applied : null;
     
     // Determine payment method and status
     const paymentMethod = (formData.paymentMethod || "COD") as PaymentMethod;
@@ -428,8 +448,31 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       });
 
       if (couponId) {
-        await tx.coupon.update({
-          where: { id: couponId },
+        // Checked again inside the transaction so two simultaneous orders cannot both take
+        // the last use of a limited coupon.
+        const used = await tx.coupon.updateMany({
+          where: {
+            id: couponId,
+            ...(couponMaxUses != null ? { usedCount: { lt: couponMaxUses } } : {}),
+          },
+          data: { usedCount: { increment: 1 } },
+        });
+        if (used.count === 0) throw new CouponLimitReachedError();
+      }
+
+      if (appliedPromotion) {
+        // Only reached when offers were read successfully, so the tables exist.
+        await tx.orderPromotion.create({
+          data: {
+            orderId: newOrder.id,
+            promotionId: appliedPromotion.promotionId,
+            name: appliedPromotion.name,
+            discountAmount,
+            freeShipping: appliedPromotion.freeShipping,
+          },
+        });
+        await tx.promotion.update({
+          where: { id: appliedPromotion.promotionId },
           data: { usedCount: { increment: 1 } },
         });
       }
@@ -484,6 +527,12 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       },
     };
   } catch (error) {
+    if (error instanceof CouponLimitReachedError) {
+      return {
+        success: false,
+        error: "This discount code has just reached its usage limit. Remove it and place your order again.",
+      };
+    }
     console.error("Error creating order:", error);
     return {
       success: false,

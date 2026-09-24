@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { computeOrderPricing, findNextPromotion, promotionDiscount, type Promotion } from "./pricing";
+import { computeOrderPricing, describePromotion, findNextPromotion, promotionDiscount, type Promotion } from "./pricing";
 
 const NOW = new Date("2026-10-01T12:00:00Z");
 
@@ -140,6 +140,15 @@ describe("computeOrderPricing with automatic offers", () => {
     const promotions = [promo("p", { type: "FIXED", value: 200 })];
     const tie = computeOrderPricing({ ...base, promotions, subtotal: 1000, coupon: { couponId: "c", code: "C", discount: 200 } });
     assert.equal(tie.applied?.kind, "coupon");
+  });
+});
+
+describe("describePromotion", () => {
+  const money = (n: number) => `BDT ${n}`;
+  it("describes money off, the cap and free delivery", () => {
+    assert.equal(describePromotion(promo("a", { value: 10, maxDiscount: 500, freeShipping: true }), money), "10% off (up to BDT 500) + free delivery");
+    assert.equal(describePromotion(promo("a", { type: "FIXED", value: 300 }), money), "BDT 300 off");
+    assert.equal(describePromotion(promo("a", { type: "FIXED", value: 0, freeShipping: true }), money), "Free delivery");
   });
 });
 
