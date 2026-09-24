@@ -38,7 +38,11 @@ export const auth = betterAuth({
   rateLimit: {
     window: 60,
     max: 100,
-    storage: "database", // survives serverless restarts; run `npx @better-auth/cli generate` then migrate
+    // In-memory counters: the app runs as one long-lived process on the VPS. "database" storage
+    // wrote a row on every page view (the header checks the session on each load), which grew the
+    // rateLimit table past 80,000 rows. Counters reset on restart; if the app is ever scaled to
+    // several processes or serverless, switch to shared storage (e.g. Redis via secondaryStorage).
+    storage: "memory",
     customRules: {
       "/sign-in/email": { window: 10, max: 3 },
       "/sign-up/email": { window: 60, max: 5 },
