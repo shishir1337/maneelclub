@@ -18,6 +18,7 @@ import {
   PhoneOff,
   Ticket,
   FileText,
+  MessageSquareQuote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -42,6 +43,7 @@ const sidebarLinks: SidebarLinkItem[] = [
   { name: "Categories", href: "/admin/categories", icon: FolderTree },
   { name: "Attributes", href: "/admin/attributes", icon: Palette },
   { name: "Customers", href: "/admin/customers", icon: Users },
+  { name: "Reviews", href: "/admin/reviews", icon: MessageSquareQuote },
   { name: "Coupons", href: "/admin/coupons", icon: Ticket },
   { name: "IP Bans", href: "/admin/ip-bans", icon: ShieldAlert },
   { name: "Phone Bans", href: "/admin/phone-bans", icon: PhoneOff },
