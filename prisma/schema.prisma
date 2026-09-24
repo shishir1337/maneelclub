@@ -157,6 +157,7 @@ model Product {
   stockMovements StockMovement[]
   relatedProducts         ProductRelatedProduct[] @relation("ProductRelated")
   relatedProductsAsRelated ProductRelatedProduct[] @relation("RelatedToProduct")
+  reviews                  ReviewProduct[]
 
   @@index([categoryId])
   @@index([slug])
@@ -420,6 +421,49 @@ model Address {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ==================== CUSTOMER REVIEWS (screenshots) ====================
+
+enum ReviewSource {
+  MESSENGER
+  INSTAGRAM
+  FACEBOOK
+  WHATSAPP
+  PHOTO
+  OTHER
+}
+
+// A customer screenshot shown on the home page, /reviews and product Reviews tab.
+model Review {
+  id           String       @id @default(cuid())
+  image        String       // ImageKit URL (or /reviews/... for the originally seeded files)
+  width        Int          // natural pixel size, for layout without shifting
+  height       Int
+  caption      String       @default("") // not shown; alt text for screen readers and SEO
+  customerName String       @default("")
+  source       ReviewSource @default(MESSENGER)
+  isFeatured   Boolean      @default(false) // home page + product-tab fallback
+  isActive     Boolean      @default(true)
+  sortOrder    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  products ReviewProduct[]
+
+  @@index([isActive, sortOrder])
+}
+
+// Screenshots tagged to specific products (shown first in that product's Reviews tab).
+model ReviewProduct {
+  reviewId  String
+  productId String
+
+  review  Review  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([reviewId, productId])
+  @@index([productId])
 }
 
 // ==================== HERO SLIDER ====================

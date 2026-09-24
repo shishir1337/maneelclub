@@ -1,4 +1,5 @@
 // Default settings values - shared between client and server
+import { SOCIAL_PROOF_DEFAULTS } from "./reviews-shared";
 
 // ---------- Shared link / footer types and typed defaults ----------
 // Declared above DEFAULT_SETTINGS because it serialises them.
@@ -102,6 +103,9 @@ export const DEFAULT_SETTINGS = {
     "Block #A, Muntaha Tower (Grand Floor)\nBehind Al Baraka Hospital, Model Town\nKeraniganj, Dhaka- 1310", // one line per row
   footerMapUrl: "https://maps.app.goo.gl/eva1uWFvVgVcTaKC9",
   footerBottomLinks: JSON.stringify(DEFAULT_FOOTER_BOTTOM_LINKS), // JSON array of { name, href }
+
+  // Customer reviews / social proof (Admin → Reviews)
+  ...SOCIAL_PROOF_DEFAULTS,
 } as const;
 
 export type SettingsKey = keyof typeof DEFAULT_SETTINGS;
