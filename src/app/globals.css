@@ -290,3 +290,39 @@
     display: none;
   }
 }
+
+/* Review marquee: two rows of screenshots drifting in opposite directions with faded edges. */
+@keyframes review-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.review-marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+}
+
+.review-marquee-track {
+  animation: review-marquee var(--marquee-duration, 60s) linear infinite;
+}
+
+.review-marquee-track[data-direction="right"] {
+  animation-direction: reverse;
+}
+
+.review-marquee:hover .review-marquee-track,
+.review-marquee:focus-within .review-marquee-track,
+.review-marquee[data-paused="true"] .review-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-marquee {
+    overflow-x: auto;
+  }
+  .review-marquee-track {
+    animation: none;
+  }
+}

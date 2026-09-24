@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { TRUST_NUMBERS, getFeaturedReviews } from "@/lib/reviews-static";
-import { ReviewsCarousel } from "./reviews-carousel";
+import { TRUST_NUMBERS, getActiveReviews, getFeaturedReviews } from "@/lib/reviews-static";
+import { ReviewsMarquee } from "./reviews-marquee";
 
 /**
  * Home page social proof: the customer count as a sentence, one line of context,
  * then a wall of real screenshots. Server component; data will come from the DB later.
  */
 export function SocialProofSection() {
-  const reviews = getFeaturedReviews(10);
+  // Two rows need a healthy pool, so use every active review, featured ones first.
+  const featured = getFeaturedReviews(100);
+  const reviews = [...featured, ...getActiveReviews().filter((r) => !r.isFeatured)];
 
   return (
     <section className="py-12 md:py-16">
@@ -32,8 +34,9 @@ export function SocialProofSection() {
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <ReviewsCarousel reviews={reviews} />
       </div>
+      {/* Full-bleed so the rows run edge to edge and fade out at the screen sides. */}
+      <ReviewsMarquee reviews={reviews} />
     </section>
   );
 }

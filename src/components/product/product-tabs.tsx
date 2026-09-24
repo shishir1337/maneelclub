@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ReviewsCarousel } from "@/components/reviews/reviews-carousel";
+import { ReviewsMarquee } from "@/components/reviews/reviews-marquee";
 import type { Review } from "@/lib/reviews-static";
 
 interface SizeChartRow {
@@ -148,10 +148,10 @@ export function ProductTabs({ description, sizeChart, reviews = [] }: ProductTab
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-          <ReviewsCarousel
+          <ReviewsMarquee
             reviews={reviews}
-            itemClassName="basis-[62%] sm:basis-[40%] md:basis-1/3 lg:basis-1/4"
-            sizes="(max-width: 640px) 62vw, (max-width: 768px) 40vw, (max-width: 1024px) 33vw, 25vw"
+            cardClassName="w-[130px] sm:w-[150px] md:w-[170px]"
+            sizes="(max-width: 640px) 130px, (max-width: 768px) 150px, 170px"
           />
         </TabsContent>
       )}
