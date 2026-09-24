@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { SOURCE_META, reviewAltText, type Review } from "@/lib/reviews-static";
+import { reviewAltText, type Review } from "@/lib/reviews-static";
 
 interface ReviewLightboxProps {
   reviews: Review[];
@@ -73,24 +73,9 @@ export function ReviewLightbox({ reviews, openIndex, onOpenChange }: ReviewLight
                 </Button>
               )}
             </div>
-            <div className="space-y-1 border-t px-4 py-3 text-sm">
-              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span
-                  aria-hidden="true"
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{ backgroundColor: SOURCE_META[review.source].color }}
-                />
-                {SOURCE_META[review.source].label}
-                {review.location && <span>, {review.location}</span>}
-                <span className="ml-auto tabular-nums">
-                  {openIndex! + 1} of {reviews.length}
-                </span>
-              </p>
-              <p>
-                <span className="font-medium">{review.customerName}</span>{" "}
-                <span className="text-muted-foreground">{review.caption}</span>
-              </p>
-            </div>
+            <p className="border-t px-4 py-2 text-right text-xs tabular-nums text-muted-foreground">
+              {openIndex! + 1} of {reviews.length}
+            </p>
           </>
         )}
       </DialogContent>

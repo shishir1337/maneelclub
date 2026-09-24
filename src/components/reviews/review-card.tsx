@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { SOURCE_META, reviewAltText, type Review } from "@/lib/reviews-static";
+import { reviewAltText, type Review } from "@/lib/reviews-static";
 
 interface ReviewCardProps {
   review: Review;
@@ -16,8 +16,6 @@ interface ReviewCardProps {
  * with the customer's name and a short quote beneath. Click opens the lightbox.
  */
 export function ReviewCard({ review, onOpen, sizes, priority = false }: ReviewCardProps) {
-  const source = SOURCE_META[review.source];
-
   return (
     <figure className="break-inside-avoid">
       <button
@@ -36,21 +34,6 @@ export function ReviewCard({ review, onOpen, sizes, priority = false }: ReviewCa
           className="h-auto w-full"
         />
       </button>
-      <figcaption className="mt-2 px-1 text-sm leading-snug">
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span
-            aria-hidden="true"
-            className="inline-block h-2 w-2 rounded-full"
-            style={{ backgroundColor: source.color }}
-          />
-          {source.label}
-          {review.location && <span>, {review.location}</span>}
-        </span>
-        <span className="mt-0.5 block">
-          <span className="font-medium">{review.customerName}</span>{" "}
-          <span className="text-muted-foreground">{review.caption}</span>
-        </span>
-      </figcaption>
     </figure>
   );
 }
